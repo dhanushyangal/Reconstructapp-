@@ -1,0 +1,63 @@
+{
+  "project_info": {
+    "project_number": "633982729642",
+    "project_id": "recostrect3",
+    "storage_bucket": "recostrect3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:633982729642:android:5bc8eafe77d83923f93fd3",
+        "android_client_info": {
+          "package_name": "com.reconstrect.visionboard"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "633982729642-0a36g1e6b7o8a674gr6v1i1pi23ikqua.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.reconstrect.visionboard",
+            "certificate_hash": "143064b66b5786ac10e548c1a25c656a742a3bde"
+          }
+        },
+        {
+          "client_id": "633982729642-f2v98h4p2q87iaa005cjdh87fpe56kmm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.reconstrect.visionboard",
+            "certificate_hash": "dbb2bc2ed6e709eefc4549ed99ba8fee5b585bd1"
+          }
+        },
+        {
+          "client_id": "633982729642-tfofudtlhin563cbdgf0jlrj67mgc8c7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.reconstrect.visionboard",
+            "certificate_hash": "8d919640bfb903c2373d5695cdda48b4e6a5d81d"
+          }
+        },
+        {
+          "client_id": "633982729642-niovit44aiid4civdjtkotsb37shlqsa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6tPoN0mnnrsGVhsTpoqNJzm63MoDRksU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "633982729642-niovit44aiid4civdjtkotsb37shlqsa.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

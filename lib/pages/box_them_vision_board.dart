@@ -6,6 +6,107 @@ import 'dart:io';
 import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../services/database_service.dart';
+import '../services/user_service.dart';
+import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
+
+// Add manual login dialog widget
+class ManualLoginDialog extends StatefulWidget {
+  const ManualLoginDialog({super.key});
+
+  @override
+  State<ManualLoginDialog> createState() => _ManualLoginDialogState();
+}
+
+class _ManualLoginDialogState extends State<ManualLoginDialog> {
+  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUserInfo();
+  }
+
+  Future<void> _loadCurrentUserInfo() async {
+    final userInfo = await UserService.instance.getUserInfo();
+    setState(() {
+      _usernameController.text = userInfo['userName'] ?? '';
+      _emailController.text = userInfo['email'] ?? '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Set User Information'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _usernameController,
+            decoration: const InputDecoration(labelText: 'Username'),
+          ),
+          TextField(
+            controller: _emailController,
+            decoration: const InputDecoration(labelText: 'Email'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            // Clear user info
+            await UserService.instance.clearUserInfo();
+            if (!mounted) return;
+            Navigator.pop(context);
+          },
+          child: const Text('Clear'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (_usernameController.text.isNotEmpty &&
+                _emailController.text.isNotEmpty) {
+              await UserService.instance.setManualUserInfo(
+                userName: _usernameController.text,
+                email: _emailController.text,
+              );
+              // Test the connection now with new credentials
+              if (!mounted) return;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('User information saved'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please enter both username and email'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
 
 class TodoItem {
   String id;
@@ -67,6 +168,9 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage> {
     'Help'
   ];
   final Map<String, List<TodoItem>> _todoLists = {};
+  bool _isSyncing = false;
+  DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
+  bool _hasNetworkConnectivity = true;
 
   @override
   void initState() {
@@ -74,44 +178,162 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage> {
     for (var category in visionCategories) {
       _controllers[category] = TextEditingController();
       _todoLists[category] = [];
-      _loadSavedData(category);
+    }
+
+    // Load all data from local storage first (fast)
+    _loadAllFromLocalStorage().then((_) {
+      // Then check database connectivity
+      _checkDatabaseConnectivity().then((hasConnectivity) {
+        setState(() {
+          _hasNetworkConnectivity = hasConnectivity;
+        });
+
+        // If we have connectivity, sync with the database (background)
+        if (hasConnectivity) {
+          _syncWithDatabase();
+        }
+      });
+    });
+
+    // Set up periodic sync - but less frequent and with conditions
+    Timer.periodic(const Duration(minutes: 15), (timer) {
+      if (mounted) {
+        _checkAndSyncIfNeeded();
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  // Load all data from local storage (fast operation)
+  Future<void> _loadAllFromLocalStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    for (var category in visionCategories) {
+      try {
+        final savedTodos = prefs.getString('BoxThem_todos_$category');
+        if (savedTodos != null) {
+          final List<dynamic> decoded = json.decode(savedTodos);
+          setState(() {
+            _todoLists[category] =
+                decoded.map((item) => TodoItem.fromJson(item)).toList();
+            _controllers[category]?.text = _formatDisplayText(category);
+          });
+          debugPrint(
+              'Loaded ${_todoLists[category]?.length ?? 0} tasks from local storage for $category');
+        }
+      } catch (e) {
+        debugPrint('Error parsing local tasks for $category: $e');
+      }
+    }
+
+    return Future.value();
+  }
+
+  // Check database connectivity
+  Future<bool> _checkDatabaseConnectivity() async {
+    try {
+      final result = await DatabaseService.instance.testConnection();
+      return result['success'] == true;
+    } catch (e) {
+      debugPrint('Database connectivity check failed: $e');
+      return false;
     }
   }
 
-  Future<void> _loadSavedData(String category) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // Load todos
-    final savedTodos = prefs.getString('BoxThem_todos_$category');
-    if (savedTodos != null) {
-      final List<dynamic> decoded = json.decode(savedTodos);
-      setState(() {
-        _todoLists[category] =
-            decoded.map((item) => TodoItem.fromJson(item)).toList();
-      });
+  // Sync with database in background (only if conditions are right)
+  Future<void> _checkAndSyncIfNeeded() async {
+    // Don't sync if we're already syncing or if we synced recently (within 5 minutes)
+    if (_isSyncing || DateTime.now().difference(_lastSyncTime).inMinutes < 5) {
+      return;
     }
 
-    // Update the text controller with formatted text
+    // Check connectivity before attempting sync
+    final hasConnectivity = await _checkDatabaseConnectivity();
+
+    if (hasConnectivity) {
+      await _syncWithDatabase();
+    }
+  }
+
+  // Sync all data with database at once
+  Future<void> _syncWithDatabase() async {
+    if (_isSyncing) return;
+
     setState(() {
-      _controllers[category]?.text = _formatDisplayText(category);
+      _isSyncing = true;
     });
+
+    try {
+      final userInfo = await UserService.instance.getUserInfo();
+
+      // Only try to load from database if we have valid user info
+      if (userInfo['userName']?.isNotEmpty == true &&
+          userInfo['email']?.isNotEmpty == true) {
+        // Load all tasks at once from database (single API call)
+        final allTasksFromDb =
+            await DatabaseService.instance.loadUserTasks(userInfo, 'BoxThem');
+
+        if (allTasksFromDb.isNotEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+
+          // Process all tasks from database
+          for (var dbTask in allTasksFromDb) {
+            final category = dbTask['card_id'];
+            if (_todoLists.containsKey(category)) {
+              try {
+                final tasksJson = dbTask['tasks'] as String;
+                final List<dynamic> decoded = json.decode(tasksJson);
+
+                // Update state with database data
+                setState(() {
+                  _todoLists[category] =
+                      decoded.map((item) => TodoItem.fromJson(item)).toList();
+                  _controllers[category]?.text = _formatDisplayText(category);
+                });
+
+                // Update local storage with database data
+                await prefs.setString('BoxThem_todos_$category', tasksJson);
+                await HomeWidget.saveWidgetData(
+                    'BoxThem_todos_$category', tasksJson);
+
+                debugPrint(
+                    'Updated local storage for $category with database data');
+              } catch (e) {
+                debugPrint('Error processing database tasks for $category: $e');
+              }
+            }
+          }
+        }
+
+        // Update last sync time
+        _lastSyncTime = DateTime.now();
+      }
+    } catch (e) {
+      debugPrint('Error syncing with database: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
+    }
   }
 
   String _formatDisplayText(String category) {
     final todos = _todoLists[category];
-    final incompleteTodos = todos
-        ?.where((item) => !item.isDone)
-        .map((item) => "• ${item.text}")
-        .join("\n");
-    return incompleteTodos ?? '';
+    if (todos == null || todos.isEmpty) return '';
+
+    return todos.map((item) => "• ${item.text}").join("\n");
   }
 
+  // Improved to prioritize local storage
   Future<void> _saveTodoList(String category) async {
     final prefs = await SharedPreferences.getInstance();
     final encoded = json
         .encode(_todoLists[category]?.map((item) => item.toJson()).toList());
 
-    // Save to both SharedPreferences and HomeWidget
+    // Always save locally first (fast operation)
     await prefs.setString('BoxThem_todos_$category', encoded);
     await HomeWidget.saveWidgetData('BoxThem_todos_$category', encoded);
 
@@ -120,6 +342,61 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage> {
       androidName: 'VisionBoardWidget',
       iOSName: 'VisionBoardWidget',
     );
+
+    // Only try to save to database if we have network connectivity
+    if (!_hasNetworkConnectivity) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Task saved locally (offline mode)'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Try to save to database in the background
+    try {
+      final isLoggedIn = await DatabaseService.instance.isUserLoggedIn();
+
+      if (isLoggedIn) {
+        // Get user info
+        final userInfo = await UserService.instance.getUserInfo();
+
+        // Save to the API without waiting for the result
+        DatabaseService.instance
+            .saveTodoItem(userInfo, category, encoded, 'BoxThem')
+            .then((success) {
+          if (success && mounted) {
+            // Optionally show a brief confirmation
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Task synced to cloud'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+        }).catchError((e) {
+          debugPrint('Background save to database failed: $e');
+        });
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Please log in to save tasks to the cloud'),
+            action: SnackBarAction(
+              label: 'Login',
+              onPressed: () {
+                // Navigate to login page
+                Navigator.of(context).pushNamed('/login');
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error in database save preparation: $e');
+    }
   }
 
   @override
@@ -196,33 +473,44 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage> {
               child: Container(
                 margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                 decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.grey.shade300,
-                    width: 1.0,
-                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: TextField(
-                  controller: _controllers[title],
-                  textAlign: TextAlign.left,
-                  maxLines: null,
-                  readOnly: true,
-                  style: const TextStyle(fontSize: 16),
-                  decoration: const InputDecoration(
-                    hintText: 'Write your\nvision here',
-                    hintMaxLines: 4,
-                    hintStyle: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 16,
-                      height: 1.4,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      _showTodoDialog(title);
+                    },
+                    child: _todoLists[title]?.isEmpty ?? true
+                        ? const Text(
+                            'Write your\nvision here',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                              height: 1.4,
+                            ),
+                          )
+                        : Text.rich(
+                            TextSpan(
+                              children: _todoLists[title]?.map((todo) {
+                                    return TextSpan(
+                                      text: "• ${todo.text}\n",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        decoration: todo.isDone == true
+                                            ? TextDecoration.lineThrough
+                                            : TextDecoration.none,
+                                        color: todo.isDone == true
+                                            ? Colors.grey
+                                            : Colors.black,
+                                      ),
+                                    );
+                                  }).toList() ??
+                                  [],
+                            ),
+                          ),
                   ),
-                  onTap: () {
-                    _showTodoDialog(title);
-                  },
                 ),
               ),
             ),
@@ -257,9 +545,59 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        actions: [
+          // Add a sync button
+          _isSyncing
+              ? const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.sync),
+                  tooltip: 'Sync with cloud',
+                  onPressed: _syncWithDatabase,
+                ),
+        ],
       ),
       body: Column(
         children: [
+          // Connection status indicator
+          if (!_hasNetworkConnectivity)
+            Container(
+              width: double.infinity,
+              color: Colors.amber.shade100,
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 16),
+              child: Row(
+                children: [
+                  const Icon(Icons.offline_bolt, size: 16, color: Colors.amber),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Offline mode - changes saved locally',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () async {
+                      final result = await _checkDatabaseConnectivity();
+                      setState(() {
+                        _hasNetworkConnectivity = result;
+                      });
+                      if (result) {
+                        _syncWithDatabase();
+                      }
+                    },
+                    child: const Text('Check', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: SingleChildScrollView(
               child: Screenshot(
@@ -287,19 +625,76 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage> {
           ),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
-              onPressed: _takeScreenshotAndShare,
-              icon: const Icon(Icons.share),
-              label: const Text(
-                'Share Vision Board',
-                style: TextStyle(fontSize: 18),
-              ),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 56),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Column(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final url =
+                        'https://youtube.com/shorts/IAeczaEygUM?feature=share';
+                    final uri = Uri.parse(url);
+                    if (!await launchUrl(uri,
+                        mode: LaunchMode.externalApplication)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content:
+                                Text('Could not open YouTube shorts: $url')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.widgets, color: Colors.blue),
+                  label: const Text(
+                    'Add Widgets',
+                    style: TextStyle(fontSize: 18, color: Colors.blue),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                    minimumSize: const Size(double.infinity, 56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: _takeScreenshotAndShare,
+                  icon: const Icon(Icons.share, color: Colors.blue),
+                  label: const Text(
+                    'Share Vision Board',
+                    style: TextStyle(fontSize: 18, color: Colors.blue),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                    minimumSize: const Size(double.infinity, 56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                if (_isSyncing)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.grey.shade600),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Syncing with cloud...',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -426,6 +821,7 @@ class TodoListDialogState extends State<TodoListDialog> {
                     androidName: 'VisionBoardWidget',
                     iOSName: 'VisionBoardWidget',
                   );
+                  if (!mounted) return;
                   Navigator.pop(context);
                 },
                 child: const Text('Save'),

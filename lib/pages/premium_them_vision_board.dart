@@ -6,6 +6,10 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
 import 'dart:convert';
+import '../services/database_service.dart';
+import '../services/user_service.dart';
+import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 class TodoItem {
   String id;
@@ -31,6 +35,100 @@ class TodoItem {
       );
 }
 
+class ManualLoginDialog extends StatefulWidget {
+  const ManualLoginDialog({super.key});
+
+  @override
+  State<ManualLoginDialog> createState() => _ManualLoginDialogState();
+}
+
+class _ManualLoginDialogState extends State<ManualLoginDialog> {
+  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUserInfo();
+  }
+
+  Future<void> _loadCurrentUserInfo() async {
+    final userInfo = await UserService.instance.getUserInfo();
+    setState(() {
+      _usernameController.text = userInfo['userName'] ?? '';
+      _emailController.text = userInfo['email'] ?? '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Set User Information'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _usernameController,
+            decoration: const InputDecoration(labelText: 'Username'),
+          ),
+          TextField(
+            controller: _emailController,
+            decoration: const InputDecoration(labelText: 'Email'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            await UserService.instance.clearUserInfo();
+            if (!mounted) return;
+            Navigator.pop(context);
+          },
+          child: const Text('Clear'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (_usernameController.text.isNotEmpty &&
+                _emailController.text.isNotEmpty) {
+              await UserService.instance.setManualUserInfo(
+                userName: _usernameController.text,
+                email: _emailController.text,
+              );
+              if (!mounted) return;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('User information saved'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please enter both username and email'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
 class PremiumThemeVisionBoard extends StatefulWidget {
   const PremiumThemeVisionBoard({super.key});
 
@@ -43,6 +141,9 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, List<TodoItem>> _todoLists = {};
+  bool _isSyncing = false;
+  DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
+  bool _hasNetworkConnectivity = true;
   final List<String> visionCategories = [
     'Travel',
     'Self Care',
@@ -73,58 +174,203 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
     for (var category in visionCategories) {
       _controllers[category] = TextEditingController();
       _todoLists[category] = [];
-      _loadSavedData(category);
     }
-    HomeWidget.widgetClicked.listen((Uri? uri) => loadData());
-  }
 
-  Future<void> loadData() async {
-    try {
-      final data = await HomeWidget.getWidgetData<String>('vision_data');
-      if (data != null) {
+    // Load all data from local storage first (fast)
+    _loadAllFromLocalStorage().then((_) {
+      // Then check database connectivity
+      _checkDatabaseConnectivity().then((hasConnectivity) {
         setState(() {
-          // Update your state based on widget data
+          _hasNetworkConnectivity = hasConnectivity;
         });
-      }
-    } catch (e) {
-      debugPrint('Error loading widget data: $e');
-    }
-  }
 
-  Future<void> _loadSavedData(String category) async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedTodos = prefs.getString('premium_todos_$category');
-    if (savedTodos != null) {
-      final List<dynamic> decoded = json.decode(savedTodos);
-      setState(() {
-        _todoLists[category] =
-            decoded.map((item) => TodoItem.fromJson(item)).toList();
+        // If we have connectivity, sync with the database (background)
+        if (hasConnectivity) {
+          _syncWithDatabase();
+        }
       });
-    }
-    setState(() {
-      _controllers[category]?.text = _formatDisplayText(category);
+    });
+
+    // Set up periodic sync
+    Timer.periodic(const Duration(minutes: 15), (timer) {
+      if (mounted) {
+        _checkAndSyncIfNeeded();
+      } else {
+        timer.cancel();
+      }
     });
   }
 
-  String _formatDisplayText(String category) {
-    final todos = _todoLists[category];
-    final incompleteTodos = todos
-        ?.where((item) => !item.isDone)
-        .map((item) => "• ${item.text}")
-        .join("\n");
-    return incompleteTodos ?? '';
+  // Load all data from local storage (fast operation)
+  Future<void> _loadAllFromLocalStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    for (var category in visionCategories) {
+      try {
+        final savedTodos = prefs.getString('premium_todos_$category');
+        if (savedTodos != null) {
+          final List<dynamic> decoded = json.decode(savedTodos);
+          setState(() {
+            _todoLists[category] =
+                decoded.map((item) => TodoItem.fromJson(item)).toList();
+            _controllers[category]?.text = _formatDisplayText(category);
+          });
+          debugPrint(
+              'Loaded ${_todoLists[category]?.length ?? 0} tasks from local storage for $category');
+        }
+      } catch (e) {
+        debugPrint('Error parsing local tasks for $category: $e');
+      }
+    }
   }
 
+  // Check database connectivity
+  Future<bool> _checkDatabaseConnectivity() async {
+    try {
+      final result = await DatabaseService.instance.testConnection();
+      return result['success'] == true;
+    } catch (e) {
+      debugPrint('Database connectivity check failed: $e');
+      return false;
+    }
+  }
+
+  // Sync with database in background (only if conditions are right)
+  Future<void> _checkAndSyncIfNeeded() async {
+    if (_isSyncing || DateTime.now().difference(_lastSyncTime).inMinutes < 5) {
+      return;
+    }
+
+    final hasConnectivity = await _checkDatabaseConnectivity();
+
+    if (hasConnectivity) {
+      await _syncWithDatabase();
+    }
+  }
+
+  // Sync all data with database at once
+  Future<void> _syncWithDatabase() async {
+    if (_isSyncing) return;
+
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      final userInfo = await UserService.instance.getUserInfo();
+
+      if (userInfo['userName']?.isNotEmpty == true &&
+          userInfo['email']?.isNotEmpty == true) {
+        final allTasksFromDb =
+            await DatabaseService.instance.loadUserTasks(userInfo, 'Premium');
+
+        if (allTasksFromDb.isNotEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+
+          for (var dbTask in allTasksFromDb) {
+            final category = dbTask['card_id'];
+            if (_todoLists.containsKey(category)) {
+              try {
+                final tasksJson = dbTask['tasks'] as String;
+                final List<dynamic> decoded = json.decode(tasksJson);
+
+                setState(() {
+                  _todoLists[category] =
+                      decoded.map((item) => TodoItem.fromJson(item)).toList();
+                  _controllers[category]?.text = _formatDisplayText(category);
+                });
+
+                await prefs.setString('premium_todos_$category', tasksJson);
+                await HomeWidget.saveWidgetData(
+                    'premium_todos_$category', tasksJson);
+
+                debugPrint(
+                    'Updated local storage for $category with database data');
+              } catch (e) {
+                debugPrint('Error processing database tasks for $category: $e');
+              }
+            }
+          }
+        }
+
+        _lastSyncTime = DateTime.now();
+      }
+    } catch (e) {
+      debugPrint('Error syncing with database: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
+    }
+  }
+
+  // Improved to prioritize local storage
   Future<void> _saveTodoList(String category) async {
     final prefs = await SharedPreferences.getInstance();
     final encoded = json
         .encode(_todoLists[category]?.map((item) => item.toJson()).toList());
+
+    // Always save locally first (fast operation)
     await prefs.setString('premium_todos_$category', encoded);
     await HomeWidget.saveWidgetData('premium_todos_$category', encoded);
+
+    // Update the widget
     await HomeWidget.updateWidget(
       androidName: 'VisionBoardWidget',
       iOSName: 'VisionBoardWidget',
     );
+
+    // Try to save to database immediately
+    try {
+      final isLoggedIn = await DatabaseService.instance.isUserLoggedIn();
+
+      if (isLoggedIn) {
+        final userInfo = await UserService.instance.getUserInfo();
+
+        final success = await DatabaseService.instance
+            .saveTodoItem(userInfo, category, encoded, 'Premium');
+
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Task saved to cloud'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Please log in to save tasks to the cloud'),
+            action: SnackBarAction(
+              label: 'Login',
+              onPressed: () {
+                Navigator.of(context).pushNamed('/login');
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving to database: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Task saved locally only'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  String _formatDisplayText(String category) {
+    final todos = _todoLists[category];
+    if (todos == null || todos.isEmpty) return '';
+
+    return todos.map((item) => "• ${item.text}").join("\n");
   }
 
   Future<void> _takeScreenshotAndShare() async {
@@ -165,6 +411,11 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
           children: [
             Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              ),
               child: Text(
                 title,
                 style: const TextStyle(
@@ -178,17 +429,43 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
               child: Container(
                 margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                 decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.grey.shade300,
-                    width: 1.0,
-                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(
-                    _formatDisplayText(title),
-                    style: const TextStyle(fontSize: 16, color: Colors.white),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      _showTodoDialog(title);
+                    },
+                    child: _todoLists[title]?.isEmpty ?? true
+                        ? const Text(
+                            'Write your\nvision here',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                              height: 1.4,
+                            ),
+                          )
+                        : Text.rich(
+                            TextSpan(
+                              children: _todoLists[title]?.map((todo) {
+                                    return TextSpan(
+                                      text: "• ${todo.text}\n",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        decoration: todo.isDone == true
+                                            ? TextDecoration.lineThrough
+                                            : TextDecoration.none,
+                                        color: todo.isDone == true
+                                            ? Colors.grey
+                                            : Colors.white,
+                                      ),
+                                    );
+                                  }).toList() ??
+                                  [],
+                            ),
+                          ),
                   ),
                 ),
               ),
@@ -210,6 +487,7 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
           onSave: (updatedItems) async {
             setState(() {
               _todoLists[category] = updatedItems;
+              _controllers[category]?.text = _formatDisplayText(category);
             });
             await _saveTodoList(category);
           },
@@ -223,9 +501,59 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Premium Theme Vision Board'),
+        actions: [
+          // Add a sync button
+          _isSyncing
+              ? const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.sync),
+                  tooltip: 'Sync with cloud',
+                  onPressed: _syncWithDatabase,
+                ),
+        ],
       ),
       body: Column(
         children: [
+          // Connection status indicator
+          if (!_hasNetworkConnectivity)
+            Container(
+              width: double.infinity,
+              color: Colors.amber.shade100,
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 16),
+              child: Row(
+                children: [
+                  const Icon(Icons.offline_bolt, size: 16, color: Colors.amber),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Offline mode - changes saved locally',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () async {
+                      final result = await _checkDatabaseConnectivity();
+                      setState(() {
+                        _hasNetworkConnectivity = result;
+                      });
+                      if (result) {
+                        _syncWithDatabase();
+                      }
+                    },
+                    child: const Text('Check', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: SingleChildScrollView(
               child: Screenshot(
@@ -253,19 +581,52 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
           ),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
-              onPressed: _takeScreenshotAndShare,
-              icon: const Icon(Icons.share),
-              label: const Text(
-                'Share Vision Board',
-                style: TextStyle(fontSize: 18),
-              ),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 56),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Column(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final url =
+                        'https://youtube.com/shorts/IAeczaEygUM?feature=share';
+                    final uri = Uri.parse(url);
+                    if (!await launchUrl(uri,
+                        mode: LaunchMode.externalApplication)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content:
+                                Text('Could not open YouTube shorts: $url')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.widgets, color: Colors.blue),
+                  label: const Text(
+                    'Add Widgets',
+                    style: TextStyle(fontSize: 18, color: Colors.blue),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                    minimumSize: const Size(double.infinity, 56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: _takeScreenshotAndShare,
+                  icon: const Icon(Icons.share, color: Colors.blue),
+                  label: const Text(
+                    'Share Vision Board',
+                    style: TextStyle(fontSize: 18, color: Colors.blue),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                    minimumSize: const Size(double.infinity, 56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

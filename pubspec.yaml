@@ -32,11 +32,36 @@ dependencies:
     sdk: flutter
   screenshot: ^3.0.0
   path_provider: ^2.1.5
-  share_plus: ^10.1.3
+  share_plus: ^10.0.0
   cupertino_icons: ^1.0.8
   home_widget: ^0.7.0
-  shared_preferences: ^2.2.2
+  shared_preferences: ^2.2.0
   provider: ^6.1.1
+  intl: ^0.19.0
+  firebase_core: ^3.11.0
+  firebase_auth: ^5.4.2
+  cloud_firestore: ^5.6.3
+  google_sign_in: ^6.2.1
+  image_picker: ^1.1.2
+  flutter_gif: ^0.0.4
+  gif: ^2.3.0
+  http: ^1.3.0
+  url_launcher: ^6.2.4
+  mysql1: ^0.20.0
+  connectivity_plus: ^6.1.3
+  flutter_local_notifications: ^19.0.0
+  timezone: ^0.10.0
+  permission_handler: ^11.4.0
+  device_info_plus: ^11.3.0
+  app_settings: ^5.2.0
+  flutter_slidable: ^4.0.0
+  logging: ^1.3.0
+  in_app_purchase: ^3.1.13
+  in_app_purchase_android: ^0.3.0+15
+  audioplayers: ^6.4.0
+
+
+
 
 dev_dependencies:
   flutter_test:
@@ -96,53 +121,147 @@ flutter:
     - assets/calendar.jpg
     - assets/weeklyplanner.jpg
     - assets/vision-board-plain.jpg
-    - assets/sporttheme-vision-board.png
     - assets/premium-theme.png
     - assets/vision-board-ruled-theme.png
-    - assets/animal-themed-template.png
-    - assets/watercolor-theme-vision-board.png
-    - assets/Post-it Theme-Vision-Board.png
+    - assets/Postit-Theme-Vision-Board.png
     - assets/vision-board-ruled.png
-    - assets/watercolour/watercolor-1.png
-    - assets/watercolour/watercolor-2.png
-    - assets/watercolour/watercolor-3.png
-    - assets/watercolour/watercolor-4.png
-    - assets/watercolour/watercolor-5.png
-    - assets/watercolour/watercolor-6.png
-    - assets/watercolour/watercolor-7.png
-    - assets/watercolour/watercolor-8.png
-    - assets/watercolour/watercolor-9.png
-    - assets/watercolour/watercolor-10.png
-    - assets/watercolour/watercolor-11.png
-    - assets/watercolour/watercolor-12.png
-    - assets/watercolour/watercolor-13.png
-    - assets/watercolour/watercolor-14.png
-    - assets/watercolour/watercolor-15.png
-    - assets/watercolour/watercolor-16.png
-    - assets/watercolour/watercolor-17.png
-    - assets/watercolour/watercolor-18.png
-    - assets/watercolour/watercolor-19.png
-    - assets/watercolour/watercolor-20.png
-    - assets/watercolour/watercolor-21.png
-    - assets/sports/geometry-1.png
-    - assets/sports/geometry-2.png
-    - assets/sports/geometry-3.png
-    - assets/sports/geometry-4.png
-    - assets/sports/geometry-5.png
-    - assets/sports/geometry-6.png
-    - assets/sports/geometry-7.png
-    - assets/sports/geometry-8.png
-    - assets/sports/geometry-9.png
-    - assets/sports/geometry-10.png
-    - assets/sports/geometry-11.png
-    - assets/sports/geometry-12.png
-    - assets/sports/geometry-13.png
-    - assets/sports/geometry-14.png
-    - assets/sports/geometry-15.png
-    - assets/sports/geometry-16.png 
-    - assets/sports/geometry-17.png
-    - assets/sports/geometry-18.png
-    - assets/sports/geometry-19.png
-    - assets/sports/geometry-20.png
-    - assets/sports/geometry-21.png
+    - assets/ruby-reds-theme-vision-board.png
+    - assets/coffee-hues-theme-vision-board.png
+    - assets/winter-warmth-theme-vision-board.png
+    - assets/animal_calendar/animaltheme-1.png
+    - assets/animal_calendar/animaltheme-2.png
+    - assets/animal_calendar/animaltheme-3.png
+    - assets/animal_calendar/animaltheme-4.png
+    - assets/animal_calendar/animaltheme-5.png
+    - assets/animal_calendar/animaltheme-6.png
+    - assets/animal_calendar/animaltheme-7.png
+    - assets/animal_calendar/animaltheme-8.png
+    - assets/animal_calendar/animaltheme-9.png
+    - assets/animal_calendar/animaltheme-10.png
+    - assets/animal_calendar/animaltheme-11.png
+    - assets/animal_calendar/animaltheme-12.png
+    - assets/spaniel_calender/cocker1.png
+    - assets/spaniel_calender/cocker2.png
+    - assets/spaniel_calender/cocker3.png
+    - assets/spaniel_calender/cocker4.png
+    - assets/spaniel_calender/cocker5.png
+    - assets/spaniel_calender/cocker6.png
+    - assets/spaniel_calender/cocker7.png
+    - assets/spaniel_calender/cocker8.png
+    - assets/spaniel_calender/cocker9.png
+    - assets/spaniel_calender/cocker10.png
+    - assets/spaniel_calender/cocker11.png
+    - assets/spaniel_calender/cocker12.png
+    - assets/summer_calender/summer1.png
+    - assets/summer_calender/summer2.png
+    - assets/summer_calender/summer3.png
+    - assets/summer_calender/summer4.png
+    - assets/summer_calender/summer5.png
+    - assets/summer_calender/summer6.png
+    - assets/summer_calender/summer7.png
+    - assets/summer_calender/summer8.png
+    - assets/summer_calender/summer9.png
+    - assets/summer_calender/summer10.png
+    - assets/summer_calender/summer11.png
+    - assets/summer_calender/summer12.png
+    - assets/animal_theme_calendar.png
+    - assets/summer_theme_calendar.png
+    - assets/spaniel_theme_calendar.png
+    - assets/happy_couple_theme_calendar.png
+    - assets/visa_logo.png
+    - assets/mastercard_logo.png
+    - assets/rupay_logo.png
+    - assets/gpay_logo.png
+    - assets/paytm_logo.png
+    - assets/couple_calender/couple1.png
+    - assets/couple_calender/couple2.png
+    - assets/couple_calender/couple3.png
+    - assets/couple_calender/couple4.png
+    - assets/couple_calender/couple5.png
+    - assets/couple_calender/couple6.png
+    - assets/couple_calender/couple7.png
+    - assets/couple_calender/couple8.png
+    - assets/couple_calender/couple9.png
+    - assets/couple_calender/couple10.png
+    - assets/couple_calender/couple11.png
+    - assets/couple_calender/couple12.png
+    - assets/floral_theme_annual_planner.png
+    - assets/watercolor_theme_annual_planner.png
+    - assets/postit_theme_annual_planner.png
+    - assets/premium_theme_annual_planner.png
+    - assets/watercolor/watercolor_1.png
+    - assets/watercolor/watercolor_2.png
+    - assets/watercolor/watercolor_3.png
+    - assets/watercolor/watercolor_4.png
+    - assets/watercolor/watercolor_5.png
+    - assets/watercolor/watercolor_6.png
+    - assets/watercolor/watercolor_7.png
+    - assets/watercolor/watercolor_8.png
+    - assets/watercolor/watercolor_9.png
+    - assets/watercolor/watercolor_10.png
+    - assets/watercolor/watercolor_11.png
+    - assets/watercolor/watercolor_12.png
+    - assets/weakly_planer.png
+    - assets/japanese_theme_weekly_planner.png
+    - assets/patterns_theme_weekly_planner.png
+    - assets/floral_theme_weekly_planner.png
+    - assets/watercolor_theme_weekly_planner.png
+    - assets/japaness_weekly/japanese1.png
+    - assets/japaness_weekly/japanese2.png
+    - assets/japaness_weekly/japanese3.png
+    - assets/japaness_weekly/japanese4.png
+    - assets/japaness_weekly/japanese5.png
+    - assets/japaness_weekly/japanese6.png
+    - assets/japaness_weekly/japanese7.png
+    - assets/japaness_weekly/japanese8.png
+    - assets/pattern_weekly/pattern1.png
+    - assets/pattern_weekly/pattern2.png
+    - assets/pattern_weekly/pattern3.png
+    - assets/pattern_weekly/pattern4.png
+    - assets/pattern_weekly/pattern5.png
+    - assets/pattern_weekly/pattern6.png
+    - assets/pattern_weekly/pattern7.png
+    - assets/pattern_weekly/pattern8.png
+    - assets/floral_weekly/floral_1.png
+    - assets/floral_weekly/floral_2.png
+    - assets/floral_weekly/floral_3.png
+    - assets/floral_weekly/floral_4.png
+    - assets/floral_weekly/floral_5.png
+    - assets/floral_weekly/floral_6.png
+    - assets/floral_weekly/floral_7.png
+    - assets/floral_weekly/floral_8.png
+    - assets/floral_weekly/floral_9.png
+    - assets/floral_weekly/floral_10.png
+    - assets/floral_weekly/floral_11.png
+    - assets/floral_weekly/floral_12.png
+    - assets/google_logo.png
+    - assets/onboarding1.jpg
+    - assets/onboarding2.jpg
+    - assets/onboarding3.jpg
+    - assets/reconstruct_transparent.png
+    - assets/logo_transparent.png
+    - assets/sounds/shredder-sound.mp3
+    - assets/sounds/chair-break.mp3
+    - assets/sounds/watermelon-break.mp3
+    - assets/sounds/glass-break.mp3
+    - assets/sounds/plates-break.mp3
+    - assets/sounds/pop.mp3
+    - assets/sounds/make-me-smile.mp3
+    - assets/Mind_tools/water_glass.png
+    - assets/Mind_tools/plate.png
+    - assets/Mind_tools/watermelon.png
+    - assets/Mind_tools/chair.png
+    - assets/Mind_tools/break-things.png
+    - assets/Mind_tools/make-me-smile.png
+    - assets/Mind_tools/bubble-popper.png
+    - assets/Mind_tools/thought-shredder.png
+    - assets/Activity_Tools/coloring-sheet.png
+    - assets/Activity_Tools/memory-game.png
+    - assets/Activity_Tools/riddles.png
+
+
+
+
+
+
 

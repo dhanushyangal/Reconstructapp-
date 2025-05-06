@@ -23,17 +23,15 @@
         android:gravity="center"
         android:minWidth="50dp"
         android:ellipsize="end"
-        android:maxLines="1"/>
+        android:maxLines="1"
+        android:background="@android:color/transparent"/>
 
     <TextView
         android:id="@+id/todo_text"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="12sp"
-        android:textColor="#424242"
-        android:layout_marginStart="4dp"
-        android:ellipsize="end"
-        android:maxLines="3"/>
-
+        android:layout_marginStart="8dp"
+        android:textSize="14sp"
+        android:background="@android:color/transparent"/>
 </LinearLayout> 
