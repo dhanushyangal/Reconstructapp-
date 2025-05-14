@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
-
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import 'dashboard_traker.dart'; // Import the dashboard tracker
 
 class BubbleWrapPopperPage extends StatefulWidget {
   const BubbleWrapPopperPage({super.key});
+
+  // Add route name to make navigation easier
+  static const routeName = '/bubble-wrap-popper';
 
   @override
   _BubbleWrapPopperPageState createState() => _BubbleWrapPopperPageState();
@@ -47,6 +50,25 @@ class _BubbleWrapPopperPageState extends State<BubbleWrapPopperPage> {
     // Pre-pop some bubbles for demonstration
     // Create a pattern of colored bubbles similar to the image
     // _createInitialPattern(random); // Commented out to start with all bubbles unpopped
+
+    // Track this page visit in recent activities
+    _trackActivity();
+  }
+
+  // Method to track activity
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Bubble Wrap Popper',
+        imagePath: 'assets/Mind_tools/bubble-popper.png',
+        timestamp: DateTime.now(),
+        routeName: BubbleWrapPopperPage.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 
   // Updated function to log activity for tracking using the centralized method

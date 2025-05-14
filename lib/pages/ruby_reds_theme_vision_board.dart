@@ -10,6 +10,7 @@ import '../services/database_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import 'active_dashboard_page.dart'; // Import for activity tracking
 
 class TodoItem {
   String id;
@@ -132,6 +133,9 @@ class _ManualLoginDialogState extends State<ManualLoginDialog> {
 class RubyRedsThemeVisionBoard extends StatefulWidget {
   const RubyRedsThemeVisionBoard({super.key});
 
+  // Add route name to make navigation easier
+  static const routeName = '/ruby-reds-theme-vision-board';
+
   @override
   State<RubyRedsThemeVisionBoard> createState() =>
       _RubyRedsThemeVisionBoardState();
@@ -224,6 +228,9 @@ class _RubyRedsThemeVisionBoardState extends State<RubyRedsThemeVisionBoard> {
         timer.cancel();
       }
     });
+
+    // Add activity tracking
+    _trackActivity();
   }
 
   // Load all data from local storage (fast operation)
@@ -679,6 +686,22 @@ class _RubyRedsThemeVisionBoardState extends State<RubyRedsThemeVisionBoard> {
         ],
       ),
     );
+  }
+
+  // Method to track activity in recent activities
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Ruby Reds Theme Vision Board',
+        imagePath: 'assets/images/ruby.png',
+        timestamp: DateTime.now(),
+        routeName: RubyRedsThemeVisionBoard.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 }
 

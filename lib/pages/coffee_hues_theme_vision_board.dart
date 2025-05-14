@@ -10,6 +10,7 @@ import '../services/database_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import 'active_dashboard_page.dart'; // Import for activity tracking
 
 class TodoItem {
   String id;
@@ -132,6 +133,9 @@ class _ManualLoginDialogState extends State<ManualLoginDialog> {
 class CoffeeHuesThemeVisionBoard extends StatefulWidget {
   const CoffeeHuesThemeVisionBoard({super.key});
 
+  // Add route name to make navigation easier
+  static const routeName = '/coffee-hues-theme-vision-board';
+
   @override
   State<CoffeeHuesThemeVisionBoard> createState() =>
       _CoffeeHuesThemeVisionBoardState();
@@ -225,6 +229,9 @@ class _CoffeeHuesThemeVisionBoardState
         timer.cancel();
       }
     });
+
+    // Add _trackActivity method call
+    _trackActivity();
   }
 
   // Load all data from local storage (fast operation)
@@ -538,6 +545,22 @@ class _CoffeeHuesThemeVisionBoardState
         ),
       ),
     );
+  }
+
+  // Add _trackActivity method to track when this page is visited
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Coffee Hues Theme Vision Board',
+        imagePath: 'assets/images/coffee.png',
+        timestamp: DateTime.now(),
+        routeName: CoffeeHuesThemeVisionBoard.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 
   @override

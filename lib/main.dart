@@ -30,6 +30,7 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'services/subscription_manager.dart';
 import 'config/api_config.dart';
 import 'pages/active_tasks_page.dart';
+import 'pages/active_dashboard_page.dart';
 import 'Mind_tools/thought_shredder_page.dart';
 import 'Mind_tools/make_me_smile_page.dart';
 import 'Mind_tools/bubble_wrap_popper_page.dart';
@@ -39,11 +40,21 @@ import 'package:provider/provider.dart';
 import 'Activity_Tools/memory_game_page.dart';
 import 'Activity_Tools/color_me_page.dart';
 import 'Activity_Tools/riddle_quiz_page.dart';
+import 'Activity_Tools/sliding_puzzle_page.dart';
+import 'Daily_notes/daily_notes_page.dart';
 import 'dart:async';
-import 'components/payment_methods_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/gestures.dart';
-
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'Annual_planner/floral_theme_annual_planner.dart';
+import 'Annual_planner/postit_theme_annual_planner.dart';
+import 'Annual_planner/premium_theme_annual_planner.dart';
+import 'Annual_planner/watercolor_theme_annual_planner.dart';
+import 'weekly_planners/patterns_theme_weekly_planner.dart';
+import 'weekly_planners/floral_theme_weekly_planner.dart';
+import 'weekly_planners/watercolor_theme_weekly_planner.dart';
+import 'weekly_planners/japanese_theme_weekly_planner.dart';
 // After imports section, add this global variable
 
 // Add keys to check payment status
@@ -237,6 +248,56 @@ class MyApp extends StatelessWidget {
           '/home': (context) => const HomePage(),
           '/login': (context) => const LoginPage(),
           '/register': (context) => const RegisterPage(),
+          // Add activity page routes
+          ColorMePage.routeName: (context) => const ColorMePage(),
+          MemoryGamePage.routeName: (context) => const MemoryGamePage(),
+          RiddleQuizPage.routeName: (context) => const RiddleQuizPage(),
+          SlidingPuzzlePage.routeName: (context) => const SlidingPuzzlePage(),
+          DailyNotesPage.routeName: (context) => const DailyNotesPage(),
+          BreakThingsPage.routeName: (context) => const BreakThingsPage(),
+          ThoughtShredderPage.routeName: (context) =>
+              const ThoughtShredderPage(),
+          MakeMeSmilePage.routeName: (context) => const MakeMeSmilePage(),
+          BubbleWrapPopperPage.routeName: (context) =>
+              const BubbleWrapPopperPage(),
+          // Add annual planner routes
+          AnimalThemeCalendarApp.routeName: (context) =>
+              const AnimalThemeCalendarApp(monthIndex: 0),
+          HappyCoupleThemeCalendarApp.routeName: (context) =>
+              const HappyCoupleThemeCalendarApp(monthIndex: 0),
+          SpanielThemeCalendarApp.routeName: (context) =>
+              const SpanielThemeCalendarApp(monthIndex: 0),
+          SummerThemeCalendarApp.routeName: (context) =>
+              const SummerThemeCalendarApp(monthIndex: 0),
+          FloralThemeAnnualPlanner.routeName: (context) =>
+              const FloralThemeAnnualPlanner(monthIndex: 0),
+          PostItThemeAnnualPlanner.routeName: (context) =>
+              const PostItThemeAnnualPlanner(monthIndex: 0),
+          PremiumThemeAnnualPlanner.routeName: (context) =>
+              const PremiumThemeAnnualPlanner(monthIndex: 0),
+          WatercolorThemeAnnualPlanner.routeName: (context) =>
+              const WatercolorThemeAnnualPlanner(monthIndex: 0),
+          // Add vision board routes
+          VisionBoardDetailsPage.routeName: (context) =>
+              const VisionBoardDetailsPage(title: 'Box Them Vision Board'),
+          PostItThemeVisionBoard.routeName: (context) =>
+              const PostItThemeVisionBoard(),
+          CoffeeHuesThemeVisionBoard.routeName: (context) =>
+              const CoffeeHuesThemeVisionBoard(),
+          PremiumThemeVisionBoard.routeName: (context) =>
+              const PremiumThemeVisionBoard(),
+          RubyRedsThemeVisionBoard.routeName: (context) =>
+              const RubyRedsThemeVisionBoard(),
+          WinterWarmthThemeVisionBoard.routeName: (context) =>
+              const WinterWarmthThemeVisionBoard(),
+          PatternsThemeWeeklyPlanner.routeName: (context) =>
+              const PatternsThemeWeeklyPlanner(dayIndex: 0),
+          FloralThemeWeeklyPlanner.routeName: (context) =>
+              const FloralThemeWeeklyPlanner(dayIndex: 0),
+          WatercolorThemeWeeklyPlanner.routeName: (context) =>
+              const WatercolorThemeWeeklyPlanner(dayIndex: 0),
+          JapaneseThemeWeeklyPlanner.routeName: (context) =>
+              const JapaneseThemeWeeklyPlanner(dayIndex: 0),
         },
       ),
     );
@@ -297,6 +358,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
           // Check premium status from server
           final subscriptionManager = SubscriptionManager();
           final isPremium = await subscriptionManager.checkPremiumStatus(token);
+
+          // Check if there's any pending trial data that needs to be synced with the server
+          final needsTrialSync = prefs.getBool('needs_trial_sync') ?? false;
+          if (needsTrialSync) {
+            debugPrint(
+                'Found pending trial data that needs to be synced with server on login');
+            await subscriptionManager.checkAndSyncPremiumStatus(token);
+          }
 
           // If the user is premium, force refresh premium features
           if (isPremium) {
@@ -524,14 +593,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
-  int _selectedIndex = 0;
+  int _selectedIndex =
+      2; // Changed from 0 to 2 to automatically go to the "+" tab
   bool _isPremium = false;
   late User? firebaseUser;
   List<Widget> _pages = [];
   Timer? _trialCheckTimer; // Timer to periodically check if trial has ended
   final String _hasCompletedPaymentKey = 'has_completed_payment';
   final String _firstLaunchKey = 'first_launch';
-  final AuthService _authService = AuthService();
+
   bool _isInitializing = true; // Add flag to track initialization
 
   @override
@@ -555,9 +625,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // Set up a timer to check trial status more frequently (every 20 seconds)
     // This is especially important for the 7-day trial
-    _trialCheckTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    _trialCheckTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
       debugPrint('Timer triggered: checking trial status');
-      _checkTrialStatus();
+
+      // Get the last refresh time to prevent too frequent refreshes
+      SharedPreferences.getInstance().then((prefs) {
+        final lastRefreshTime = prefs.getInt('_last_premium_refresh_time') ?? 0;
+        final currentTime = DateTime.now().millisecondsSinceEpoch;
+        final timeSinceLastRefresh = currentTime - lastRefreshTime;
+
+        // Only check if it's been at least 30 seconds since the last refresh
+        if (timeSinceLastRefresh > 30000) {
+          _checkTrialStatus();
+        } else {
+          debugPrint(
+              'Skipping trial check - last refresh was ${timeSinceLastRefresh}ms ago');
+        }
+      });
     });
   }
 
@@ -652,6 +736,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _pages = [
       HomeContent(isPremium: _isPremium),
       const PlannersPage(),
+      const ActiveDashboardPage(),
+      const DashboardTrackerPage(),
       const ProfilePage(),
     ];
   }
@@ -827,70 +913,77 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         return;
       }
 
-      // Get user email
-      final email = _authService.userData?['email'] ??
-          firebaseUser?.email ??
-          'user@example.com';
+      // Check if user already had a trial that ended
+      final hasTrialStarted = await subscriptionManager.isTrialStarted();
+      final trialHasEnded = await subscriptionManager.hasTrialEnded();
 
-      // Show payment methods page first - ONLY show the page, don't start trial automatically
+      if (hasTrialStarted && trialHasEnded) {
+        debugPrint(
+            'User had a free trial that has ended, showing subscription modal');
+        // Show subscription modal instead of starting trial
+        // Get user email
+        final email = firebaseUser?.email ?? 'user@example.com';
+        await subscriptionManager.startSubscriptionFlow(context, email: email);
+        return;
+      }
+
+      // Check again if user is premium before starting free trial
+      // This is to handle the case where a user might be premium from another source
+      final isUserPremium = await subscriptionManager
+          .checkPremiumStatus(prefs.getString('auth_token') ?? '');
+      if (isUserPremium) {
+        debugPrint('User confirmed premium from server check, skipping trial');
+        await prefs.setBool(_hasCompletedPaymentKey, true);
+        await prefs.setBool('is_subscribed', true);
+        await prefs.setBool('premium_features_enabled', true);
+
+        setState(() {
+          _isPremium = true;
+        });
+        _updatePages();
+        return;
+      }
+
+      // For new users or users with no prior trial, automatically start free trial
       try {
-        final bool? shouldStartTrial = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            fullscreenDialog: true,
-            builder: (context) => PaymentMethodsPage(
-              email: email,
-              trialEndDate: DateTime.now()
-                  .add(const Duration(days: 7)), // 7 days trial for testing
-              onClose: () => Navigator.of(context).pop(false),
-              onStartFreeTrial: () => Navigator.of(context).pop(true),
-              onRedeemCode: () =>
-                  subscriptionManager.showRedeemCodeDialog(context),
-            ),
-          ),
-        );
+        debugPrint('Automatically starting free trial for new user');
+        // Start the free trial
+        await subscriptionManager.startFreeTrial();
 
-        // If user explicitly clicked "Start Free Trial"
-        if (shouldStartTrial == true) {
-          debugPrint('User clicked Start Free Trial button, starting trial...');
-          // Start the free trial
-          await subscriptionManager.startFreeTrial();
+        // Ensure trial data is flagged for syncing with server
+        await prefs.setBool('needs_trial_sync', true);
 
-          // Update premium status based on trial status
-          setState(() {
-            _isPremium = true;
-          });
-          // Update the pages to reflect the new premium status
-          _updatePages();
-
-          // Show a message about the free trial
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                    'Your 7-day free trial has started! Enjoy all premium features.'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 5),
-              ),
-            );
-          }
-        } else {
-          // User dismissed the dialog by clicking X or back button
+        // Get auth token and try to sync trial data immediately if token is available
+        final authToken = prefs.getString('auth_token') ?? '';
+        if (authToken.isNotEmpty) {
           debugPrint(
-              'User did not start trial. Keeping premium features locked.');
+              'Auth token available, syncing trial data with server immediately');
+          await subscriptionManager.checkAndSyncPremiumStatus(authToken);
+        } else {
+          debugPrint(
+              'No auth token available, trial data will sync when user logs in');
+        }
 
-          // Ensure premium is set to false
-          setState(() {
-            _isPremium = false;
-          });
+        // Update premium status based on trial status
+        setState(() {
+          _isPremium = true;
+        });
+        // Update the pages to reflect the new premium status
+        _updatePages();
 
-          // Update pages to reflect locked status
-          _updatePages();
-
-          // Update shared preferences to reflect non-premium status
-          await prefs.setBool(_hasCompletedPaymentKey, false);
+        // Show a message about the free trial
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Your 7-day free trial has started! Enjoy all premium features.'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 5),
+            ),
+          );
         }
       } catch (e) {
-        debugPrint('Error showing payment methods page: $e');
+        debugPrint('Error starting free trial: $e');
         // Ensure premium is set to false in case of error
         setState(() {
           _isPremium = false;
@@ -949,11 +1042,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
+        onTap: (index) {
+          // Always navigate to the selected tab, including the + tab
+          setState(() => _selectedIndex = index);
+        },
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Browse'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_circle), label: '+'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_customize), label: 'Planners'),
+              icon: Icon(Icons.track_changes), label: 'Tracker'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
         selectedItemColor:
@@ -1114,6 +1213,12 @@ class _HomeContentState extends State<HomeContent> {
                               'assets/weakly_planer.png',
                               'Weekly Planner',
                             ),
+                            const SizedBox(width: 18),
+                            _buildPlannerCard(
+                              context,
+                              'assets/Activity_Tools/notes.png',
+                              'Daily Notes',
+                            ),
                           ],
                         ),
                       ),
@@ -1206,6 +1311,12 @@ class _HomeContentState extends State<HomeContent> {
                               'assets/Activity_Tools/riddles.png',
                               'Riddle Quiz',
                             ),
+                            const SizedBox(width: 18),
+                            _buildPlannerCard(
+                              context,
+                              'assets/Activity_Tools/sliding-puzzle.png',
+                              'Sliding Puzzle',
+                            ),
                           ],
                         ),
                       ),
@@ -1231,7 +1342,8 @@ class _HomeContentState extends State<HomeContent> {
     if (title == 'Vision Board' ||
         title == 'Interactive Calendar' ||
         title == 'Weekly Planner' ||
-        title == 'Annual Planner') {
+        title == 'Annual Planner' ||
+        title == 'Daily Notes') {
       return true;
     }
     // Lock all Mind Tools and Activity Tools for free users
@@ -1335,6 +1447,20 @@ class _HomeContentState extends State<HomeContent> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const RiddleQuizPage(),
+                ),
+              );
+            } else if (title == 'Sliding Puzzle') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SlidingPuzzlePage(),
+                ),
+              );
+            } else if (title == 'Daily Notes') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DailyNotesPage(),
                 ),
               );
             }
@@ -2251,13 +2377,57 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // Helper method to get formatted trial end date
   Future<String> _getTrialEndDate() async {
-    final prefs = await SharedPreferences.getInstance();
-    final trialEndDateStr = prefs.getString('trial_end_date');
+    try {
+      // Get the auth token to check server
+      final prefs = await SharedPreferences.getInstance();
+      final authToken = prefs.getString('auth_token') ?? '';
+      final subscriptionManager = SubscriptionManager();
 
-    if (trialEndDateStr != null) {
-      final trialEndDate = DateTime.parse(trialEndDateStr);
-      // Format date as "Day Month Year" (e.g., "27 March 2023")
-      return "${trialEndDate.day} ${_getMonthName(trialEndDate.month)} ${trialEndDate.year}";
+      // Try to get the most current trial end date from server
+      if (authToken.isNotEmpty) {
+        try {
+          // Check for pending trial sync first
+          final needsTrialSync = prefs.getBool('needs_trial_sync') ?? false;
+          if (needsTrialSync) {
+            debugPrint(
+                'Found pending trial sync, syncing before displaying end date');
+            await subscriptionManager.checkAndSyncPremiumStatus(authToken);
+          }
+
+          // Make a direct API call to get the latest trial status
+          final response = await http.get(
+            Uri.parse('https://reconstrect-api.onrender.com/auth/trial-status'),
+            headers: {
+              'Authorization': 'Bearer $authToken',
+              'Content-Type': 'application/json',
+            },
+          ).timeout(const Duration(seconds: 3));
+
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            if (data['trial_end_date'] != null) {
+              final serverEndDate = DateTime.parse(data['trial_end_date']);
+              // If server has trial end date, update local storage and use it
+              await prefs.setString(
+                  'trial_end_date', serverEndDate.toIso8601String());
+              return "${serverEndDate.day} ${_getMonthName(serverEndDate.month)} ${serverEndDate.year}";
+            }
+          }
+        } catch (e) {
+          debugPrint('Error getting trial end date from server: $e');
+          // Fall back to local storage
+        }
+      }
+
+      // If we get here, use local storage
+      final trialEndDateStr = prefs.getString('trial_end_date');
+      if (trialEndDateStr != null) {
+        final trialEndDate = DateTime.parse(trialEndDateStr);
+        // Format date as "Day Month Year" (e.g., "27 March 2023")
+        return "${trialEndDate.day} ${_getMonthName(trialEndDate.month)} ${trialEndDate.year}";
+      }
+    } catch (e) {
+      debugPrint('Error retrieving trial end date: $e');
     }
 
     return "soon";

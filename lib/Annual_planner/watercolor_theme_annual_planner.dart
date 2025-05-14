@@ -7,6 +7,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 import '../services/annual_calendar_service.dart';
 import '../services/user_service.dart';
@@ -43,6 +44,9 @@ class WatercolorThemeAnnualPlanner extends StatefulWidget {
     this.eventId,
     this.showEvents = false,
   });
+
+  // Add route name to make navigation easier
+  static const routeName = '/watercolor-theme-annual-planner';
 
   @override
   State<WatercolorThemeAnnualPlanner> createState() =>
@@ -107,6 +111,9 @@ class _WatercolorThemeAnnualPlannerState
     // Initialize HomeWidget
     HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
     HomeWidget.registerBackgroundCallback(backgroundCallback);
+
+    // Add activity tracking
+    _trackActivity();
   }
 
   // Load all data from local storage (fast operation)
@@ -600,6 +607,22 @@ class _WatercolorThemeAnnualPlannerState
         ],
       ),
     );
+  }
+
+  // Add activity tracking
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Watercolor Theme Annual Planner',
+        imagePath: 'assets/watercolor/watercolor_1.png',
+        timestamp: DateTime.now(),
+        routeName: WatercolorThemeAnnualPlanner.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 }
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../components/subscription_modal.dart';
-import '../components/payment_methods_page.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'dart:async';
 import '../main.dart'; // Import navigatorKey and state classes
@@ -28,8 +27,8 @@ class SubscriptionManager {
   static const String yearlySubscriptionId = 'reconstruct';
   static const bool useTestMode = false; // Set to false for production
 
-  // API endpoint
-  static const String apiBaseUrl = 'https://reconstrect-api.onrender.com';
+  // API endpoint - made public so it can be accessed from outside
+  static const String _apiBaseUrl = 'https://reconstrect-api.onrender.com';
 
   // Purchase streams
   late StreamSubscription<List<PurchaseDetails>> _subscription;
@@ -210,58 +209,192 @@ class SubscriptionManager {
 
   // Add new method to refresh premium status across the app
   void _refreshAppPremiumStatus() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final context = navigatorKey.currentContext;
       if (context != null) {
-        // Trigger a notification that payment was successful
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Premium features activated! Refreshing app...'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        try {
+          // First ensure premium flags are consistently set in SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
 
-        // The most reliable way to refresh the app is to navigate back to home
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (navigatorKey.currentState != null &&
-              navigatorKey.currentState!.mounted) {
+          // Check if we're in the middle of a refresh already to prevent loops
+          final isRefreshing =
+              prefs.getBool('_premium_refresh_in_progress') ?? false;
+          if (isRefreshing) {
+            debugPrint(
+                'Premium refresh already in progress, skipping redundant refresh');
+            return;
+          }
+
+          // Set refresh in progress flag to prevent loops
+          await prefs.setBool('_premium_refresh_in_progress', true);
+
+          // Get both local and server premium status
+          final isPremiumLocal = prefs.getBool('has_completed_payment') ??
+              prefs.getBool(_isSubscribedKey) ??
+              prefs.getBool('premium_features_enabled') ??
+              false;
+
+          // Check if server says user is premium
+          final authToken = prefs.getString('auth_token') ?? '';
+          bool isPremiumServer = false;
+          if (authToken.isNotEmpty) {
             try {
-              // Try to update SharedPreferences directly
-              final prefs = SharedPreferences.getInstance();
-              prefs.then((prefs) {
-                // Re-save the premium status to trigger updates
-                final isPremium =
-                    prefs.getBool('has_completed_payment') ?? false;
-                if (isPremium) {
-                  prefs.setBool('has_completed_payment', true);
-
-                  // Manually navigate to home page to force rebuild
-                  if (navigatorKey.currentContext != null) {
-                    Navigator.pushNamedAndRemoveUntil(
-                      navigatorKey.currentContext!,
-                      '/home',
-                      (route) => false,
-                    );
-                  }
-                }
-              });
+              // Use a very brief timeout to avoid waiting too long
+              isPremiumServer = await checkPremiumStatus(authToken).timeout(
+                  const Duration(seconds: 2),
+                  onTimeout: () => isPremiumLocal);
             } catch (e) {
-              debugPrint('Error in _refreshAppPremiumStatus: $e');
+              debugPrint('Error checking server premium status: $e');
+              isPremiumServer = isPremiumLocal; // Fall back to local status
+            }
+          } else {
+            isPremiumServer = isPremiumLocal;
+          }
 
-              // As a fallback, try to navigate to home
-              try {
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/home',
-                  (route) => false,
-                );
-              } catch (e) {
-                debugPrint('Error navigating to home: $e');
-              }
+          // If server says premium, always trust server over local trial ended status
+          if (isPremiumServer) {
+            await prefs.setBool('has_completed_payment', true);
+            await prefs.setBool(_isSubscribedKey, true);
+            await prefs.setBool('premium_features_enabled', true);
+            debugPrint(
+                'Server confirms premium status, forcefully setting all premium flags to TRUE');
+          } else {
+            // Check if trial is active before setting to false
+            final trialStarted = prefs.getBool(_trialStartedKey) ?? false;
+            bool trialHasEnded = false;
+            final trialEndDateStr = prefs.getString(_trialEndDateKey);
+
+            if (trialEndDateStr != null) {
+              final trialEndDate = DateTime.parse(trialEndDateStr);
+              final now = DateTime.now();
+              trialHasEnded = now.isAfter(trialEndDate);
+            }
+
+            // If trial is active and not ended, keep premium features enabled
+            if (trialStarted && !trialHasEnded) {
+              await prefs.setBool('has_completed_payment', true);
+              await prefs.setBool(_isSubscribedKey, true);
+              await prefs.setBool('premium_features_enabled', true);
+              debugPrint(
+                  'Active trial detected, premium flags forcefully set to TRUE');
+            } else if (!isPremiumLocal) {
+              // Only update flags to false if they aren't already false
+              // This prevents unnecessary UI refreshes when status hasn't changed
+              await prefs.setBool('has_completed_payment', false);
+              await prefs.setBool(_isSubscribedKey, false);
+              await prefs.setBool('premium_features_enabled', false);
+              debugPrint('Premium flags forcefully updated and set to FALSE');
             }
           }
-        });
+
+          // Clear refresh in progress flag
+          await prefs.setBool('_premium_refresh_in_progress', false);
+
+          // Only show notification for significant status changes
+          bool statusChanged = false;
+          if ((isPremiumServer && !isPremiumLocal) ||
+              (!isPremiumServer && isPremiumLocal)) {
+            statusChanged = true;
+          }
+
+          if (statusChanged) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Premium features refreshed'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+
+          // Check if we're on the profile page - improved detection
+          bool isOnProfilePage = false;
+          try {
+            // Look at the current route name
+            ModalRoute? route = ModalRoute.of(context);
+            if (route != null && route.settings.name != null) {
+              isOnProfilePage = route.settings.name!.contains('profile');
+            }
+
+            // Also check if the current widget tree contains ProfilePage
+            final currentWidget = route?.settings.arguments;
+            if (currentWidget != null) {
+              final widgetStr = currentWidget.toString().toLowerCase();
+              if (widgetStr.contains('profile')) {
+                isOnProfilePage = true;
+              }
+            }
+
+            // Additional check - look at the current page's class name
+            final currentContext = navigatorKey.currentContext;
+            if (currentContext != null) {
+              final currentType =
+                  currentContext.widget.runtimeType.toString().toLowerCase();
+              if (currentType.contains('profile')) {
+                isOnProfilePage = true;
+              }
+            }
+
+            debugPrint('Current page is profile page: $isOnProfilePage');
+          } catch (e) {
+            debugPrint('Error checking current route: $e');
+          }
+
+          // Only force a navigation refresh when we actually changed the premium status
+          // and limit to at most one refresh per 10 seconds to prevent loops
+          // and don't do it if we're on the profile page
+          final lastRefreshTime =
+              prefs.getInt('_last_premium_refresh_time') ?? 0;
+          final currentTime = DateTime.now().millisecondsSinceEpoch;
+          final timeSinceLastRefresh = currentTime - lastRefreshTime;
+
+          // Only navigate if:
+          // 1. Premium status actually changed
+          // 2. We haven't refreshed in the last 10 seconds
+          // 3. We're not on the profile page
+          // 4. We're not in a loop
+          if (statusChanged &&
+              timeSinceLastRefresh > 10000 &&
+              !isOnProfilePage) {
+            // 10 seconds minimum between refreshes and not on profile page
+            await prefs.setInt('_last_premium_refresh_time', currentTime);
+
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (navigatorKey.currentState != null &&
+                  navigatorKey.currentState!.mounted) {
+                try {
+                  debugPrint(
+                      'Forcing full app refresh by navigating to home page');
+                  // Manually navigate to home page to force full UI rebuild
+                  Navigator.pushNamedAndRemoveUntil(
+                    navigatorKey.currentContext!,
+                    '/home',
+                    (route) => false,
+                  );
+                } catch (e) {
+                  debugPrint('Error navigating to home: $e');
+                }
+              }
+            });
+          } else {
+            if (isOnProfilePage) {
+              debugPrint(
+                  'Skipping navigation refresh - currently on profile page');
+            } else if (!statusChanged) {
+              debugPrint(
+                  'Skipping navigation refresh - premium status did not change');
+            } else {
+              debugPrint(
+                  'Skipping navigation refresh - last refresh was ${timeSinceLastRefresh}ms ago');
+            }
+          }
+        } catch (e) {
+          debugPrint('Error in _refreshAppPremiumStatus: $e');
+
+          // Clear refresh in progress flag on error
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('_premium_refresh_in_progress', false);
+        }
       }
     });
   }
@@ -277,13 +410,15 @@ class SubscriptionManager {
       final localIsPremium = prefs.getBool(_isSubscribedKey) ?? false;
       final hasCompletedPayment =
           prefs.getBool('has_completed_payment') ?? false;
+      final premiumFeaturesEnabled =
+          prefs.getBool('premium_features_enabled') ?? false;
 
       debugPrint(
-          'Local premium status check: isPremium=$localIsPremium, hasCompletedPayment=$hasCompletedPayment');
+          'Local premium status check: isPremium=$localIsPremium, hasCompletedPayment=$hasCompletedPayment, premiumFeaturesEnabled=$premiumFeaturesEnabled');
 
       // Try to reach the server
       final response = await http.get(
-        Uri.parse('$apiBaseUrl/auth/premium-status'),
+        Uri.parse('$_apiBaseUrl/auth/premium-status'),
         headers: {
           'Authorization': 'Bearer $authToken',
           'Content-Type': 'application/json',
@@ -306,6 +441,15 @@ class SubscriptionManager {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(_isSubscribedKey, isPremium);
         await prefs.setBool('has_completed_payment', isPremium);
+        await prefs.setBool('premium_features_enabled', isPremium);
+
+        // If premium, ensure we refresh premium features application-wide
+        if (isPremium) {
+          debugPrint(
+              'Server confirms premium status, refreshing app-wide premium features');
+          // Force refresh premium features across the app (will be done after return)
+          Future.delayed(Duration.zero, () => _refreshAppPremiumStatus());
+        }
 
         stopwatch.stop();
         debugPrint(
@@ -318,6 +462,14 @@ class SubscriptionManager {
 
         // Fall back to local storage in case of server error
         debugPrint('Falling back to local premium status: $localIsPremium');
+
+        // Ensure premium_features_enabled matches the other flags for consistency
+        if (localIsPremium && hasCompletedPayment) {
+          await prefs.setBool('premium_features_enabled', true);
+          // Force refresh premium features across the app
+          Future.delayed(Duration.zero, () => _refreshAppPremiumStatus());
+        }
+
         return localIsPremium && hasCompletedPayment;
       }
     } catch (e) {
@@ -331,6 +483,13 @@ class SubscriptionManager {
       final hasCompletedPayment =
           prefs.getBool('has_completed_payment') ?? false;
 
+      // Ensure premium_features_enabled matches the other flags
+      if (localIsPremium && hasCompletedPayment) {
+        await prefs.setBool('premium_features_enabled', true);
+        // Force refresh premium features across the app
+        Future.delayed(Duration.zero, () => _refreshAppPremiumStatus());
+      }
+
       debugPrint(
           'Network error - falling back to local premium status: $localIsPremium');
       return localIsPremium && hasCompletedPayment;
@@ -341,7 +500,7 @@ class SubscriptionManager {
   Future<bool> updatePremiumStatus(String authToken) async {
     try {
       debugPrint(
-          'Updating premium status on server - making API request to $apiBaseUrl/auth/update-premium');
+          'Updating premium status on server - making API request to $_apiBaseUrl/auth/update-premium');
       debugPrint('Using auth token: ${authToken.substring(0, 10)}...');
 
       // Add connectivity check before making the API call
@@ -357,7 +516,7 @@ class SubscriptionManager {
       // Make the API call with a timeout - explicitly set isPremium=1 in the request body
       final response = await http
           .post(
-            Uri.parse('$apiBaseUrl/auth/update-premium'),
+            Uri.parse('$_apiBaseUrl/auth/update-premium'),
             headers: {
               'Authorization': 'Bearer $authToken',
               'Content-Type': 'application/json',
@@ -441,6 +600,33 @@ class SubscriptionManager {
     debugPrint('Starting free trial...');
     final prefs = await SharedPreferences.getInstance();
 
+    // First check if trial has been used before (both started and ended)
+    final trialStarted = prefs.getBool(_trialStartedKey) ?? false;
+    final trialEndPopupShown = prefs.getBool(_trialEndPopupShownKey) ?? false;
+
+    // Check if trial end date exists and has passed
+    bool trialHasEnded = false;
+    final trialEndDateStr = prefs.getString(_trialEndDateKey);
+    if (trialEndDateStr != null) {
+      final trialEndDate = DateTime.parse(trialEndDateStr);
+      final now = DateTime.now();
+      trialHasEnded = now.isAfter(trialEndDate);
+    }
+
+    // If trial was previously started and has ended, don't allow a new trial
+    if (trialStarted && (trialHasEnded || trialEndPopupShown)) {
+      debugPrint(
+          'Trial has been used before and ended, cannot start a new trial');
+
+      // Ensure premium features are disabled
+      await prefs.setBool(_isSubscribedKey, false);
+      await prefs.setBool('has_completed_payment', false);
+      await prefs.setBool('premium_features_enabled', false);
+
+      // Show subscription modal instead - handled by the calling code
+      return;
+    }
+
     // Get the auth token
     final authToken = prefs.getString('auth_token') ?? '';
     if (authToken.isEmpty) {
@@ -455,7 +641,7 @@ class SubscriptionManager {
     try {
       final response = await http
           .post(
-            Uri.parse('$apiBaseUrl/auth/start-trial'),
+            Uri.parse('$_apiBaseUrl/auth/start-trial'),
             headers: {
               'Authorization': 'Bearer $authToken',
               'Content-Type': 'application/json',
@@ -485,6 +671,29 @@ class SubscriptionManager {
 
           // Refresh UI
           _refreshAppPremiumStatus();
+          return;
+        }
+
+        // Check if trial has ended according to server
+        if (data['trial_ended'] == true) {
+          debugPrint('Server reports trial has already ended, cannot restart');
+
+          // Ensure premium features are disabled
+          await prefs.setBool(_isSubscribedKey, false);
+          await prefs.setBool('has_completed_payment', false);
+          await prefs.setBool('premium_features_enabled', false);
+
+          // Mark trial as started and ended in local storage
+          await prefs.setBool(_trialStartedKey, true);
+
+          if (data['trial_start_date'] != null) {
+            await prefs.setString(_trialStartDateKey, data['trial_start_date']);
+          }
+
+          if (data['trial_end_date'] != null) {
+            await prefs.setString(_trialEndDateKey, data['trial_end_date']);
+          }
+
           return;
         }
 
@@ -578,14 +787,51 @@ class SubscriptionManager {
     debugPrint('Starting trial locally (fallback method)');
     final prefs = await SharedPreferences.getInstance();
 
-    // Check if trial already started
-    final alreadyStarted = prefs.getBool(_trialStartedKey) ?? false;
-    if (alreadyStarted) {
-      debugPrint('Trial already started locally, not starting again');
+    // First check if trial has been used before
+    final trialStarted = prefs.getBool(_trialStartedKey) ?? false;
+    final trialEndPopupShown = prefs.getBool(_trialEndPopupShownKey) ?? false;
+
+    // Check if trial has ended
+    bool trialHasEnded = false;
+    final trialEndDateStr = prefs.getString(_trialEndDateKey);
+    if (trialEndDateStr != null) {
+      final trialEndDate = DateTime.parse(trialEndDateStr);
+      final now = DateTime.now();
+      trialHasEnded = now.isAfter(trialEndDate);
+    }
+
+    // If trial was previously used and has ended, don't allow a new trial
+    if (trialStarted && (trialHasEnded || trialEndPopupShown)) {
+      debugPrint(
+          'Trial has been used before and ended locally, cannot start a new trial');
+
+      // Ensure premium features are disabled
+      await prefs.setBool(_isSubscribedKey, false);
+      await prefs.setBool('has_completed_payment', false);
+      await prefs.setBool('premium_features_enabled', false);
+
       return;
     }
 
-    // Set trial status
+    // Check if trial already started but not ended - continue with existing trial
+    if (trialStarted && !trialHasEnded) {
+      debugPrint(
+          'Trial already started locally and still active, not restarting');
+
+      // Ensure premium features are enabled for active trial
+      await prefs.setBool(_isSubscribedKey, true);
+      await prefs.setBool('has_completed_payment', true);
+      await prefs.setBool('premium_features_enabled', true);
+
+      // Mark that we need to sync trial data with server when connectivity is restored
+      await prefs.setBool('needs_trial_sync', true);
+
+      // Refresh UI
+      _refreshAppPremiumStatus();
+      return;
+    }
+
+    // Start new trial - Set trial status
     await prefs.setBool(_trialStartedKey, true);
 
     // Set trial start date to current time
@@ -604,13 +850,64 @@ class SubscriptionManager {
     // Clear trial end popup shown flag
     await prefs.setBool(_trialEndPopupShownKey, false);
 
+    // Mark that we need to sync trial data with server when connectivity is restored
+    await prefs.setBool('needs_trial_sync', true);
+
     debugPrint('Free trial started locally. Ends on: $endDate');
+
+    // Attempt to sync with server in the background
+    _scheduleSyncTrialData();
 
     // Refresh UI to show premium status immediately
     _refreshAppPremiumStatus();
 
     // Show free trial started popup
     _showFreeTrialStartedPopup();
+  }
+
+  // Method to sync trial data with server when connectivity is available
+  Future<void> _scheduleSyncTrialData() async {
+    // Attempt to sync immediately, and if it fails, it will be attempted again on next app start
+    final prefs = await SharedPreferences.getInstance();
+    final authToken = prefs.getString('auth_token') ?? '';
+
+    if (authToken.isNotEmpty) {
+      try {
+        debugPrint('Attempting to sync local trial data with server...');
+
+        // Get local trial dates
+        final trialStartDateStr = prefs.getString(_trialStartDateKey);
+        final trialEndDateStr = prefs.getString(_trialEndDateKey);
+
+        if (trialStartDateStr != null && trialEndDateStr != null) {
+          final response = await http
+              .post(
+                Uri.parse('$_apiBaseUrl/auth/sync-trial-data'),
+                headers: {
+                  'Authorization': 'Bearer $authToken',
+                  'Content-Type': 'application/json',
+                },
+                body: jsonEncode({
+                  'trial_started': true,
+                  'trial_start_date': trialStartDateStr,
+                  'trial_end_date': trialEndDateStr
+                }),
+              )
+              .timeout(const Duration(seconds: 5));
+
+          if (response.statusCode == 200) {
+            debugPrint('Successfully synced trial data with server');
+            await prefs.setBool('needs_trial_sync', false);
+          } else {
+            debugPrint(
+                'Failed to sync trial data, will retry later: ${response.statusCode}');
+          }
+        }
+      } catch (e) {
+        debugPrint('Error syncing trial data with server: $e');
+        // Will be retried on next app start
+      }
+    }
   }
 
   // Method to show free trial started popup
@@ -681,20 +978,47 @@ class SubscriptionManager {
     final cacheExpiration =
         _trialCheckCacheMinutes * 60 * 1000; // Convert minutes to milliseconds
 
-    // If we did a check recently, use local data instead of calling server again
-    if (lastCheckTime > 0 && timeSinceLastCheck < cacheExpiration) {
+    // Create a cached copy of the trial end date on first check to avoid redundant checking
+    String? cachedTrialEndState = prefs.getString('_cached_trial_end_state');
+
+    // If we have a cached trial end state and cache hasn't expired, use it
+    if (cachedTrialEndState != null && timeSinceLastCheck < cacheExpiration) {
       debugPrint(
           'Using cached trial status - last check was ${timeSinceLastCheck ~/ 60000} minutes ago');
-      // Skip server check and use local data
+      return cachedTrialEndState == 'true'; // Convert the string to boolean
     }
-    // If we have an auth token and cache is expired, check trial status with server
-    else if (authToken.isNotEmpty) {
+
+    // Get the local trial end date for comparison
+    final trialEndDateStr = prefs.getString(_trialEndDateKey);
+    bool localTrialEnded = false;
+
+    if (trialEndDateStr != null) {
+      try {
+        final trialEndDate = DateTime.parse(trialEndDateStr);
+        final now = DateTime.now();
+        localTrialEnded = now.isAfter(trialEndDate);
+
+        // Store the cached state for future checks
+        await prefs.setString(
+            '_cached_trial_end_state', localTrialEnded.toString());
+        await prefs.setInt(_lastTrialCheckKey, currentTimeMs);
+
+        debugPrint('Updated cached trial status: ended=${localTrialEnded}');
+      } catch (e) {
+        debugPrint('Error parsing trial end date: $e');
+      }
+    }
+
+    // Only check with server if we have a token and need to refresh the cache
+    if (authToken.isNotEmpty &&
+        (timeSinceLastCheck >= cacheExpiration ||
+            cachedTrialEndState == null)) {
       try {
         debugPrint(
             'Cache expired or first check, contacting server for trial status');
 
         final response = await http.get(
-          Uri.parse('$apiBaseUrl/auth/trial-status'),
+          Uri.parse('$_apiBaseUrl/auth/trial-status'),
           headers: {
             'Authorization': 'Bearer $authToken',
             'Content-Type': 'application/json',
@@ -717,6 +1041,8 @@ class SubscriptionManager {
             await prefs.setBool('has_completed_payment', true);
             await prefs.setBool('premium_features_enabled', true);
 
+            // Cache the result
+            await prefs.setString('_cached_trial_end_state', 'false');
             return false;
           }
 
@@ -743,60 +1069,29 @@ class SubscriptionManager {
             await prefs.setBool('premium_features_enabled', false);
           }
 
+          // Cache the server result
+          await prefs.setString(
+              '_cached_trial_end_state', trialEnded.toString());
           return trialEnded;
         }
       } catch (e) {
         debugPrint('Error checking trial status with server: $e');
-        // Fall back to local check on server error
       }
     }
 
-    // Fallback: Check locally if server check failed or no auth token
-    debugPrint('Falling back to local trial status check');
-
-    // Check if we've already determined the trial has ended
-    final hasShownEndPopup = prefs.getBool(_trialEndPopupShownKey) ?? false;
-
-    // Get the subscription status and check if user has upgraded
-    final isSubscribed = prefs.getBool(_isSubscribedKey) ?? false;
-    final hasCompletedPayment = prefs.getBool('has_completed_payment') ?? false;
-    final subscriptionType = prefs.getString(_subscriptionTypeKey);
-
-    // If user has a real subscription, trial status doesn't matter
-    if (isSubscribed && hasCompletedPayment && subscriptionType != null) {
-      debugPrint('User has a real subscription, trial status does not matter');
-      return false;
-    }
-
-    // If we've already shown the end popup and user didn't purchase,
-    // we can confidently say the trial has ended
-    if (hasShownEndPopup && !hasCompletedPayment) {
-      debugPrint('Trial previously determined as ended (popup shown)');
-      return true;
-    }
-
-    // Check if trial period has expired by comparing dates
-    final trialEndDateStr = prefs.getString(_trialEndDateKey);
-    if (trialEndDateStr == null) {
-      debugPrint('No trial end date found');
-      return false;
-    }
-
-    final trialEndDate = DateTime.parse(trialEndDateStr);
-    final now = DateTime.now();
-    final hasEnded = now.isAfter(trialEndDate);
-
-    debugPrint('Trial end date: $trialEndDate');
-    debugPrint('Current time: $now');
-    debugPrint('Trial has ended: $hasEnded');
-
-    return hasEnded;
+    // Return the local trial ended state (from either cache or direct check)
+    return localTrialEnded;
   }
 
   // Method to check if trial has been started with server check
   Future<bool> isTrialStarted() async {
     final prefs = await SharedPreferences.getInstance();
     final localTrialStarted = prefs.getBool(_trialStartedKey) ?? false;
+
+    // To avoid excessive checking, if we know locally that trial is started, trust that
+    if (localTrialStarted) {
+      return true;
+    }
 
     // Get auth token for server check
     final authToken = prefs.getString('auth_token') ?? '';
@@ -822,7 +1117,7 @@ class SubscriptionManager {
             'Cache expired or first check, contacting server for trial status');
 
         final response = await http.get(
-          Uri.parse('$apiBaseUrl/auth/trial-status'),
+          Uri.parse('$_apiBaseUrl/auth/trial-status'),
           headers: {
             'Authorization': 'Bearer $authToken',
             'Content-Type': 'application/json',
@@ -854,6 +1149,9 @@ class SubscriptionManager {
 
             if (data['trial_end_date'] != null) {
               await prefs.setString(_trialEndDateKey, data['trial_end_date']);
+              // Also cache this for subscription end date display
+              await prefs.setString(
+                  '_cached_subscription_end_date', data['trial_end_date']);
             }
 
             return true;
@@ -873,10 +1171,56 @@ class SubscriptionManager {
 
   // Method to lock features when trial ends
   Future<void> lockFeaturesIfTrialEnded() async {
-    // First check if trial has started
     final prefs = await SharedPreferences.getInstance();
-    final trialStarted = prefs.getBool(_trialStartedKey) ?? false;
 
+    // Rate limiting - don't check too frequently
+    final lastLockCheckTime = prefs.getInt('_last_lock_check_time') ?? 0;
+    final currentTime = DateTime.now().millisecondsSinceEpoch;
+    final timeSinceLastCheck = currentTime - lastLockCheckTime;
+
+    // Only check once per minute maximum
+    if (timeSinceLastCheck < 60000) {
+      // 60 seconds
+      debugPrint(
+          'Skipping lock check - last check was ${timeSinceLastCheck}ms ago');
+      return;
+    }
+
+    // Update check timestamp
+    await prefs.setInt('_last_lock_check_time', currentTime);
+
+    // Check if we're in the middle of a refresh already
+    final isRefreshing = prefs.getBool('_premium_refresh_in_progress') ?? false;
+    if (isRefreshing) {
+      debugPrint('Premium refresh already in progress, skipping lock check');
+      return;
+    }
+
+    // FIRST check if user is premium from the server
+    final authToken = prefs.getString('auth_token') ?? '';
+    if (authToken.isNotEmpty) {
+      try {
+        final isPremium = await checkPremiumStatus(authToken)
+            .timeout(const Duration(seconds: 2), onTimeout: () => false);
+
+        if (isPremium) {
+          debugPrint(
+              'User is premium according to server, not locking features');
+          // Update local premium flags to match server
+          await prefs.setBool(_isSubscribedKey, true);
+          await prefs.setBool('has_completed_payment', true);
+          await prefs.setBool('premium_features_enabled', true);
+          return;
+        }
+      } catch (e) {
+        debugPrint(
+            'Error checking server premium status during lock check: $e');
+        // Continue with local checks
+      }
+    }
+
+    // Now check trial status
+    final trialStarted = prefs.getBool(_trialStartedKey) ?? false;
     if (!trialStarted) {
       debugPrint('Trial has not started yet, nothing to lock');
       return;
@@ -892,20 +1236,16 @@ class SubscriptionManager {
       return;
     }
 
-    // Get auth token for server check
-    final authToken = prefs.getString('auth_token') ?? '';
-
     // Check if we've done a recent check and can use cached result
     final lastCheckTime = prefs.getInt(_lastTrialCheckKey) ?? 0;
-    final currentTimeMs = DateTime.now().millisecondsSinceEpoch;
-    final timeSinceLastCheck = currentTimeMs - lastCheckTime;
+    final timeSinceLastTrialCheck = currentTime - lastCheckTime;
     final cacheExpiration =
         _trialCheckCacheMinutes * 60 * 1000; // Convert minutes to milliseconds
 
     // If the last check was recent, use local data instead of calling server again
-    if (lastCheckTime > 0 && timeSinceLastCheck < cacheExpiration) {
+    if (lastCheckTime > 0 && timeSinceLastTrialCheck < cacheExpiration) {
       debugPrint(
-          'Using cached trial status for lock check - last check was ${timeSinceLastCheck ~/ 60000} minutes ago');
+          'Using cached trial status for lock check - last check was ${timeSinceLastTrialCheck ~/ 60000} minutes ago');
       // Skip server check and use local data only for determining lock status
     }
     // If we have an auth token and cache is expired, check with server
@@ -915,7 +1255,7 @@ class SubscriptionManager {
             'Cache expired or first check, contacting server for locking decision');
 
         final response = await http.get(
-          Uri.parse('$apiBaseUrl/auth/trial-status'),
+          Uri.parse('$_apiBaseUrl/auth/trial-status'),
           headers: {
             'Authorization': 'Bearer $authToken',
             'Content-Type': 'application/json',
@@ -923,7 +1263,7 @@ class SubscriptionManager {
         ).timeout(const Duration(seconds: 3));
 
         // Update last check timestamp regardless of response
-        await prefs.setInt(_lastTrialCheckKey, currentTimeMs);
+        await prefs.setInt(_lastTrialCheckKey, currentTime);
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -958,8 +1298,8 @@ class SubscriptionManager {
             await prefs.setBool('has_completed_payment', false);
             await prefs.setBool('premium_features_enabled', false);
 
-            // Refresh UI to reflect locked status
-            _refreshAppPremiumStatus();
+            // Refresh UI to reflect locked status but don't use full app refresh
+            await _updatePremiumStateOnly();
 
             // Show trial ended popup if not already shown
             final hasShownEndPopup =
@@ -1021,8 +1361,8 @@ class SubscriptionManager {
       await prefs.setBool('has_completed_payment', false);
       await prefs.setBool('premium_features_enabled', false);
 
-      // Refresh app to reflect locked status
-      _refreshAppPremiumStatus();
+      // Use a more targeted refresh approach instead of full app refresh
+      await _updatePremiumStateOnly();
 
       // Only show payment dialog if we haven't shown it yet
       if (!hasShownEndPopup) {
@@ -1031,6 +1371,24 @@ class SubscriptionManager {
     } else {
       debugPrint('Trial is still active, not locking features');
     }
+  }
+
+  // Helper method to update premium state without full app refresh
+  Future<void> _updatePremiumStateOnly() async {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint('Updating premium state without full app refresh');
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        // Show a quick notification about the status change
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Premium status updated'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    });
   }
 
   // Helper method to show trial ended popup
@@ -1152,7 +1510,6 @@ class SubscriptionManager {
 
   Future<void> startSubscriptionFlow(BuildContext context,
       {String? email}) async {
-    final userEmail = email ?? 'user@example.com';
     bool userInitiatedPayment = false;
 
     // First, check if the user is already premium - if so, don't show upgrade options
@@ -1192,6 +1549,17 @@ class SubscriptionManager {
 
     // If user is premium, show a confirmation dialog and exit
     if (isPremium) {
+      // First, ensure all premium flags are properly set and UI is refreshed
+      await prefs.setBool(_isSubscribedKey, true);
+      await prefs.setBool('has_completed_payment', true);
+      await prefs.setBool('premium_features_enabled', true);
+
+      // Force refresh premium features across the app
+      await refreshPremiumFeatures();
+
+      // Call the private refresh method for immediate UI update
+      _refreshAppPremiumStatus();
+
       if (context.mounted) {
         showDialog(
           context: context,
@@ -1204,6 +1572,17 @@ class SubscriptionManager {
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
+
+                    // Show confirmation that features are unlocked
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Premium features are now active!'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
                   },
                   child: const Text('OK'),
                 ),
@@ -1221,48 +1600,28 @@ class SubscriptionManager {
 
     try {
       if (!hasTrialStarted && !trialHasEnded) {
-        // User hasn't started a trial yet, offer free trial
-        final bool? shouldStartTrial = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            fullscreenDialog: true,
-            builder: (context) => PaymentMethodsPage(
-              email: userEmail,
-              trialEndDate: DateTime.now()
-                  .add(const Duration(days: 7)), // 7 days trial for testing
-              onClose: () => Navigator.of(context).pop(false),
-              onStartFreeTrial: () => Navigator.of(context).pop(true),
-              onRedeemCode: () => showRedeemCodeDialog(context),
+        // Automatically start free trial instead of showing the payment methods page
+        debugPrint('Automatically starting free trial for new user');
+        await startFreeTrial();
+
+        // Show success message
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Your 7-day free trial has started! Enjoy all premium features.'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 5),
             ),
-          ),
-        );
-
-        debugPrint('Free trial page result: $shouldStartTrial');
-
-        if (shouldStartTrial == true) {
-          // Only start free trial if user EXPLICITLY chose to start it
-          debugPrint('User explicitly chose to start free trial');
-          await startFreeTrial();
-
-          // Show success message
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                    'Your 7-day free trial has started! Enjoy all premium features.'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 5),
-              ),
-            );
-          }
-
-          // Refresh app to show premium features
-          _refreshAppPremiumStatus();
-          return;
-        } else {
-          debugPrint('User did not choose to start free trial');
+          );
         }
-      } else if (trialHasEnded) {
+
+        // Refresh app to show premium features
+        _refreshAppPremiumStatus();
+        return;
+      } else if (hasTrialStarted && trialHasEnded) {
         // Trial has ended - show subscription modal for payment
+        debugPrint('Trial has ended, showing subscription modal');
         final result = await showDialog<bool>(
           context: context,
           barrierDismissible: false,
@@ -1281,6 +1640,24 @@ class SubscriptionManager {
         );
 
         debugPrint('Subscription modal result: $result');
+      } else if (hasTrialStarted && !trialHasEnded) {
+        // Trial is active - inform user
+        debugPrint('Trial is still active, showing information');
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Your free trial is already active. Enjoy premium features!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+
+        // Refresh app to show premium features
+        _refreshAppPremiumStatus();
+        return;
       }
     } catch (e) {
       debugPrint('Error in subscription flow: $e');
@@ -1694,20 +2071,53 @@ class SubscriptionManager {
   Future<DateTime?> getSubscriptionEndDate() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Check if user is in trial
-    final trialStarted = prefs.getBool(_trialStartedKey) ?? false;
-    if (trialStarted) {
-      final trialEndDateStr = prefs.getString(_trialEndDateKey);
-      if (trialEndDateStr != null) {
-        return DateTime.parse(trialEndDateStr);
+    try {
+      // First check if we already have a cached end date to avoid unnecessary checks
+      final cachedEndDateStr = prefs.getString('_cached_subscription_end_date');
+      if (cachedEndDateStr != null) {
+        try {
+          return DateTime.parse(cachedEndDateStr);
+        } catch (e) {
+          // If cached date is invalid, continue with normal checks
+          debugPrint('Error parsing cached subscription end date: $e');
+        }
       }
+
+      // Check if user is in trial
+      final trialStarted = prefs.getBool(_trialStartedKey) ?? false;
+      if (trialStarted) {
+        final trialEndDateStr = prefs.getString(_trialEndDateKey);
+        if (trialEndDateStr != null) {
+          try {
+            final endDate = DateTime.parse(trialEndDateStr);
+            // Cache the result to avoid future parsing
+            await prefs.setString(
+                '_cached_subscription_end_date', trialEndDateStr);
+            return endDate;
+          } catch (e) {
+            debugPrint('Error parsing trial end date: $e');
+            return null;
+          }
+        }
+      }
+
+      // Otherwise return regular subscription end date
+      final endDateStr = prefs.getString(_subscriptionEndKey);
+      if (endDateStr == null) return null;
+
+      try {
+        final endDate = DateTime.parse(endDateStr);
+        // Cache the result
+        await prefs.setString('_cached_subscription_end_date', endDateStr);
+        return endDate;
+      } catch (e) {
+        debugPrint('Error parsing subscription end date: $e');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Error in getSubscriptionEndDate: $e');
+      return null;
     }
-
-    // Otherwise return regular subscription end date
-    final endDateStr = prefs.getString(_subscriptionEndKey);
-    if (endDateStr == null) return null;
-
-    return DateTime.parse(endDateStr);
   }
 
   // Method to manually check and reset trial status (for debugging)
@@ -1873,115 +2283,137 @@ class SubscriptionManager {
     await refreshPremiumFeatures();
   }
 
-  // Call this method during app initialization to check if premium sync is needed
+  // Check if premium status needs to be synchronized with the server
   Future<void> checkAndSyncPremiumStatus(String authToken) async {
     final prefs = await SharedPreferences.getInstance();
     final needsSync = prefs.getBool('needs_premium_sync') ?? false;
 
-    if (needsSync) {
-      debugPrint('Found pending premium status sync. Attempting to sync now.');
-      // Only attempt sync if we have a valid auth token
-      if (authToken.isNotEmpty) {
-        final success = await updatePremiumStatus(authToken);
-        debugPrint(
-            'Premium sync attempt result: ${success ? 'Success' : 'Failed'}');
-      } else {
-        debugPrint('Cannot sync premium status: No valid auth token available');
-      }
+    // Check if we need to sync trial data with the server
+    final needsTrialSync = prefs.getBool('needs_trial_sync') ?? false;
+
+    if (needsTrialSync) {
+      debugPrint(
+          'Found pending trial data that needs to be synced with server');
+      await _syncTrialDataWithServer(authToken);
     }
+
+    if (needsSync) {
+      debugPrint('Premium status sync needed, will sync during initialization');
+      await syncPremiumStatusOnLogin(authToken);
+      return;
+    }
+
+    // Verify premium status anyway to ensure consistency
+    await syncPremiumStatusOnLogin(authToken);
   }
 
-  // In the initialize method, after initializing store
-  Future<void> initialize(String authToken) async {
-    debugPrint('Initializing subscription manager');
+  // Method to sync pending trial data with the server
+  Future<bool> _syncTrialDataWithServer(String authToken) async {
+    if (authToken.isEmpty) return false;
 
-    // Check if the store is available
-    final isAvailable = await _inAppPurchase.isAvailable();
-    _isAvailable = isAvailable;
-
-    if (!isAvailable) {
-      debugPrint('Store is not available');
-    } else {
-      // Set up purchase stream listener
-      final purchaseUpdated = _inAppPurchase.purchaseStream;
-      _subscription = purchaseUpdated.listen(
-        _listenToPurchaseUpdated,
-        onDone: () {
-          _subscription.cancel();
-        },
-        onError: (error) {
-          debugPrint('Purchase error: $error');
-        },
-      );
-
-      // Load products
-      await _loadProducts();
-    }
-
-    // Check for premium status synchronization needed
-    if (authToken.isNotEmpty) {
-      debugPrint(
-          'Auth token available, performing premium status sync on initialization');
-
-      // Use the enhanced syncPremiumStatusOnLogin method
-      await syncPremiumStatusOnLogin(authToken);
-    } else {
-      debugPrint(
-          'No auth token available during initialization, checking local premium status');
-
-      // Even without auth token, we need to check local premium flags for consistency
+    try {
+      debugPrint('Syncing trial data with server...');
       final prefs = await SharedPreferences.getInstance();
-      final isPremiumFromPrefs =
-          prefs.getBool('has_completed_payment') ?? false;
-      final isSubscribed = prefs.getBool(_isSubscribedKey) ?? false;
-      final premiumFeaturesEnabled =
-          prefs.getBool('premium_features_enabled') ?? false;
 
-      // Ensure consistent flags across the app
-      if (isPremiumFromPrefs || isSubscribed) {
+      // Check if we've attempted sync recently to avoid repeated failures
+      final lastSyncAttempt = prefs.getInt('_last_trial_sync_attempt') ?? 0;
+      final currentTime = DateTime.now().millisecondsSinceEpoch;
+      final timeSinceLastAttempt = currentTime - lastSyncAttempt;
+
+      // Don't attempt more than once every 30 minutes
+      if (timeSinceLastAttempt < 1800000) {
         debugPrint(
-            'Local premium status detected, ensuring all premium flags are set');
-        await prefs.setBool('has_completed_payment', true);
-        await prefs.setBool(_isSubscribedKey, true);
-        await prefs.setBool('premium_features_enabled', true);
-
-        // Refresh premium features to update UI
-        await refreshPremiumFeatures();
-      } else if (premiumFeaturesEnabled) {
-        // Special case: premium_features_enabled is true but other flags aren't
-        // Fix inconsistency by setting all flags
-        debugPrint('Inconsistent premium flags detected, fixing');
-        await prefs.setBool('has_completed_payment', true);
-        await prefs.setBool(_isSubscribedKey, true);
-
-        // Refresh premium features to update UI
-        await refreshPremiumFeatures();
-      } else {
-        // No premium detected, ensure all flags are consistently false
-        await prefs.setBool('has_completed_payment', false);
-        await prefs.setBool(_isSubscribedKey, false);
-        await prefs.setBool('premium_features_enabled', false);
+            'Skipping trial sync - last attempt was ${timeSinceLastAttempt ~/ 60000} minutes ago');
+        return false;
       }
 
-      // Also check if trial is active and adjust premium status accordingly
-      final trialStarted = await isTrialStarted();
-      if (trialStarted) {
-        final trialEnded = await hasTrialEnded();
-        if (!trialEnded) {
-          debugPrint('Active trial detected, setting premium flags');
-          await prefs.setBool('has_completed_payment', true);
-          await prefs.setBool(_isSubscribedKey, true);
-          await prefs.setBool('premium_features_enabled', true);
+      // Update the last sync attempt time
+      await prefs.setInt('_last_trial_sync_attempt', currentTime);
 
-          // Refresh premium features to update UI
-          await refreshPremiumFeatures();
-        } else {
-          debugPrint('Trial has ended, ensuring premium flags are cleared');
-          await prefs.setBool('has_completed_payment', false);
-          await prefs.setBool(_isSubscribedKey, false);
-          await prefs.setBool('premium_features_enabled', false);
+      // Get the trial dates from local storage
+      final trialStarted = prefs.getBool(_trialStartedKey) ?? false;
+      final trialStartDateStr = prefs.getString(_trialStartDateKey);
+      final trialEndDateStr = prefs.getString(_trialEndDateKey);
+
+      if (!trialStarted ||
+          trialStartDateStr == null ||
+          trialEndDateStr == null) {
+        debugPrint('No valid trial data found to sync');
+        await prefs.setBool('needs_trial_sync', false);
+        return false;
+      }
+
+      // Parse the dates to ensure they're in the correct format
+      try {
+        final trialStartDate = DateTime.parse(trialStartDateStr);
+        final trialEndDate = DateTime.parse(trialEndDateStr);
+
+        // Ensure the end date is exactly 7 days after the start date
+        final correctEndDate = trialStartDate.add(const Duration(days: 7));
+        final formattedStartDate = trialStartDate.toIso8601String();
+        final formattedEndDate = correctEndDate.toIso8601String();
+
+        // Update local storage with the corrected end date if needed
+        if (trialEndDate != correctEndDate) {
+          debugPrint(
+              'Correcting local trial end date to ensure 7-day duration');
+          await prefs.setString(_trialEndDateKey, formattedEndDate);
         }
+
+        // Send the trial data to the server
+        final response = await http
+            .post(
+              Uri.parse('$_apiBaseUrl/auth/sync-trial-data'),
+              headers: {
+                'Authorization': 'Bearer $authToken',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'trial_started': trialStarted,
+                'trial_start_date': formattedStartDate,
+                'trial_end_date': formattedEndDate
+              }),
+            )
+            .timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          debugPrint('Successfully synced trial data with server');
+
+          // If the server returns trial data, update local storage to match
+          try {
+            final data = jsonDecode(response.body);
+            if (data['trial_start_date'] != null &&
+                data['trial_end_date'] != null) {
+              // Always use server dates as the source of truth
+              await prefs.setString(
+                  _trialStartDateKey, data['trial_start_date']);
+              await prefs.setString(_trialEndDateKey, data['trial_end_date']);
+              debugPrint('Updated local trial dates from server response');
+            }
+          } catch (e) {
+            debugPrint('Error parsing server response: $e');
+          }
+
+          await prefs.setBool('needs_trial_sync', false);
+          return true;
+        } else if (response.statusCode == 404) {
+          // If endpoint doesn't exist, clear the flag to prevent repeated attempts
+          debugPrint(
+              'Trial sync endpoint not found (404), disabling sync attempts');
+          await prefs.setBool('needs_trial_sync', false);
+          return false;
+        } else {
+          debugPrint(
+              'Failed to sync trial data with server: ${response.statusCode}');
+          return false;
+        }
+      } catch (e) {
+        debugPrint('Error parsing trial dates: $e');
+        return false;
       }
+    } catch (e) {
+      debugPrint('Error syncing trial data with server: $e');
+      return false;
     }
   }
 
@@ -2030,7 +2462,7 @@ class SubscriptionManager {
               'Cache expired or first check, contacting server for access status');
 
           final response = await http.get(
-            Uri.parse('$apiBaseUrl/auth/trial-status'),
+            Uri.parse('$_apiBaseUrl/auth/trial-status'),
             headers: {
               'Authorization': 'Bearer $authToken',
               'Content-Type': 'application/json',
@@ -2223,4 +2655,7 @@ class SubscriptionManager {
       return premiumFeaturesEnabled || hasCompletedPayment;
     }
   }
+
+  // Getter for apiBaseUrl
+  String get apiBaseUrl => _apiBaseUrl;
 }

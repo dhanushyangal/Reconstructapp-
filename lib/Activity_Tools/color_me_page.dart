@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'dart:ui';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 class ColorMePage extends StatefulWidget {
   const ColorMePage({super.key});
+
+  // Add route name to make navigation easier
+  static const routeName = '/color-me';
 
   @override
   State<ColorMePage> createState() => _ColorMePageState();
@@ -47,6 +51,30 @@ class _ColorMePageState extends State<ColorMePage> {
 
   // Fixed dimensions for the bird canvas
   final Size birdCanvasSize = const Size(300, 400);
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Track this page visit in recent activities
+    _trackActivity();
+  }
+
+  // Method to track activity
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Digital Coloring',
+        imagePath: 'assets/Activity_Tools/coloring-sheet.png',
+        timestamp: DateTime.now(),
+        routeName: ColorMePage.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 class MemoryGamePage extends StatefulWidget {
   const MemoryGamePage({super.key});
+
+  // Add route name to make navigation easier
+  static const routeName = '/memory-game';
 
   @override
   State<MemoryGamePage> createState() => _MemoryGamePageState();
@@ -68,6 +72,25 @@ class _MemoryGamePageState extends State<MemoryGamePage>
       duration: const Duration(seconds: 1),
       vsync: this,
     );
+
+    // Track this page visit in recent activities
+    _trackActivity();
+  }
+
+  // Method to track activity
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Memory Game',
+        imagePath: 'assets/Activity_Tools/memory-game.png',
+        timestamp: DateTime.now(),
+        routeName: MemoryGamePage.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 
   @override

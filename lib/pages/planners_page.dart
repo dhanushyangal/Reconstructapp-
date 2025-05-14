@@ -10,6 +10,8 @@ import '../Mind_tools/make_me_smile_page.dart';
 import '../Activity_Tools/memory_game_page.dart';
 import '../Activity_Tools/riddle_quiz_page.dart';
 import '../Activity_Tools/color_me_now.dart';
+import '../Activity_Tools/sliding_puzzle_page.dart';
+import '../Daily_notes/daily_notes_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
@@ -91,12 +93,13 @@ class _PlannersPageState extends State<PlannersPage> {
   bool _isToolLocked(String toolType, String toolName) {
     if (_isPremium) return false; // Premium users get access to everything
 
-    // Free templates - one per category
+    // For free users, only allow basic templates
     if (toolType == 'Planner') {
       if (toolName == 'Vision Board Templates' ||
           toolName == '2025 calender Planner' ||
           toolName == '2025 Annual Planner' ||
-          toolName == '2025 weakly Planner') {
+          toolName == '2025 weakly Planner' ||
+          toolName == 'Daily Notes') {
         return false;
       }
     }
@@ -188,6 +191,13 @@ class _PlannersPageState extends State<PlannersPage> {
             page: const WeeklyPlannerPage(),
             toolType: 'Planner',
           ),
+          _buildPlannerTile(
+            context: context,
+            icon: Icons.note,
+            title: 'Daily Notes',
+            page: const DailyNotesPage(),
+            toolType: 'Planner',
+          ),
           const Divider(height: 32, thickness: 1),
           const Padding(
             padding: EdgeInsets.only(left: 16.0, top: 8.0, bottom: 8.0),
@@ -256,8 +266,14 @@ class _PlannersPageState extends State<PlannersPage> {
             context: context,
             icon: Icons.palette,
             title: 'Color Me Now',
-            subtitle: 'All coloring activities in one place',
             page: const ColorMeNowPage(),
+            toolType: 'ActivityTool',
+          ),
+          _buildPlannerTile(
+            context: context,
+            icon: Icons.grid_3x3,
+            title: 'Sliding Puzzle',
+            page: const SlidingPuzzlePage(),
             toolType: 'ActivityTool',
           ),
         ],

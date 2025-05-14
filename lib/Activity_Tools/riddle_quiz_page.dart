@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 class RiddleQuizPage extends StatefulWidget {
   const RiddleQuizPage({super.key});
+
+  // Add route name to make navigation easier
+  static const routeName = '/riddle-quiz';
 
   @override
   RiddleQuizPageState createState() => RiddleQuizPageState();
@@ -136,6 +140,25 @@ class RiddleQuizPageState extends State<RiddleQuizPage> {
     super.initState();
     _filterQuestionsByDifficulty(_selectedDifficulty);
     _updateProgress();
+
+    // Track this page visit in recent activities
+    _trackActivity();
+  }
+
+  // Method to track activity
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Mind-bending Riddles',
+        imagePath: 'assets/Activity_Tools/riddles.png',
+        timestamp: DateTime.now(),
+        routeName: RiddleQuizPage.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 
   @override

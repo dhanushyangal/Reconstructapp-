@@ -10,6 +10,7 @@ import '../services/database_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import 'active_dashboard_page.dart'; // Import for activity tracking
 
 class TodoItem {
   String id;
@@ -132,6 +133,9 @@ class _ManualLoginDialogState extends State<ManualLoginDialog> {
 class PremiumThemeVisionBoard extends StatefulWidget {
   const PremiumThemeVisionBoard({super.key});
 
+  // Add route name to make navigation easier
+  static const routeName = '/premium-theme-vision-board';
+
   @override
   State<PremiumThemeVisionBoard> createState() =>
       _PremiumThemeVisionBoardState();
@@ -199,6 +203,25 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
         timer.cancel();
       }
     });
+
+    // Track this page visit in recent activities
+    _trackActivity();
+  }
+
+  // Method to track activity in recent activities
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Premium Theme Vision Board',
+        imagePath: 'assets/images/premium.png',
+        timestamp: DateTime.now(),
+        routeName: PremiumThemeVisionBoard.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 
   // Load all data from local storage (fast operation)

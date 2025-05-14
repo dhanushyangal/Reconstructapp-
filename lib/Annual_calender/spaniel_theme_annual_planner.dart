@@ -19,6 +19,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'dart:math';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 class SpanielThemeCalendarApp extends StatefulWidget {
   final int monthIndex;
@@ -31,6 +32,9 @@ class SpanielThemeCalendarApp extends StatefulWidget {
     this.eventId,
     this.showEvents = false,
   });
+
+  // Add route name to make navigation easier
+  static const routeName = '/spaniel-theme-calendar';
 
   @override
   State<SpanielThemeCalendarApp> createState() =>
@@ -266,6 +270,25 @@ class _SpanielThemeCalendarAppState extends State<SpanielThemeCalendarApp>
 
     // Add app lifecycle state listener to refresh events when app resumes
     WidgetsBinding.instance.addObserver(this);
+
+    // Track this page visit in recent activities
+    _trackActivity();
+  }
+
+  // Method to track activity in recent activities
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Spaniel Theme Calendar',
+        imagePath: 'assets/spaniel_calender/spaniel1.png',
+        timestamp: DateTime.now(),
+        routeName: SpanielThemeCalendarApp.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 
   // Method to request notification permissions with dialog

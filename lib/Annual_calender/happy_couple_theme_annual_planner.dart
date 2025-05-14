@@ -12,6 +12,7 @@ import '../services/calendar_database_service.dart';
 import '../config/api_config.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../services/user_service.dart';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 class HappyCoupleThemeCalendarApp extends StatefulWidget {
   final int monthIndex;
@@ -24,6 +25,9 @@ class HappyCoupleThemeCalendarApp extends StatefulWidget {
     this.eventId,
     this.showEvents = false,
   });
+
+  // Add route name to make navigation easier
+  static const routeName = '/happy-couple-theme-calendar';
 
   @override
   State<HappyCoupleThemeCalendarApp> createState() =>
@@ -206,6 +210,9 @@ class _HappyCoupleThemeCalendarAppState
 
     // Start the initialization process
     _initializeCalendar();
+
+    // Track this page visit in recent activities
+    _trackActivity();
   }
 
   // Handle method channel calls
@@ -1425,6 +1432,22 @@ class _HappyCoupleThemeCalendarAppState
       _forceRefresh(); // Force a refresh after syncing
     } catch (e) {
       debugPrint('Error syncing with database: $e');
+    }
+  }
+
+  // Method to track activity in recent activities
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Happy Couple Theme Calendar',
+        imagePath: 'assets/couple_calender/couple1.png',
+        timestamp: DateTime.now(),
+        routeName: HappyCoupleThemeCalendarApp.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
     }
   }
 }

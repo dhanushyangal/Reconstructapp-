@@ -7,6 +7,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 import '../services/annual_calendar_service.dart';
 import '../services/user_service.dart';
@@ -43,6 +44,9 @@ class FloralThemeAnnualPlanner extends StatefulWidget {
     this.eventId,
     this.showEvents = false,
   });
+
+  // Add route name to make navigation easier
+  static const routeName = '/floral-theme-annual-planner';
 
   @override
   State<FloralThemeAnnualPlanner> createState() =>
@@ -106,6 +110,25 @@ class _FloralThemeAnnualPlannerState extends State<FloralThemeAnnualPlanner> {
     // Initialize HomeWidget
     HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
     HomeWidget.registerBackgroundCallback(backgroundCallback);
+
+    // Track this page visit in recent activities
+    _trackActivity();
+  }
+
+  // Method to track activity in recent activities
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Floral Theme Annual Planner',
+        imagePath: 'assets/floral_weekly/floral_1.png',
+        timestamp: DateTime.now(),
+        routeName: FloralThemeAnnualPlanner.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 
   // Load all data from local storage (fast operation)

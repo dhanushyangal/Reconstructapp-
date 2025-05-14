@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 import '../services/weekly_planner_service.dart';
 import '../services/user_service.dart';
@@ -50,6 +51,9 @@ class PatternsThemeWeeklyPlanner extends StatefulWidget {
     this.eventId,
     this.showEvents = false,
   });
+
+  // Add route name to make navigation easier
+  static const routeName = '/patterns-theme-weekly-planner';
 
   @override
   State<PatternsThemeWeeklyPlanner> createState() =>
@@ -109,6 +113,9 @@ class _PatternsThemeWeeklyPlannerState
     // Initialize HomeWidget
     HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
     HomeWidget.registerBackgroundCallback(backgroundCallback);
+
+    // Track activity
+    _trackActivity();
   }
 
   static Future<void> backgroundCallback(Uri? uri) async {
@@ -718,6 +725,22 @@ class _PatternsThemeWeeklyPlannerState
         ],
       ),
     );
+  }
+
+  // Method to track activity in recent activities
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Patterns Theme Weekly Planner',
+        imagePath: 'assets/patterns_theme_weekly_planner.png',
+        timestamp: DateTime.now(),
+        routeName: PatternsThemeWeeklyPlanner.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 }
 

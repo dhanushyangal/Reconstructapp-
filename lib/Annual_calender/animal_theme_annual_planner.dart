@@ -19,6 +19,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'dart:math';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 class AnimalThemeCalendarApp extends StatefulWidget {
   final int monthIndex;
@@ -31,6 +32,9 @@ class AnimalThemeCalendarApp extends StatefulWidget {
     this.eventId,
     this.showEvents = false,
   });
+
+  // Add route name to make navigation easier
+  static const routeName = '/animal-theme-calendar';
 
   @override
   State<AnimalThemeCalendarApp> createState() => _AnimalThemeCalendarAppState();
@@ -267,6 +271,25 @@ class _AnimalThemeCalendarAppState extends State<AnimalThemeCalendarApp>
 
     // Add app lifecycle state listener to refresh events when app resumes
     WidgetsBinding.instance.addObserver(this);
+
+    // Track this page visit in recent activities
+    _trackActivity();
+  }
+
+  // Method to track activity in recent activities
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Animal Theme Calendar',
+        imagePath: 'assets/animal_calendar/animaltheme-1.png',
+        timestamp: DateTime.now(),
+        routeName: AnimalThemeCalendarApp.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 
   // Method to request notification permissions with dialog

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 import 'dashboard_traker.dart'; // Import the dashboard tracker
 
 class MakeMeSmilePage extends StatefulWidget {
   const MakeMeSmilePage({super.key});
+
+  // Add route name to make navigation easier
+  static const routeName = '/make-me-smile';
 
   @override
   _MakeMeSmilePageState createState() => _MakeMeSmilePageState();
@@ -85,6 +89,9 @@ class _MakeMeSmilePageState extends State<MakeMeSmilePage>
         _cheerAnimationController.reverse();
       }
     });
+
+    // Track this page visit in recent activities
+    _trackActivity();
   }
 
   @override
@@ -105,6 +112,22 @@ class _MakeMeSmilePageState extends State<MakeMeSmilePage>
           'Make Me Smile activity logged - saved locally and will sync when online');
     } catch (e) {
       debugPrint('Error logging Make Me Smile activity: $e');
+    }
+  }
+
+  // Method to track activity
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Smile Therapy',
+        imagePath: 'assets/Mind_tools/make-me-smile.png',
+        timestamp: DateTime.now(),
+        routeName: MakeMeSmilePage.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
     }
   }
 

@@ -10,6 +10,7 @@ import '../services/database_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import 'active_dashboard_page.dart'; // Import for activity tracking
 
 class TodoItem {
   String id;
@@ -132,6 +133,9 @@ class _ManualLoginDialogState extends State<ManualLoginDialog> {
 class WinterWarmthThemeVisionBoard extends StatefulWidget {
   const WinterWarmthThemeVisionBoard({super.key});
 
+  // Add route name to make navigation easier
+  static const routeName = '/winter-warmth-theme-vision-board';
+
   @override
   State<WinterWarmthThemeVisionBoard> createState() =>
       _WinterWarmthThemeVisionBoardState();
@@ -224,6 +228,9 @@ class _WinterWarmthThemeVisionBoardState
         timer.cancel();
       }
     });
+
+    // Add activity tracking
+    _trackActivity();
   }
 
   // Load all data from local storage (fast operation)
@@ -672,6 +679,22 @@ class _WinterWarmthThemeVisionBoardState
         ],
       ),
     );
+  }
+
+  // Method to track activity in recent activities
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Winter Warmth Theme Vision Board',
+        imagePath: 'assets/images/winter.png',
+        timestamp: DateTime.now(),
+        routeName: WinterWarmthThemeVisionBoard.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 }
 

@@ -10,6 +10,7 @@ import '../services/database_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import 'active_dashboard_page.dart'; // Import for activity tracking
 
 class TodoItem {
   String id;
@@ -132,6 +133,9 @@ class _ManualLoginDialogState extends State<ManualLoginDialog> {
 class PostItThemeVisionBoard extends StatefulWidget {
   const PostItThemeVisionBoard({super.key});
 
+  // Add route name to make navigation easier
+  static const routeName = '/post-it-theme-vision-board';
+
   @override
   State<PostItThemeVisionBoard> createState() => _PostItThemeVisionBoardState();
 }
@@ -222,6 +226,9 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard> {
         timer.cancel();
       }
     });
+
+    // Add activity tracking
+    _trackActivity();
   }
 
   // Load all data from local storage (fast operation)
@@ -691,6 +698,22 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard> {
         ],
       ),
     );
+  }
+
+  // Complete implementation of _trackActivity method
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Post-it Theme Vision Board',
+        imagePath: 'assets/images/postit.png',
+        timestamp: DateTime.now(),
+        routeName: PostItThemeVisionBoard.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 }
 

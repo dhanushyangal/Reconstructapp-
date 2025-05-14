@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 import 'dashboard_traker.dart'; // Import the dashboard tracker
 
 class ThoughtShredderPage extends StatefulWidget {
   const ThoughtShredderPage({super.key});
+
+  // Add route name to make navigation easier
+  static const routeName = '/thought-shredder';
 
   @override
   _ThoughtShredderPageState createState() => _ThoughtShredderPageState();
@@ -76,6 +80,9 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
         0.7 + random.nextDouble() * 0.3,
       ));
     }
+
+    // Track this page visit in recent activities
+    _trackActivity();
   }
 
   // Updated method to record activity using the static method from DashboardTrackerPage
@@ -85,6 +92,22 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
     await DashboardTrackerPage.recordToolActivity('thought_shredder');
     debugPrint(
         'Recorded thought shredder activity - saved locally and will sync when online');
+  }
+
+  // Method to track activity
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Thought Shredder',
+        imagePath: 'assets/Mind_tools/thought-shredder.png',
+        timestamp: DateTime.now(),
+        routeName: ThoughtShredderPage.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 
   @override

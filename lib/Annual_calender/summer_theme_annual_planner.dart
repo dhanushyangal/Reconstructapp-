@@ -19,6 +19,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'dart:math';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 class SummerThemeCalendarApp extends StatefulWidget {
   final int monthIndex;
@@ -31,6 +32,9 @@ class SummerThemeCalendarApp extends StatefulWidget {
     this.eventId,
     this.showEvents = false,
   });
+
+  // Add route name to make navigation easier
+  static const routeName = '/summer-theme-calendar';
 
   @override
   State<SummerThemeCalendarApp> createState() => _SummerThemeCalendarAppState();
@@ -266,6 +270,25 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
 
     // Add app lifecycle state listener to refresh events when app resumes
     WidgetsBinding.instance.addObserver(this);
+
+    // Track this page visit in recent activities
+    _trackActivity();
+  }
+
+  // Method to track activity in recent activities
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Summer Theme Calendar',
+        imagePath: 'assets/summer_calender/summer1.png',
+        timestamp: DateTime.now(),
+        routeName: SummerThemeCalendarApp.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 
   // Method to request notification permissions with dialog
@@ -746,79 +769,79 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
   Widget _buildMonthCard(String month, int monthIndex) {
     return Card(
       elevation: 7,
-        margin: const EdgeInsets.all(4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Stack(
-          children: [
+      margin: const EdgeInsets.all(4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Stack(
+        children: [
           LayoutBuilder(
             builder: (context, constraints) {
               return Column(
-              children: [
+                children: [
                   // Image section (4 parts of 10)
-                ClipRRect(
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(12)),
-                  child: SizedBox(
+                  ClipRRect(
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: SizedBox(
                       height:
                           constraints.maxHeight * 0.45, // 40% of total height
                       width: constraints.maxWidth,
-                    child: Image.asset(
+                      child: Image.asset(
                         'assets/summer_calender/summer${monthIndex + 1}.png',
-                      width: double.infinity,
+                        width: double.infinity,
                         height: double.infinity,
-                      fit: BoxFit.cover,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
-                ),
                   // Calendar section (6 parts of 10)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4.0),
                     child: Text(
-                  month,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                      month,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
                   ),
-                ),
-                  ),
-                SizedBox(
+                  SizedBox(
                     height: constraints.maxHeight * 0.45, // 60% of total height
-                  child: Padding(
+                    child: Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
-                    child: _buildCalendarGrid(month, monthIndex + 1),
+                      child: _buildCalendarGrid(month, monthIndex + 1),
+                    ),
                   ),
-                ),
-              ],
+                ],
               );
             },
-            ),
-            Positioned(
-              right: 8,
-              top: 8,
-              child: SizedBox(
-                width: 22, // Reduced size for the button
-                height: 22, // Reduced size for the button
-                child: FloatingActionButton(
-                  onPressed: () {
-                    setState(() {
-                      showFullCalendar = true;
-                      _currentMonthIndex = monthIndex;
-                        _selectedDate = DateTime(2025, monthIndex + 1, 1);
-                      Future.delayed(Duration.zero, () {
-                        _showEventDialog();
-                      });
+          ),
+          Positioned(
+            right: 8,
+            top: 8,
+            child: SizedBox(
+              width: 22, // Reduced size for the button
+              height: 22, // Reduced size for the button
+              child: FloatingActionButton(
+                onPressed: () {
+                  setState(() {
+                    showFullCalendar = true;
+                    _currentMonthIndex = monthIndex;
+                    _selectedDate = DateTime(2025, monthIndex + 1, 1);
+                    Future.delayed(Duration.zero, () {
+                      _showEventDialog();
                     });
-                  },
-                  child: const Icon(Icons.add, size: 14), // Even smaller icon
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black87,
-                  elevation: 4, // Optional: reduced elevation for better fit
-                ),
+                  });
+                },
+                child: const Icon(Icons.add, size: 14), // Even smaller icon
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black87,
+                elevation: 4, // Optional: reduced elevation for better fit
               ),
             ),
-          ],
+          ),
+        ],
       ),
     );
   }
@@ -1036,9 +1059,9 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
         );
 
         final iosDetails = const DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
         );
 
         final platformDetails = NotificationDetails(

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 import 'dashboard_traker.dart'; // Import the dashboard tracker
 
 class BreakThingsPage extends StatefulWidget {
   const BreakThingsPage({super.key});
+
+  // Add route name to make navigation easier
+  static const routeName = '/break-things';
 
   @override
   _BreakThingsPageState createState() => _BreakThingsPageState();
@@ -35,6 +39,9 @@ class _BreakThingsPageState extends State<BreakThingsPage>
 
     // Initialize the grid of objects
     _initializeBreakableItems();
+
+    // Track this page visit in recent activities
+    _trackActivity();
   }
 
   void _initializeBreakableItems() {
@@ -100,6 +107,22 @@ class _BreakThingsPageState extends State<BreakThingsPage>
           'Break Things activity logged - saved locally and will sync when online');
     } catch (e) {
       debugPrint('Error logging Break Things activity: $e');
+    }
+  }
+
+  // Method to track activity
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Break Things',
+        imagePath: 'assets/Mind_tools/break-things.png',
+        timestamp: DateTime.now(),
+        routeName: BreakThingsPage.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
     }
   }
 

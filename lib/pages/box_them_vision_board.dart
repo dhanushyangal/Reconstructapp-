@@ -10,6 +10,7 @@ import '../services/database_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import 'active_dashboard_page.dart'; // Import for activity tracking
 
 // Add manual login dialog widget
 class ManualLoginDialog extends StatefulWidget {
@@ -137,6 +138,9 @@ class VisionBoardDetailsPage extends StatefulWidget {
 
   const VisionBoardDetailsPage({super.key, required this.title});
 
+  // Add route name to make navigation easier
+  static const routeName = '/box-them-vision-board';
+
   @override
   State<VisionBoardDetailsPage> createState() => _VisionBoardDetailsPageState();
 }
@@ -203,6 +207,9 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage> {
         timer.cancel();
       }
     });
+
+    // Track activity
+    _trackActivity();
   }
 
   // Load all data from local storage (fast operation)
@@ -700,6 +707,22 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage> {
         ],
       ),
     );
+  }
+
+  // Complete implementation of _trackActivity method
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Box Theme Vision Board',
+        imagePath: 'assets/vision-board-ruled.png',
+        timestamp: DateTime.now(),
+        routeName: VisionBoardDetailsPage.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 }
 

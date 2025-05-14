@@ -7,6 +7,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 import '../services/weekly_planner_service.dart';
 import '../services/user_service.dart';
@@ -50,6 +51,9 @@ class JapaneseThemeWeeklyPlanner extends StatefulWidget {
     this.eventId,
     this.showEvents = false,
   });
+
+  // Add route name to make navigation easier
+  static const routeName = '/japanese-theme-weekly-planner';
 
   @override
   State<JapaneseThemeWeeklyPlanner> createState() =>
@@ -109,6 +113,9 @@ class _JapaneseThemeWeeklyPlannerState
     // Initialize HomeWidget
     HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
     HomeWidget.registerBackgroundCallback(backgroundCallback);
+
+    // Add activity tracking
+    _trackActivity();
   }
 
   static Future<void> backgroundCallback(Uri? uri) async {
@@ -718,6 +725,30 @@ class _JapaneseThemeWeeklyPlannerState
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  // Method to track activity in recent activities
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Japanese Theme Weekly Planner',
+        imagePath: 'assets/japanese_theme_weekly_planner.png',
+        timestamp: DateTime.now(),
+        routeName: JapaneseThemeWeeklyPlanner.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 }
 
