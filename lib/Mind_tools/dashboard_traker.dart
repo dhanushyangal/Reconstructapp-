@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
-import 'package:connectivity_plus/connectivity_plus.dart';
 
 class DashboardTrackerPage extends StatefulWidget {
   const DashboardTrackerPage({super.key});
@@ -109,8 +108,6 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
   String? _authToken;
   // Add scroll controllers for each tracker
   final Map<String, ScrollController> _scrollControllers = {};
-  // Track API server availability separately from network connectivity
-  bool _isServerAvailable = true;
 
   final Map<String, String> _trackerNames = {
     'thought_shredder': 'Thought Shredder',
@@ -148,27 +145,6 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
     return _authToken;
   }
 
-  // Check if network is available
-  Future<bool> _checkNetworkConnectivity() async {
-    var connectivityResult = await (Connectivity().checkConnectivity());
-    return connectivityResult != ConnectivityResult.none;
-  }
-
-  // Check if server is reachable
-  Future<bool> _checkServerReachable() async {
-    try {
-      final response = await http
-          .get(
-            Uri.parse('https://reconstrect-api.onrender.com/api/health'),
-          )
-          .timeout(const Duration(seconds: 5));
-      return response.statusCode >= 200 && response.statusCode < 300;
-    } catch (e) {
-      debugPrint('Server health check failed: $e');
-      return false;
-    }
-  }
-
   // Load activity data from API or fall back to local storage if offline
   Future<void> _loadActivityData() async {
     setState(() {
@@ -178,41 +154,20 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
     // Always load from local storage first to ensure we have data even offline
     await _loadFromLocalStorage();
 
-    // Check network connectivity first
-    final bool isNetworkAvailable = await _checkNetworkConnectivity();
-
-    if (!isNetworkAvailable) {
-      setState(() {
-        _isOffline = true;
-        _isServerAvailable = false;
-        _isLoading = false;
-      });
-      debugPrint('Network is not available. Using local data only.');
-      return;
-    }
-
-    // If network is available, try server health check
-    final bool serverReachable = await _checkServerReachable();
-    _isServerAvailable = serverReachable;
-
     try {
       // Then try to load from API to get the latest data
-      if (serverReachable) {
-        await _loadActivityFromApi();
-        // If loading from API was successful, sync any locally stored offline data
-        await _syncOfflineData();
-      } else {
-        debugPrint('Server is unreachable even though network is available');
-      }
+      await _loadActivityFromApi();
+
+      // If loading from API was successful, sync any locally stored offline data
+      await _syncOfflineData();
 
       setState(() {
-        _isOffline = !serverReachable; // Only offline if server is unreachable
+        _isOffline = false;
       });
     } catch (e) {
       debugPrint('Failed to load from API: $e');
-      // Only set offline if it was a network error, not an auth or other error
+      // We've already loaded from local storage above
       setState(() {
-        _isServerAvailable = false;
         _isOffline = true;
       });
     }
@@ -240,7 +195,7 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
-    ).timeout(const Duration(seconds: 10));
+    );
 
     if (response.statusCode == 200) {
       final responseData = json.decode(response.body);
@@ -267,19 +222,10 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
             }
           }
         }
-
-        // If we get here, server is definitely available
-        _isServerAvailable = true;
       } else {
         throw Exception('Invalid API response format');
       }
-    } else if (response.statusCode == 401 || response.statusCode == 403) {
-      // Auth errors don't mean we're offline
-      _isServerAvailable = true;
-      throw Exception('Authentication failed: ${response.statusCode}');
     } else {
-      // Other errors could indicate server issues
-      _isServerAvailable = false;
       throw Exception('Failed to load activity data: ${response.statusCode}');
     }
   }
@@ -323,32 +269,17 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
     // Save to local storage for offline capability
     await _saveActivityToLocalStorage(trackerId, today);
 
-    // Check connectivity before trying API
-    final isNetworkAvailable = await _checkNetworkConnectivity();
-
-    if (isNetworkAvailable && _isServerAvailable) {
+    // Try to send to API
+    if (!_isOffline) {
       try {
         await _sendActivityToApi(trackerId, today);
-        // If successful, we're definitely not offline
-        setState(() {
-          _isOffline = false;
-        });
       } catch (e) {
         debugPrint('Failed to send activity to API: $e');
-        // Only update offline state if it looks like a connectivity issue
-        final isNetworkStillAvailable = await _checkNetworkConnectivity();
         setState(() {
-          _isOffline = !isNetworkStillAvailable;
-          if (isNetworkStillAvailable) {
-            _isServerAvailable = false;
-          }
+          _isOffline = true;
         });
         // Already saved to local storage above
       }
-    } else if (!isNetworkAvailable) {
-      setState(() {
-        _isOffline = true;
-      });
     }
   }
 
@@ -425,12 +356,6 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
             ),
           );
         }
-
-        // If sync successful, we're definitely online
-        setState(() {
-          _isOffline = false;
-          _isServerAvailable = true;
-        });
       } else {
         debugPrint('Failed to sync activities: ${response.statusCode}');
         throw Exception('Failed to sync activities: ${response.statusCode}');
@@ -459,72 +384,16 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
       _isLoading = true;
     });
 
-    // First check network connectivity
-    final isNetworkAvailable = await _checkNetworkConnectivity();
-    if (!isNetworkAvailable) {
-      setState(() {
-        _isOffline = true;
-        _isLoading = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Network is not available. Cannot sync.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
     try {
-      // Check server health
-      final serverReachable = await _checkServerReachable();
-      if (!serverReachable) {
-        setState(() {
-          _isOffline = true;
-          _isServerAvailable = false;
-          _isLoading = false;
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content:
-                  Text('Server is currently unavailable. Try again later.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-        return;
-      }
-
       await _syncOfflineData();
       await _loadActivityFromApi();
-
       setState(() {
         _isOffline = false;
-        _isServerAvailable = true;
       });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sync completed successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
     } catch (e) {
       debugPrint('Manual sync failed: $e');
-      // Only mark as offline if it's a network issue
-      final isNetworkStillAvailable = await _checkNetworkConnectivity();
       setState(() {
-        _isOffline = !isNetworkStillAvailable;
-        if (isNetworkStillAvailable) {
-          _isServerAvailable = false;
-        }
+        _isOffline = true;
       });
     } finally {
       setState(() {
@@ -623,9 +492,7 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _isServerAvailable
-                                    ? 'Network connection issue detected. Activities are being saved locally and will sync when you\'re back online.'
-                                    : 'Server connection issue detected. Activities are being saved locally and will sync automatically when the server is available again.',
+                                'You\'re offline. Activities are being saved locally and will sync when you\'re back online.',
                                 style: TextStyle(
                                   color: Colors.orange.shade800,
                                 ),

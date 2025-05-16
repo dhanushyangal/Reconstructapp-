@@ -5,7 +5,6 @@ import '../weekly_planners/weekly_planner_page.dart';
 import '../Mind_tools/thought_shredder_page.dart';
 import '../Mind_tools/make_me_smile_page.dart';
 import '../Mind_tools/break_things_page.dart';
-import '../Activity_Tools/color_me_page.dart';
 import '../Activity_Tools/memory_game_page.dart';
 import '../Activity_Tools/riddle_quiz_page.dart';
 import '../Annual_planner/annual_planner_page.dart';
