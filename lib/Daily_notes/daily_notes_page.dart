@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:home_widget/home_widget.dart';
 
 class DailyNotesPage extends StatefulWidget {
   static const routeName = '/daily-notes';
@@ -20,6 +21,29 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
   void initState() {
     super.initState();
     _loadNotes();
+
+    // Initialize HomeWidget
+    HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
+    HomeWidget.registerBackgroundCallback(backgroundCallback);
+  }
+
+  // Background callback for widget updates
+  static Future<void> backgroundCallback(Uri? uri) async {
+    if (uri?.host == 'updatewidget') {
+      // Get data from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final String? data = prefs.getString('daily_notes_data');
+
+      if (data != null) {
+        // Save data to widget
+        await HomeWidget.saveWidgetData('daily_notes_data', data);
+      }
+
+      await HomeWidget.updateWidget(
+        androidName: 'DailyNotesWidget',
+        iOSName: 'DailyNotesWidget',
+      );
+    }
   }
 
   Future<void> _loadNotes() async {
@@ -36,6 +60,9 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
         setState(() {
           _notes = decodedList.map((item) => NoteData.fromJson(item)).toList();
         });
+
+        // Update widget with latest data
+        await _updateWidget();
       } else {
         // Add a default note if none exist
         setState(() {
@@ -67,11 +94,48 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
       final notesJson =
           json.encode(_notes.map((note) => note.toJson()).toList());
       await prefs.setString(_saveKey, notesJson);
+
+      // Update widget when notes are saved
+      await _updateWidget();
     } catch (e) {
       debugPrint('Error saving notes: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to save notes: $e')),
       );
+    }
+  }
+
+  // Update the widget with latest notes data
+  Future<void> _updateWidget() async {
+    try {
+      // Format the first note for widget display
+      String displayText = '';
+      if (_notes.isNotEmpty && _notes[0].text.isNotEmpty) {
+        // Limit the display text to 100 characters for the widget
+        displayText = _notes[0].text.length > 100
+            ? '${_notes[0].text.substring(0, 100)}...'
+            : _notes[0].text;
+      } else {
+        displayText = 'Tap to add notes...';
+      }
+
+      // Save the display text to the widget
+      await HomeWidget.saveWidgetData('daily_notes_display_text', displayText);
+
+      // Save full notes data for when the widget opens the app
+      final notesJson =
+          json.encode(_notes.map((note) => note.toJson()).toList());
+      await HomeWidget.saveWidgetData('daily_notes_data', notesJson);
+
+      // Update widget
+      await HomeWidget.updateWidget(
+        androidName: 'DailyNotesWidget',
+        iOSName: 'DailyNotesWidget',
+      );
+
+      debugPrint('Widget updated with notes data');
+    } catch (e) {
+      debugPrint('Error updating widget: $e');
     }
   }
 
@@ -123,6 +187,16 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Update Widget',
+            onPressed: () async {
+              await _updateWidget();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Widget updated')),
+              );
+            },
+          ),
         ],
       ),
       body: _isLoading
@@ -158,6 +232,15 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                         onPressed: _addNewNote,
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Your notes are displayed on your home screen widget',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ],
                 ),
               ),
@@ -175,10 +258,9 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFFF7520), Color(0xFFFF8C42)],
+          image: const DecorationImage(
+            image: AssetImage('assets/Activity_Tools/daily-notes.png'),
+            fit: BoxFit.cover,
           ),
         ),
         child: Stack(
@@ -190,17 +272,6 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
                     children: [
-                      const RotatedBox(
-                        quarterTurns: -1,
-                        child: Text(
-                          'Notes',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: TextField(

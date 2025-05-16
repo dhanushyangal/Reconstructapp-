@@ -196,6 +196,18 @@ void main() async {
             ),
           );
         }
+      } else if (call.method == 'open_daily_notes') {
+        // Handle opening the daily notes page
+        debugPrint("Opening Daily Notes page from widget");
+
+        if (navigatorKey.currentContext != null) {
+          // Navigate to the Daily Notes page
+          navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (context) => const DailyNotesPage(),
+            ),
+          );
+        }
       }
     });
 
@@ -221,6 +233,12 @@ Future<void> backgroundCallback(Uri? uri) async {
     await HomeWidget.updateWidget(
       androidName: 'VisionBoardWidget',
       iOSName: 'VisionBoardWidget',
+    );
+
+    // Update DailyNotesWidget if available
+    await HomeWidget.updateWidget(
+      androidName: 'DailyNotesWidget',
+      iOSName: 'DailyNotesWidget',
     );
   }
 }
