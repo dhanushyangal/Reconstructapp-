@@ -6,5 +6,6 @@
     android:initialLayout="@layout/daily_notes_widget"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
+    android:previewImage="@drawable/daily_notes_widget_preview1"
     android:label="Daily Notes">
 </appwidget-provider> 
