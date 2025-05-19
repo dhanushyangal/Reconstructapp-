@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 
 class DailyNotesPage extends StatefulWidget {
   static const routeName = '/daily-notes';
@@ -407,23 +408,34 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.white,
         title: _isSearching
             ? TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search your notes...',
-                  hintStyle: TextStyle(color: Colors.grey.shade600),
+                  hintText: 'Search notes...',
+                  hintStyle: TextStyle(color: Colors.grey.shade400),
                   border: InputBorder.none,
                 ),
                 autofocus: true,
                 style: TextStyle(color: Colors.grey.shade800),
               )
-            : const Text('Notes'),
+            : Text(
+                'Notes',
+                style: TextStyle(
+                  color: Colors.grey.shade800,
+                  fontSize: 20,
+                ),
+              ),
         actions: [
           IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            icon: Icon(
+              _isSearching ? Icons.close : Icons.search,
+              color: Colors.grey.shade600,
+            ),
             onPressed: () {
               setState(() {
                 _isSearching = !_isSearching;
@@ -434,7 +446,10 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
             },
           ),
           IconButton(
-            icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
+            icon: Icon(
+              _isGridView ? Icons.view_list : Icons.grid_view,
+              color: Colors.grey.shade600,
+            ),
             onPressed: () {
               setState(() {
                 _isGridView = !_isGridView;
@@ -447,8 +462,9 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
           ? const Center(child: CircularProgressIndicator())
           : _buildNotesView(),
       floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
         onPressed: _createNewNote,
+        backgroundColor: Theme.of(context).primaryColor,
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -459,22 +475,26 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.note, size: 80, color: Colors.grey.shade400),
+            Icon(Icons.note, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
               _isSearching ? 'No matching notes' : 'No notes yet',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 color: Colors.grey.shade600,
               ),
             ),
-            if (!_isSearching) const SizedBox(height: 16),
-            if (!_isSearching)
-              ElevatedButton.icon(
+            if (!_isSearching) ...[
+              const SizedBox(height: 16),
+              TextButton.icon(
                 icon: const Icon(Icons.add),
                 label: const Text('Create your first note'),
                 onPressed: _createNewNote,
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).primaryColor,
+                ),
               ),
+            ],
           ],
         ),
       );
@@ -482,11 +502,11 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
 
     if (_isGridView) {
       return Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(12.0),
         child: MasonryGridView.count(
           crossAxisCount: 2,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
           itemCount: _filteredNotes.length,
           itemBuilder: (context, index) {
             return _buildNoteCard(_filteredNotes[index]);
@@ -495,7 +515,7 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
       );
     } else {
       return ListView.builder(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(12.0),
         itemCount: _filteredNotes.length,
         itemBuilder: (context, index) {
           return _buildNoteCard(_filteredNotes[index], isGrid: false);
@@ -516,7 +536,7 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
               File(note.imagePath!),
               fit: BoxFit.cover,
               width: double.infinity,
-              height: 120,
+              height: 140,
             ),
           ),
 
@@ -540,8 +560,6 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  if (note.isPinned)
-                    const Icon(Icons.push_pin, size: 16, color: Colors.grey),
                 ],
               ),
 
@@ -564,32 +582,36 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: note.checklistItems
                       .take(isGrid ? 5 : 2)
-                      .map((item) => Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                item.isChecked
-                                    ? Icons.check_box
-                                    : Icons.check_box_outline_blank,
-                                size: 14,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  item.text,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    decoration: item.isChecked
-                                        ? TextDecoration.lineThrough
-                                        : null,
-                                    color: item.isChecked ? Colors.grey : null,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                      .map((item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  item.isChecked
+                                      ? Icons.check_box
+                                      : Icons.check_box_outline_blank,
+                                  size: 16,
+                                  color: Colors.grey,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    item.text,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      decoration: item.isChecked
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                      color:
+                                          item.isChecked ? Colors.grey : null,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ))
                       .toList(),
                 ),
@@ -613,7 +635,7 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                 child: Text(
                   'Edited ${_formatDate(note.lastEdited)}',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 12,
                     color: Colors.grey.shade600,
                   ),
                 ),
@@ -630,7 +652,7 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
         children: [
           Card(
             margin: const EdgeInsets.symmetric(vertical: 4.0),
-            elevation: 2,
+            elevation: 1,
             color: note.color,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -639,8 +661,8 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
           ),
           // Quick action buttons - positioned at the top-right corner
           Positioned(
-            top: 0,
-            right: 0,
+            top: 4,
+            right: 4,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -650,8 +672,8 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                   child: IconButton(
                     icon: Icon(
                       note.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                      size: 20,
-                      color: Colors.grey.shade700,
+                      size: 18,
+                      color: Colors.grey.shade600,
                     ),
                     onPressed: () {
                       setState(() {
@@ -677,8 +699,8 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                   child: IconButton(
                     icon: Icon(
                       Icons.delete_outline,
-                      size: 20,
-                      color: Colors.grey.shade700,
+                      size: 18,
+                      color: Colors.grey.shade600,
                     ),
                     onPressed: () {
                       // Show confirmation dialog
@@ -760,6 +782,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   late NoteData _editedNote;
   final _imagePicker = ImagePicker();
   bool _isChecklistMode = false;
+  Timer? _autoSaveTimer;
 
   @override
   void initState() {
@@ -772,13 +795,35 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     if (_editedNote.checklistItems.isNotEmpty) {
       _isChecklistMode = true;
     }
+
+    // Set up auto-save listeners
+    _titleController.addListener(_scheduleAutoSave);
+    _contentController.addListener(_scheduleAutoSave);
   }
 
   @override
   void dispose() {
+    _titleController.removeListener(_scheduleAutoSave);
+    _contentController.removeListener(_scheduleAutoSave);
+    _autoSaveTimer?.cancel();
     _titleController.dispose();
     _contentController.dispose();
     super.dispose();
+  }
+
+  void _scheduleAutoSave() {
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(milliseconds: 500), _autoSave);
+  }
+
+  void _autoSave() {
+    // Update content from controllers
+    _editedNote.title = _titleController.text.trim();
+    _editedNote.content = _contentController.text.trim();
+    _editedNote.lastEdited = DateTime.now();
+
+    // Save the updated note
+    widget.onSave(_editedNote);
   }
 
   Future<void> _pickImage() async {
@@ -805,17 +850,6 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         SnackBar(content: Text('Failed to pick image: $e')),
       );
     }
-  }
-
-  void _saveNote() {
-    // Update content from controllers
-    _editedNote.title = _titleController.text.trim();
-    _editedNote.content = _contentController.text.trim();
-    _editedNote.lastEdited = DateTime.now();
-
-    // Save the updated note
-    widget.onSave(_editedNote);
-    Navigator.of(context).pop();
   }
 
   void _addChecklistItem() {
@@ -924,19 +958,18 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
             onPressed: () {
               setState(() {
                 _editedNote.isPinned = !_editedNote.isPinned;
+                _autoSave();
               });
             },
             tooltip: _editedNote.isPinned ? 'Unpin' : 'Pin',
           ),
           IconButton(
             icon: const Icon(Icons.color_lens_outlined),
-            onPressed: _showColorPicker,
+            onPressed: () {
+              _showColorPicker();
+              _autoSave();
+            },
             tooltip: 'Change color',
-          ),
-          IconButton(
-            icon: const Icon(Icons.check),
-            onPressed: _saveNote,
-            tooltip: 'Save',
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -951,9 +984,11 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                   break;
                 case 'convert_to_checklist':
                   _convertToChecklist();
+                  _autoSave();
                   break;
                 case 'convert_to_text':
                   _convertToText();
+                  _autoSave();
                   break;
               }
             },
