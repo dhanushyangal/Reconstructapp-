@@ -9,12 +9,14 @@ import android.content.Context
 import android.app.PendingIntent
 import android.util.Log
 import android.os.Build
+import android.net.Uri
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
 
 class MainActivity : FlutterActivity() {
     companion object {
         private const val CHANNEL = "com.reconstrect.visionboard/widget"
+        private const val TAG = "MainActivity"
     }
 
     private var methodChannel: MethodChannel? = null
@@ -25,7 +27,7 @@ class MainActivity : FlutterActivity() {
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         
         methodChannel?.setMethodCallHandler { call, result ->
-            Log.d("MainActivity", "Received method call: ${call.method}")
+            Log.d(TAG, "Received method call: ${call.method}")
         }
     }
 
@@ -37,31 +39,56 @@ class MainActivity : FlutterActivity() {
             WindowCompat.setDecorFitsSystemWindows(window, false)
         }
         
-        Log.d("MainActivity", "onCreate called")
+        Log.d(TAG, "onCreate called")
         processIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        Log.d("MainActivity", "onNewIntent called")
+        Log.d(TAG, "onNewIntent called")
         setIntent(intent)
         processIntent(intent)
     }
 
     private fun processIntent(intent: Intent) {
-        Log.d("MainActivity", "Processing intent")
+        Log.d(TAG, "Processing intent: ${intent.action}, data: ${intent.data}")
 
         if (methodChannel == null) {
-            Log.e("MainActivity", "MethodChannel is null")
+            Log.e(TAG, "MethodChannel is null")
             return
         }
 
+        // Handle deep links for notes
+        if (intent.action == Intent.ACTION_VIEW && intent.data != null) {
+            val uri = intent.data
+            
+            if (uri?.scheme == "reconstrect" && uri.host == "dailynotes") {
+                Log.d(TAG, "Daily Notes deep link: ${uri.path}")
+                
+                if (uri.path == "/new") {
+                    // Open daily notes with new note
+                    methodChannel?.invokeMethod(
+                        "openDailyNotes",
+                        mapOf("create_new" to true)
+                    )
+                } else {
+                    // Open daily notes page
+                    methodChannel?.invokeMethod(
+                        "openDailyNotes",
+                        mapOf("create_new" to false)
+                    )
+                }
+                return
+            }
+        }
+
+        // Legacy widget handling
         val action = intent.getStringExtra("action") ?: ""
         val theme = intent.getStringExtra("theme") ?: ""
         val category = intent.getStringExtra("category") ?: ""
         val widgetType = intent.getStringExtra("widget_type") ?: ""
 
-        Log.d("MainActivity", "Action: $action, Theme: $theme, Category: $category, WidgetType: $widgetType")
+        Log.d(TAG, "Action: $action, Theme: $theme, Category: $category, WidgetType: $widgetType")
 
         when (action) {
             "edit_calendar" -> {
