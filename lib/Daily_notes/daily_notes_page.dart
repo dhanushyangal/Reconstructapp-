@@ -355,7 +355,18 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
             setState(() {
               // Handle new notes
               if (isNew) {
-                _notes.add(updatedNote);
+                // If this is a new note and it's empty, don't add it
+                if (updatedNote.title.isEmpty &&
+                    updatedNote.content.isEmpty &&
+                    updatedNote.checklistItems.isEmpty &&
+                    updatedNote.imagePath == null) {
+                  return; // Skip saving empty notes
+                }
+
+                // Check for duplicates before adding
+                if (!_notes.any((n) => n.id == updatedNote.id)) {
+                  _notes.add(updatedNote);
+                }
               } else {
                 // Update existing note
                 final index = _notes.indexWhere((n) => n.id == updatedNote.id);
@@ -783,6 +794,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   final _imagePicker = ImagePicker();
   bool _isChecklistMode = false;
   Timer? _autoSaveTimer;
+  bool _isSaving = false; // Flag to prevent duplicate saves
 
   @override
   void initState() {
@@ -812,18 +824,31 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   }
 
   void _scheduleAutoSave() {
+    if (_isSaving) return; // Don't schedule if already saving
+
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer(const Duration(milliseconds: 500), _autoSave);
   }
 
   void _autoSave() {
-    // Update content from controllers
-    _editedNote.title = _titleController.text.trim();
-    _editedNote.content = _contentController.text.trim();
-    _editedNote.lastEdited = DateTime.now();
+    if (_isSaving) return; // Prevent duplicate saves
 
-    // Save the updated note
-    widget.onSave(_editedNote);
+    _isSaving = true; // Set flag to indicate saving in progress
+
+    try {
+      // Update content from controllers
+      _editedNote.title = _titleController.text.trim();
+      _editedNote.content = _contentController.text.trim();
+      _editedNote.lastEdited = DateTime.now();
+
+      // Save the updated note
+      widget.onSave(_editedNote);
+    } finally {
+      // Add a small delay before allowing new saves to prevent rapid succession
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _isSaving = false;
+      });
+    }
   }
 
   Future<void> _pickImage() async {
@@ -843,6 +868,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         setState(() {
           _editedNote.imagePath = savedImagePath;
         });
+        _autoSave(); // Save after adding image
       }
     } catch (e) {
       debugPrint('Error picking image: $e');
@@ -860,6 +886,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         isChecked: false,
       ));
     });
+    _autoSave(); // Save after adding checklist item
   }
 
   void _updateChecklistItem(String id, {String? text, bool? isChecked}) {
@@ -875,12 +902,17 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         }
       }
     });
+    if (isChecked != null) {
+      _autoSave(); // Save immediately when checkbox is toggled
+    }
+    // Text changes will trigger auto-save via the timer
   }
 
   void _removeChecklistItem(String id) {
     setState(() {
       _editedNote.checklistItems.removeWhere((item) => item.id == id);
     });
+    _autoSave(); // Save after removing checklist item
   }
 
   void _convertToChecklist() {
@@ -942,192 +974,198 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _editedNote.color,
-      appBar: AppBar(
+    return WillPopScope(
+      onWillPop: () async {
+        // Ensure note is saved before popping
+        _autoSave();
+        return true;
+      },
+      child: Scaffold(
         backgroundColor: _editedNote.color,
-        elevation: 0,
-        iconTheme: IconThemeData(
-          color: Colors.grey.shade800,
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _editedNote.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+        appBar: AppBar(
+          backgroundColor: _editedNote.color,
+          elevation: 0,
+          iconTheme: IconThemeData(
+            color: Colors.grey.shade800,
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(
+                _editedNote.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+              ),
+              onPressed: () {
+                setState(() {
+                  _editedNote.isPinned = !_editedNote.isPinned;
+                  _autoSave();
+                });
+              },
+              tooltip: _editedNote.isPinned ? 'Unpin' : 'Pin',
             ),
-            onPressed: () {
-              setState(() {
-                _editedNote.isPinned = !_editedNote.isPinned;
-                _autoSave();
-              });
-            },
-            tooltip: _editedNote.isPinned ? 'Unpin' : 'Pin',
-          ),
-          IconButton(
-            icon: const Icon(Icons.color_lens_outlined),
-            onPressed: () {
-              _showColorPicker();
-              _autoSave();
-            },
-            tooltip: 'Change color',
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'delete':
-                  if (widget.onDelete != null) {
-                    widget.onDelete!(_editedNote.id);
-                  }
-                  break;
-                case 'image':
-                  _pickImage();
-                  break;
-                case 'convert_to_checklist':
-                  _convertToChecklist();
-                  _autoSave();
-                  break;
-                case 'convert_to_text':
-                  _convertToText();
-                  _autoSave();
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              if (!_isChecklistMode)
+            IconButton(
+              icon: const Icon(Icons.color_lens_outlined),
+              onPressed: () {
+                _showColorPicker();
+              },
+              tooltip: 'Change color',
+            ),
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                switch (value) {
+                  case 'delete':
+                    if (widget.onDelete != null) {
+                      widget.onDelete!(_editedNote.id);
+                    }
+                    break;
+                  case 'image':
+                    _pickImage();
+                    break;
+                  case 'convert_to_checklist':
+                    _convertToChecklist();
+                    break;
+                  case 'convert_to_text':
+                    _convertToText();
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                if (!_isChecklistMode)
+                  const PopupMenuItem(
+                    value: 'convert_to_checklist',
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_box_outlined),
+                        SizedBox(width: 8),
+                        Text('Convert to checklist'),
+                      ],
+                    ),
+                  ),
+                if (_isChecklistMode)
+                  const PopupMenuItem(
+                    value: 'convert_to_text',
+                    child: Row(
+                      children: [
+                        Icon(Icons.subject),
+                        SizedBox(width: 8),
+                        Text('Convert to text'),
+                      ],
+                    ),
+                  ),
                 const PopupMenuItem(
-                  value: 'convert_to_checklist',
+                  value: 'image',
                   child: Row(
                     children: [
-                      Icon(Icons.check_box_outlined),
+                      Icon(Icons.image),
                       SizedBox(width: 8),
-                      Text('Convert to checklist'),
+                      Text('Add image'),
                     ],
                   ),
                 ),
-              if (_isChecklistMode)
-                const PopupMenuItem(
-                  value: 'convert_to_text',
-                  child: Row(
-                    children: [
-                      Icon(Icons.subject),
-                      SizedBox(width: 8),
-                      Text('Convert to text'),
-                    ],
+                if (widget.onDelete != null)
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete),
+                        SizedBox(width: 8),
+                        Text('Delete'),
+                      ],
+                    ),
                   ),
-                ),
-              const PopupMenuItem(
-                value: 'image',
-                child: Row(
+              ],
+            ),
+          ],
+        ),
+        body: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image preview
+              if (_editedNote.imagePath != null &&
+                  _editedNote.imagePath!.isNotEmpty)
+                Stack(
                   children: [
-                    Icon(Icons.image),
-                    SizedBox(width: 8),
-                    Text('Add image'),
+                    Image.file(
+                      File(_editedNote.imagePath!),
+                      width: double.infinity,
+                      height: 200,
+                      fit: BoxFit.cover,
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: CircleAvatar(
+                        backgroundColor: Colors.black54,
+                        radius: 16,
+                        child: IconButton(
+                          icon: const Icon(Icons.close,
+                              size: 16, color: Colors.white),
+                          onPressed: () {
+                            setState(() {
+                              _editedNote.imagePath = null;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
                   ],
                 ),
+
+              // Title field
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: TextField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(
+                    hintText: 'Title',
+                    border: InputBorder.none,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-              if (widget.onDelete != null)
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
+
+              // Content - either text or checklist
+              if (!_isChecklistMode)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: _contentController,
+                    decoration: const InputDecoration(
+                      hintText: 'Note',
+                      border: InputBorder.none,
+                    ),
+                    style: const TextStyle(fontSize: 16),
+                    maxLines: null,
+                    keyboardType: TextInputType.multiline,
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
                     children: [
-                      Icon(Icons.delete),
-                      SizedBox(width: 8),
-                      Text('Delete'),
+                      // Checklist items
+                      for (var i = 0;
+                          i < _editedNote.checklistItems.length;
+                          i++)
+                        _buildChecklistItem(_editedNote.checklistItems[i]),
+
+                      // Add item button
+                      TextButton.icon(
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add item'),
+                        onPressed: _addChecklistItem,
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.grey.shade800,
+                        ),
+                      ),
                     ],
                   ),
                 ),
             ],
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image preview
-            if (_editedNote.imagePath != null &&
-                _editedNote.imagePath!.isNotEmpty)
-              Stack(
-                children: [
-                  Image.file(
-                    File(_editedNote.imagePath!),
-                    width: double.infinity,
-                    height: 200,
-                    fit: BoxFit.cover,
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: CircleAvatar(
-                      backgroundColor: Colors.black54,
-                      radius: 16,
-                      child: IconButton(
-                        icon: const Icon(Icons.close,
-                            size: 16, color: Colors.white),
-                        onPressed: () {
-                          setState(() {
-                            _editedNote.imagePath = null;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-            // Title field
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: TextField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  hintText: 'Title',
-                  border: InputBorder.none,
-                ),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-
-            // Content - either text or checklist
-            if (!_isChecklistMode)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: _contentController,
-                  decoration: const InputDecoration(
-                    hintText: 'Note',
-                    border: InputBorder.none,
-                  ),
-                  style: const TextStyle(fontSize: 16),
-                  maxLines: null,
-                  keyboardType: TextInputType.multiline,
-                ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    // Checklist items
-                    for (var i = 0; i < _editedNote.checklistItems.length; i++)
-                      _buildChecklistItem(_editedNote.checklistItems[i]),
-
-                    // Add item button
-                    TextButton.icon(
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add item'),
-                      onPressed: _addChecklistItem,
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.grey.shade800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
         ),
       ),
     );
@@ -1136,9 +1174,14 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   Widget _buildChecklistItem(ChecklistItem item) {
     final textController = TextEditingController(text: item.text);
 
-    // Set up a listener to update the item text when it changes
+    // Using addListener directly on the controller can cause double saves
+    // We'll handle it in a more controlled way
     textController.addListener(() {
-      _updateChecklistItem(item.id, text: textController.text);
+      if (textController.text != item.text) {
+        _updateChecklistItem(item.id, text: textController.text);
+        // Note: No explicit _autoSave() call here as _updateChecklistItem
+        // will schedule an auto-save for text changes
+      }
     });
 
     return Padding(
@@ -1150,7 +1193,9 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
           Checkbox(
             value: item.isChecked,
             onChanged: (value) {
-              _updateChecklistItem(item.id, isChecked: value);
+              if (value != null) {
+                _updateChecklistItem(item.id, isChecked: value);
+              }
             },
           ),
           // Text field
@@ -1209,6 +1254,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                         _editedNote.color = color;
                       });
                       Navigator.pop(context);
+                      _autoSave(); // Save after changing color
                     },
                     child: Container(
                       width: 48,

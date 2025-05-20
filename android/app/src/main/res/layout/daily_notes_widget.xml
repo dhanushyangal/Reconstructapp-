@@ -11,41 +11,48 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="16dp">
 
         <!-- Image preview if available -->
         <ImageView
             android:id="@+id/note_image"
-            android:layout_width="match_parent"
-            android:layout_height="160dp"
-            android:scaleType="centerCrop"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:scaleType="fitCenter"
+            android:adjustViewBounds="true"
+            android:maxHeight="180dp"
+            android:layout_gravity="center_horizontal"
             android:visibility="gone"
-            android:layout_marginBottom="12dp"
-            android:contentDescription="Note image" />
+            android:layout_marginBottom="16dp"
+            android:contentDescription="Note image"
+            android:background="#F5F5F5"
+            android:elevation="2dp" />
 
         <!-- Note title -->
         <TextView
             android:id="@+id/note_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="18sp"
+            android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="#1F1F1F"
             android:ellipsize="end"
             android:maxLines="1"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="12dp"
+            android:fontFamily="sans-serif-medium" />
 
         <!-- Main content or checklist indicator -->
         <TextView
             android:id="@+id/note_content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="15sp"
+            android:textSize="16sp"
             android:textColor="#424242"
             android:ellipsize="end"
             android:maxLines="8"
-            android:lineSpacingExtra="4sp"
-            android:layout_marginBottom="12dp" />
+            android:lineSpacingExtra="6sp"
+            android:layout_marginBottom="16dp"
+            android:fontFamily="sans-serif" />
 
         <!-- Checklist container -->
         <LinearLayout
@@ -53,7 +60,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone">
+            android:visibility="gone"
+            android:layout_marginBottom="16dp">
             
             <!-- Checklist items will be populated here programmatically -->
             
@@ -63,25 +71,27 @@
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp">
+            android:layout_marginTop="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Tap to view all notes"
-                android:textSize="12sp"
+                android:textSize="14sp"
                 android:textColor="#757575"
-                android:layout_gravity="start|center_vertical" />
+                android:layout_gravity="start|center_vertical"
+                android:fontFamily="sans-serif" />
 
             <ImageView
                 android:id="@+id/add_note_button"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:src="@android:drawable/ic_input_add"
                 android:background="@drawable/circle_background"
-                android:padding="8dp"
+                android:padding="10dp"
                 android:layout_gravity="end"
-                android:tint="#2196F3" />
+                android:tint="#2196F3"
+                android:elevation="2dp" />
         </FrameLayout>
     </LinearLayout>
 </LinearLayout> 
