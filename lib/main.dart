@@ -283,68 +283,68 @@ class _MyAppState extends State<MyApp> {
     }
 
     return MaterialApp(
-      navigatorKey: navigatorKey,
-      title: 'Reconstruct',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
+        navigatorKey: navigatorKey,
+        title: 'Reconstruct',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+          useMaterial3: true,
+        ),
       home: _hasSeenOnboarding ? const AuthWrapper() : const OnboardingScreen(),
-      routes: {
+        routes: {
         '/auth': (context) => const AuthWrapper(),
-        '/home': (context) => const HomePage(),
-        '/login': (context) => const LoginPage(),
-        '/register': (context) => const RegisterPage(),
-        // Add activity page routes
-        ColorMePage.routeName: (context) => const ColorMePage(),
-        MemoryGamePage.routeName: (context) => const MemoryGamePage(),
-        RiddleQuizPage.routeName: (context) => const RiddleQuizPage(),
-        SlidingPuzzlePage.routeName: (context) => const SlidingPuzzlePage(),
-        DailyNotesPage.routeName: (context) => const DailyNotesPage(),
-        BreakThingsPage.routeName: (context) => const BreakThingsPage(),
+          '/home': (context) => const HomePage(),
+          '/login': (context) => const LoginPage(),
+          '/register': (context) => const RegisterPage(),
+          // Add activity page routes
+          ColorMePage.routeName: (context) => const ColorMePage(),
+          MemoryGamePage.routeName: (context) => const MemoryGamePage(),
+          RiddleQuizPage.routeName: (context) => const RiddleQuizPage(),
+          SlidingPuzzlePage.routeName: (context) => const SlidingPuzzlePage(),
+          DailyNotesPage.routeName: (context) => const DailyNotesPage(),
+          BreakThingsPage.routeName: (context) => const BreakThingsPage(),
         ThoughtShredderPage.routeName: (context) => const ThoughtShredderPage(),
-        MakeMeSmilePage.routeName: (context) => const MakeMeSmilePage(),
-        BubbleWrapPopperPage.routeName: (context) =>
-            const BubbleWrapPopperPage(),
-        // Add annual planner routes
-        AnimalThemeCalendarApp.routeName: (context) =>
-            const AnimalThemeCalendarApp(monthIndex: 0),
-        HappyCoupleThemeCalendarApp.routeName: (context) =>
-            const HappyCoupleThemeCalendarApp(monthIndex: 0),
-        SpanielThemeCalendarApp.routeName: (context) =>
-            const SpanielThemeCalendarApp(monthIndex: 0),
-        SummerThemeCalendarApp.routeName: (context) =>
-            const SummerThemeCalendarApp(monthIndex: 0),
-        FloralThemeAnnualPlanner.routeName: (context) =>
-            const FloralThemeAnnualPlanner(monthIndex: 0),
-        PostItThemeAnnualPlanner.routeName: (context) =>
-            const PostItThemeAnnualPlanner(monthIndex: 0),
-        PremiumThemeAnnualPlanner.routeName: (context) =>
-            const PremiumThemeAnnualPlanner(monthIndex: 0),
-        WatercolorThemeAnnualPlanner.routeName: (context) =>
-            const WatercolorThemeAnnualPlanner(monthIndex: 0),
-        // Add vision board routes
-        VisionBoardDetailsPage.routeName: (context) =>
-            const VisionBoardDetailsPage(title: 'Box Them Vision Board'),
-        PostItThemeVisionBoard.routeName: (context) =>
-            const PostItThemeVisionBoard(),
-        CoffeeHuesThemeVisionBoard.routeName: (context) =>
-            const CoffeeHuesThemeVisionBoard(),
-        PremiumThemeVisionBoard.routeName: (context) =>
-            const PremiumThemeVisionBoard(),
-        RubyRedsThemeVisionBoard.routeName: (context) =>
-            const RubyRedsThemeVisionBoard(),
-        WinterWarmthThemeVisionBoard.routeName: (context) =>
-            const WinterWarmthThemeVisionBoard(),
-        PatternsThemeWeeklyPlanner.routeName: (context) =>
-            const PatternsThemeWeeklyPlanner(dayIndex: 0),
-        FloralThemeWeeklyPlanner.routeName: (context) =>
-            const FloralThemeWeeklyPlanner(dayIndex: 0),
-        WatercolorThemeWeeklyPlanner.routeName: (context) =>
-            const WatercolorThemeWeeklyPlanner(dayIndex: 0),
-        JapaneseThemeWeeklyPlanner.routeName: (context) =>
-            const JapaneseThemeWeeklyPlanner(dayIndex: 0),
-      },
+          MakeMeSmilePage.routeName: (context) => const MakeMeSmilePage(),
+          BubbleWrapPopperPage.routeName: (context) =>
+              const BubbleWrapPopperPage(),
+          // Add annual planner routes
+          AnimalThemeCalendarApp.routeName: (context) =>
+              const AnimalThemeCalendarApp(monthIndex: 0),
+          HappyCoupleThemeCalendarApp.routeName: (context) =>
+              const HappyCoupleThemeCalendarApp(monthIndex: 0),
+          SpanielThemeCalendarApp.routeName: (context) =>
+              const SpanielThemeCalendarApp(monthIndex: 0),
+          SummerThemeCalendarApp.routeName: (context) =>
+              const SummerThemeCalendarApp(monthIndex: 0),
+          FloralThemeAnnualPlanner.routeName: (context) =>
+              const FloralThemeAnnualPlanner(monthIndex: 0),
+          PostItThemeAnnualPlanner.routeName: (context) =>
+              const PostItThemeAnnualPlanner(monthIndex: 0),
+          PremiumThemeAnnualPlanner.routeName: (context) =>
+              const PremiumThemeAnnualPlanner(monthIndex: 0),
+          WatercolorThemeAnnualPlanner.routeName: (context) =>
+              const WatercolorThemeAnnualPlanner(monthIndex: 0),
+          // Add vision board routes
+          VisionBoardDetailsPage.routeName: (context) =>
+              const VisionBoardDetailsPage(title: 'Box Them Vision Board'),
+          PostItThemeVisionBoard.routeName: (context) =>
+              const PostItThemeVisionBoard(),
+          CoffeeHuesThemeVisionBoard.routeName: (context) =>
+              const CoffeeHuesThemeVisionBoard(),
+          PremiumThemeVisionBoard.routeName: (context) =>
+              const PremiumThemeVisionBoard(),
+          RubyRedsThemeVisionBoard.routeName: (context) =>
+              const RubyRedsThemeVisionBoard(),
+          WinterWarmthThemeVisionBoard.routeName: (context) =>
+              const WinterWarmthThemeVisionBoard(),
+          PatternsThemeWeeklyPlanner.routeName: (context) =>
+              const PatternsThemeWeeklyPlanner(dayIndex: 0),
+          FloralThemeWeeklyPlanner.routeName: (context) =>
+              const FloralThemeWeeklyPlanner(dayIndex: 0),
+          WatercolorThemeWeeklyPlanner.routeName: (context) =>
+              const WatercolorThemeWeeklyPlanner(dayIndex: 0),
+          JapaneseThemeWeeklyPlanner.routeName: (context) =>
+              const JapaneseThemeWeeklyPlanner(dayIndex: 0),
+        },
     );
   }
 }

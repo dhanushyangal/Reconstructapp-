@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
+import 'dart:async';
+import 'dart:io';
 import '../services/auth_service.dart';
 import '../services/offline_sync_service.dart';
 import '../pages/vision_board_page.dart';
@@ -48,15 +50,32 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
   bool _isCheckingConnectivity = false;
   bool _hasPendingSync = false;
   List<Map<String, dynamic>> _activeBoards = [];
+  Timer? _connectivityCheckTimer;
+  int _consecutiveFailedChecks = 0;
 
   @override
   void initState() {
     super.initState();
     _setupConnectivityListener();
-    _checkServerConnectivity();
+    _checkServerConnectivity(initialCheck: true);
     _loadUserInfo();
     _checkPendingOfflineData();
     _loadActiveTasks();
+
+    // Setup periodic connectivity check
+    _connectivityCheckTimer =
+        Timer.periodic(const Duration(minutes: 2), (timer) {
+      if (_isOffline) {
+        // If offline, check more frequently
+        _checkServerConnectivity(quiet: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivityCheckTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkPendingOfflineData() async {
@@ -82,8 +101,53 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
     });
   }
 
-  Future<void> _checkServerConnectivity() async {
-    if (_isCheckingConnectivity) return;
+  // DNS lookup to check if internet is generally available
+  Future<bool> _checkGeneralConnectivity() async {
+    for (String url in ApiConfig.externalConnectivityUrls) {
+      try {
+        final uri = Uri.parse(url);
+        final host = uri.host;
+        final List<InternetAddress> result = await InternetAddress.lookup(host)
+            .timeout(Duration(seconds: ApiConfig.dnsLookupTimeout));
+        if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+          debugPrint(
+              'DNS lookup successful for $host - general internet connectivity available');
+          return true;
+        }
+      } on SocketException catch (_) {
+        continue; // Try next URL
+      } catch (e) {
+        debugPrint('Error during DNS lookup for $url: $e');
+        continue; // Try next URL
+      }
+    }
+    debugPrint('All DNS lookups failed - no general internet connectivity');
+    return false;
+  }
+
+  // Check if a specific URL is reachable using HTTP HEAD request (lightweight)
+  Future<bool> _isUrlReachable(String url, {int timeout = 5}) async {
+    try {
+      final client = http.Client();
+      try {
+        final response = await client
+            .head(Uri.parse(url))
+            .timeout(Duration(seconds: timeout));
+        return response.statusCode >= 200 && response.statusCode < 400;
+      } finally {
+        client.close();
+      }
+    } catch (e) {
+      debugPrint('Error checking URL $url: $e');
+      return false;
+    }
+  }
+
+  Future<void> _checkServerConnectivity(
+      {bool initialCheck = false,
+      bool quiet = false,
+      bool forceNotification = false}) async {
+    if (_isCheckingConnectivity && !forceNotification) return;
 
     setState(() {
       _isCheckingConnectivity = true;
@@ -97,100 +161,119 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
         setState(() {
           _isOffline = true;
           _isCheckingConnectivity = false;
+          _consecutiveFailedChecks++;
         });
         debugPrint('Device has no network connectivity, setting offline mode');
         return;
       }
 
-      // Then check server reachability - test the actual API endpoint
-      final baseUrl = ApiConfig.baseUrl;
+      // Then check general internet connectivity using DNS lookup
+      final hasInternet = await _checkGeneralConnectivity();
+      if (!hasInternet) {
+        setState(() {
+          _isOffline = true;
+          _isCheckingConnectivity = false;
+          _consecutiveFailedChecks++;
+        });
+        debugPrint('General internet connectivity check failed');
+        return;
+      }
+
+      // Record previous state to detect changes
       final wasOffline = _isOffline;
+      bool isServerReachable = false;
 
+      // Try multiple approaches to verify server connectivity
       try {
-        // First try the health endpoint
-        final healthEndpoint = '$baseUrl${ApiConfig.healthEndpoint}';
-        debugPrint('Checking server health at: $healthEndpoint');
+        final baseUrl = ApiConfig.baseUrl;
 
-        final response = await http.get(Uri.parse(healthEndpoint)).timeout(
-            Duration(seconds: 8)); // Use a longer timeout for reliability
+        // Try each endpoint in order until one succeeds
+        for (String endpoint in ApiConfig.connectivityCheckEndpoints) {
+          final fullUrl = '$baseUrl$endpoint';
+          debugPrint('Checking server connectivity at: $fullUrl');
 
-        final bool isConnected = response.statusCode == 200;
-        debugPrint(
-            'Health endpoint response: ${response.statusCode}, isConnected: $isConnected');
+          final endpointReachable = await _isUrlReachable(fullUrl,
+              timeout: ApiConfig.connectivityCheckTimeout);
 
-        // If health check fails, try a fallback endpoint
-        if (!isConnected) {
-          debugPrint('Health check failed, trying fallback endpoint');
-          final fallbackResponse = await http
-              .get(Uri.parse('$baseUrl/auth/premium-status'))
-              .timeout(Duration(seconds: 8));
-
-          final bool fallbackConnected = fallbackResponse.statusCode == 200 ||
-              fallbackResponse.statusCode ==
-                  401; // 401 means server is up but auth is needed
-
-          debugPrint(
-              'Fallback response: ${fallbackResponse.statusCode}, isConnected: $fallbackConnected');
-
-          // Update offline state based on fallback check
-          setState(() {
-            _isOffline = !fallbackConnected;
-            _isCheckingConnectivity = false;
-          });
-        } else {
-          // Update offline state based on primary health check
-          setState(() {
-            _isOffline = !isConnected;
-            _isCheckingConnectivity = false;
-          });
+          if (endpointReachable) {
+            debugPrint('Server reached successfully via $endpoint');
+            isServerReachable = true;
+            break;
+          } else {
+            debugPrint('Failed to reach server via $endpoint');
+          }
         }
+
+        setState(() {
+          _isOffline = !isServerReachable;
+          _isCheckingConnectivity = false;
+          if (isServerReachable) {
+            _consecutiveFailedChecks = 0;
+          } else {
+            _consecutiveFailedChecks++;
+          }
+        });
+
+        debugPrint(
+            'Server connectivity check result: ${isServerReachable ? 'ONLINE' : 'OFFLINE'}');
+        debugPrint('Consecutive failed checks: $_consecutiveFailedChecks');
 
         // If we were offline before but now online, trigger sync
         if (wasOffline && !_isOffline) {
           debugPrint('Connection restored, syncing offline data');
+          if (!quiet || forceNotification) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Connection restored! Syncing data...'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
           await _syncOfflineData();
           await _loadActiveTasks();
         }
-      } catch (e) {
-        debugPrint('Server connection check failed: $e');
-
-        // As a last resort, check if general internet is available via DNS
-        try {
-          final dnsResponse = await http
-              .get(Uri.parse('https://www.google.com'))
-              .timeout(Duration(seconds: 5));
-
-          debugPrint(
-              'Internet connectivity check via Google: ${dnsResponse.statusCode}');
-
-          // If internet is available but server is not, this is a server-specific issue
-          if (dnsResponse.statusCode >= 200 && dnsResponse.statusCode < 400) {
-            debugPrint('Internet is available but API server may be down');
-
-            // Still show offline for the app since our server is unreachable
-            setState(() {
-              _isOffline = true;
-              _isCheckingConnectivity = false;
-            });
-          } else {
-            setState(() {
-              _isOffline = true;
-              _isCheckingConnectivity = false;
-            });
+        // If we just went offline and it wasn't the initial check
+        else if (!wasOffline && _isOffline && !initialCheck) {
+          if (!quiet || forceNotification) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content:
+                    Text('Connection to server lost. Working in offline mode.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 3),
+              ),
+            );
           }
-        } catch (dnsError) {
-          debugPrint('General internet check also failed: $dnsError');
-          setState(() {
-            _isOffline = true;
-            _isCheckingConnectivity = false;
-          });
         }
+
+        // Adjust the connectivity check timer frequency based on consecutive failures
+        if (_consecutiveFailedChecks > ApiConfig.maxConsecutiveFailures) {
+          _connectivityCheckTimer?.cancel();
+          // Check less frequently after multiple failures
+          _connectivityCheckTimer =
+              Timer.periodic(const Duration(minutes: 5), (timer) {
+            if (_isOffline) {
+              _checkServerConnectivity(quiet: true);
+            }
+          });
+          debugPrint(
+              'Reduced connectivity check frequency after $_consecutiveFailedChecks consecutive failures');
+        }
+      } catch (e) {
+        debugPrint('Error during server connectivity checks: $e');
+        setState(() {
+          _isOffline = true;
+          _isCheckingConnectivity = false;
+          _consecutiveFailedChecks++;
+        });
       }
     } catch (e) {
       debugPrint('Error in connectivity check: $e');
       setState(() {
         _isOffline = true; // Default to offline on any error
         _isCheckingConnectivity = false;
+        _consecutiveFailedChecks++;
       });
     }
   }
@@ -206,7 +289,8 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
 
     // Double-check connectivity before attempting sync
     if (_isOffline) {
-      debugPrint('Cannot sync data while offline, will try again when online');
+      debugPrint(
+          'Server unavailable, postponing sync until connection is restored');
       setState(() {
         _hasPendingSync = true;
       });
@@ -218,16 +302,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
     });
 
     try {
-      // First try a quick connectivity check
-      await _checkServerConnectivity();
-
-      // If we're offline, don't try to sync
-      if (_isOffline) {
-        debugPrint(
-            'Server unavailable, postponing sync until connection is restored');
-        return;
-      }
-
       debugPrint('Starting sync of offline data...');
       final success = await _syncService.syncMindToolsActivity().timeout(
           Duration(seconds: ApiConfig.syncOperationTimeout), onTimeout: () {
@@ -1452,25 +1526,36 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
           if (_isOffline)
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
-              child: Tooltip(
-                message:
-                    'Connection issue detected. Data is saved locally and will sync when connection is restored.',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.cloud_off,
-                      color: Colors.orangeAccent,
-                      size: 20,
+              child: InkWell(
+                onTap: () => _showConnectivityInfoDialog(),
+                child: Tooltip(
+                  message:
+                      'Connection issue detected. Data is saved locally and will sync when connection is restored.',
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orangeAccent)),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.cloud_off,
+                          color: Colors.orangeAccent,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Offline',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orangeAccent,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Offline',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.orangeAccent,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -1492,7 +1577,7 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
                         _isCheckingConnectivity = true;
                       });
 
-                      await _checkServerConnectivity();
+                      await _checkServerConnectivity(forceNotification: true);
 
                       if (!_isOffline) {
                         await _syncOfflineData();
@@ -1507,9 +1592,9 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
+                          SnackBar(
                             content: Text(
-                                'Still unable to connect to server. Your data is saved locally and will sync automatically when connection is restored.'),
+                                'Still unable to connect to server after $_consecutiveFailedChecks attempts. Your data is saved locally and will sync automatically when connection is restored.'),
                             duration: Duration(seconds: 4),
                           ),
                         );
@@ -1528,7 +1613,7 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
           if (_isOffline)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
               color: Colors.orange.shade50,
               child: Row(
                 children: [
@@ -1536,11 +1621,45 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
                       color: Colors.orange.shade800, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'Connection to server unavailable. Your boards are accessible and changes will be saved locally until connection is restored.',
-                      style: TextStyle(
-                          color: Colors.orange.shade800, fontSize: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Working Offline',
+                          style: TextStyle(
+                            color: Colors.orange.shade900,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Connection to server unavailable. Your boards are accessible and changes will be saved locally until connection is restored.',
+                          style: TextStyle(
+                              color: Colors.orange.shade800, fontSize: 12),
+                        ),
+                      ],
                     ),
+                  ),
+                  Column(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.refresh,
+                            color: Colors.orange.shade800, size: 16),
+                        tooltip: 'Try to reconnect',
+                        onPressed: () =>
+                            _checkServerConnectivity(forceNotification: true),
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints.tight(Size(24, 24)),
+                      ),
+                      Text(
+                        'Reconnect',
+                        style: TextStyle(
+                          color: Colors.orange.shade800,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1562,6 +1681,14 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
                           TextStyle(color: Colors.blue.shade800, fontSize: 12),
                     ),
                   ),
+                  IconButton(
+                    icon: Icon(Icons.cloud_upload,
+                        color: Colors.blue.shade800, size: 16),
+                    tooltip: 'Sync now',
+                    onPressed: _syncOfflineData,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints.tight(Size(24, 24)),
+                  )
                 ],
               ),
             ),
@@ -1933,5 +2060,65 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       default:
         return 'Other Board';
     }
+  }
+
+  // Show detailed connectivity information dialog
+  Future<void> _showConnectivityInfoDialog() async {
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(_isOffline ? Icons.cloud_off : Icons.cloud_done,
+                  color: _isOffline ? Colors.orangeAccent : Colors.green),
+              const SizedBox(width: 10),
+              Text(_isOffline ? 'Offline Mode' : 'Online Mode'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Connection Status: ${_isOffline ? 'Offline' : 'Online'}'),
+              const SizedBox(height: 8),
+              Text('Failed Connection Attempts: $_consecutiveFailedChecks'),
+              const SizedBox(height: 8),
+              Text('Server URL: ${ApiConfig.baseUrl}'),
+              const SizedBox(height: 16),
+              const Text(
+                'While offline, all your changes are saved locally on your device. '
+                'When connection is restored, data will automatically sync with the server.',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              if (_isOffline)
+                const Text(
+                  'Troubleshooting tips:\n'
+                  '• Check your internet connection\n'
+                  '• Make sure you have a stable network\n'
+                  '• Our server might be temporarily unavailable\n'
+                  '• Try again in a few minutes',
+                  style: TextStyle(fontSize: 13),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+            if (_isOffline)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _checkServerConnectivity(forceNotification: true);
+                },
+                child: Text('Try Reconnecting'),
+              ),
+          ],
+        );
+      },
+    );
   }
 }
