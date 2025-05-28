@@ -55,173 +55,165 @@ import 'weekly_planners/patterns_theme_weekly_planner.dart';
 import 'weekly_planners/floral_theme_weekly_planner.dart';
 import 'weekly_planners/watercolor_theme_weekly_planner.dart';
 import 'weekly_planners/japanese_theme_weekly_planner.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
+import 'dart:developer';
 // After imports section, add this global variable
 
 // Add keys to check payment status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
 
-void main() async {
+// Global connectivity status
+bool isOffline = false;
+
+// Initialize connectivity monitoring
+Future<void> initConnectivity() async {
   try {
-    WidgetsFlutterBinding.ensureInitialized();
+    final connectivityResult = await Connectivity().checkConnectivity();
 
-    // Initialize API configuration
-    // You can set this based on build environment or configuration
-    // For now, we'll use development as default
-    ApiConfig.initialize(
-      environment:
-          Environment.development, // Change to .production for release builds
-    );
-
-    // Initialize Firebase
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-
-    // Initialize in-app purchases
-    if (Platform.isAndroid) {
-      InAppPurchaseAndroidPlatformAddition.enablePendingPurchases();
+    // First check if device has connectivity
+    if (connectivityResult == ConnectivityResult.none) {
+      log('Device has no network connectivity, setting global offline mode');
+      isOffline = true;
+      return;
     }
 
-    // Check if first launch
-    final prefs = await SharedPreferences.getInstance();
-    final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
+    // Then check if our server is reachable
+    try {
+      log('Checking server reachability...');
+      final baseUrl = ApiConfig.baseUrl;
+      final healthEndpoint = '$baseUrl${ApiConfig.healthEndpoint}';
 
-    // Add stream listener for auth state changes
-    FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      debugPrint('Auth state changed: ${user?.email ?? 'No user'}');
-    });
+      final response = await http
+          .get(Uri.parse(healthEndpoint))
+          .timeout(const Duration(seconds: 8));
 
-    // Check if user is already signed in
-    final currentUser = FirebaseAuth.instance.currentUser;
-    debugPrint('Current user at startup: ${currentUser?.email}');
+      isOffline = response.statusCode != 200;
+      log('Server health check result: isOffline=$isOffline (status=${response.statusCode})');
 
-    // Clear the session flag for subscription modal at app startup
-    await prefs.setBool('has_shown_subscription_this_session', false);
+      // If health check fails, try a fallback endpoint
+      if (isOffline) {
+        log('Health check failed, trying fallback endpoint');
 
-    await HomeWidget.registerInteractivityCallback(backgroundCallback);
+        try {
+          final fallbackResponse = await http
+              .get(Uri.parse('$baseUrl/auth'))
+              .timeout(const Duration(seconds: 5));
 
-    // IMPORTANT: Initialize the session flag for subscription modal
-    // This prevents the subscription modal from appearing repeatedly
-    await prefs.setBool('has_shown_subscription_this_session', false);
+          final bool fallbackConnected = fallbackResponse.statusCode >= 200 &&
+              fallbackResponse.statusCode <
+                  500; // Any non-5xx status indicates server is up
 
-    // Set up platform channel to receive widget intent
-    const platform = MethodChannel('com.reconstrect.visionboard/widget');
-    platform.setMethodCallHandler((call) async {
-      if (call.method == 'openVisionBoardWithTheme') {
-        final category = call.arguments['category'] as String?;
-        final theme = call.arguments['theme'] as String?;
-        final widgetType = call.arguments['widget_type'] as String?;
-
-        // Skip navigation if it's a calendar widget
-        if (widgetType == "calendar") {
-          return;
-        }
-
-        if (category != null && theme != null) {
-          Widget page;
-          switch (theme) {
-            case 'Premium Vision Board':
-              page = const PremiumThemeVisionBoard();
-              break;
-            case 'PostIt Vision Board':
-              page = const PostItThemeVisionBoard();
-              break;
-            case 'Winter Warmth Vision Board':
-              page = const WinterWarmthThemeVisionBoard();
-              break;
-            case 'Ruby Reds Vision Board':
-              page = const RubyRedsThemeVisionBoard();
-              break;
-            case 'Coffee Hues Vision Board':
-              page = const CoffeeHuesThemeVisionBoard();
-              break;
-            case 'Box Vision Board':
-              page = VisionBoardDetailsPage(title: theme);
-              break;
-            default:
-              return; // Don't navigate if theme doesn't match
-          }
-
-          navigatorKey.currentState?.push(
-            MaterialPageRoute(builder: (context) => page),
-          );
-        }
-      } else if (call.method == 'openEventsView') {
-        final monthIndex = call.arguments['month_index'] as int;
-        final eventId = call.arguments['event_id'] as String?;
-        final calendarTheme = call.arguments['calendar_theme'] as String?;
-
-        debugPrint("Opening events view with theme: $calendarTheme");
-
-        if (navigatorKey.currentContext != null) {
-          // Pop to home first
-          while (navigatorKey.currentState!.canPop()) {
-            navigatorKey.currentState!.pop();
-          }
-
-          // Navigate to appropriate theme page
-          Widget destinationPage;
-          debugPrint("Matching theme: $calendarTheme");
-
-          switch (calendarTheme?.trim()) {
-            case 'Animal theme 2025 Calendar':
-              debugPrint("Opening Animal theme");
-              destinationPage = AnimalThemeCalendarApp(
-                  monthIndex: monthIndex, eventId: eventId, showEvents: true);
-              break;
-            case 'Summer theme 2025 Calendar':
-              debugPrint("Opening Summer theme");
-              destinationPage = SummerThemeCalendarApp(
-                  monthIndex: monthIndex, eventId: eventId);
-              break;
-            case 'Spaniel theme 2025 Calendar':
-              debugPrint("Opening Spaniel theme");
-              destinationPage = SpanielThemeCalendarApp(
-                  monthIndex: monthIndex, eventId: eventId);
-              break;
-            case 'Happy Couple theme 2025 Calendar':
-              debugPrint("Opening Happy Couple theme");
-              destinationPage = HappyCoupleThemeCalendarApp(
-                  monthIndex: monthIndex, eventId: eventId);
-              break;
-            default:
-              debugPrint("No match found, defaulting to Animal theme");
-              destinationPage = AnimalThemeCalendarApp(
-                  monthIndex: monthIndex, eventId: eventId);
-          }
-
-          navigatorKey.currentState?.push(
-            MaterialPageRoute(
-              builder: (context) => destinationPage,
-            ),
-          );
-        }
-      } else if (call.method == 'open_daily_notes') {
-        // Handle opening the daily notes page
-        debugPrint("Opening Daily Notes page from widget");
-
-        if (navigatorKey.currentContext != null) {
-          // Navigate to the Daily Notes page
-          navigatorKey.currentState?.push(
-            MaterialPageRoute(
-              builder: (context) => const DailyNotesPage(),
-            ),
-          );
+          isOffline = !fallbackConnected;
+          log('Fallback check result: isOffline=$isOffline (status=${fallbackResponse.statusCode})');
+        } catch (e) {
+          log('Fallback endpoint check failed: $e');
+          // Keep offline status from primary health check
         }
       }
+    } catch (e) {
+      log('Error checking server reachability: $e');
+
+      // As a last resort, check if general internet is available
+      try {
+        final dnsResponse = await http
+            .get(Uri.parse('https://www.google.com'))
+            .timeout(const Duration(seconds: 5));
+
+        // If we can reach google.com but not our server, this is a server-specific issue
+        log('General internet check: ${dnsResponse.statusCode}');
+        isOffline = true; // Still mark as offline since our API is unreachable
+      } catch (dnsError) {
+        log('General internet check also failed: $dnsError');
+        isOffline = true;
+      }
+    }
+
+    // Set up listener for future changes
+    Connectivity().onConnectivityChanged.listen((result) {
+      if (result == ConnectivityResult.none) {
+        log('Device lost connectivity, setting offline flag');
+        isOffline = true;
+      } else {
+        // Device has connectivity, verify server is reachable
+        checkServerReachability();
+      }
     });
-
-    // FOR TESTING: Override trial status to active
-    // Comment this out for production or to fix repeated subscription modal
-    // await prefs.setBool('trial_active', true);
-    // await prefs.setString('trial_end_date',
-    //     DateTime.now().add(const Duration(days: 7)).toIso8601String());
-
-    runApp(MyApp(hasSeenOnboarding: hasSeenOnboarding));
   } catch (e) {
-    debugPrint('Initialization error: $e');
-    runApp(const MyApp(hasSeenOnboarding: false));
+    log('Error initializing connectivity monitoring: $e');
+    isOffline = false; // Assume online if check fails
   }
+}
+
+// Check if server is actually reachable
+Future<void> checkServerReachability() async {
+  try {
+    final baseUrl = ApiConfig.baseUrl;
+    final healthEndpoint = '$baseUrl${ApiConfig.healthEndpoint}';
+
+    log('Checking server health at: $healthEndpoint');
+    final response = await http
+        .get(Uri.parse(healthEndpoint))
+        .timeout(const Duration(seconds: 8));
+
+    final bool isConnected = response.statusCode == 200;
+    log('Server connectivity check: ${response.statusCode}, isConnected=$isConnected');
+
+    // Update global state
+    isOffline = !isConnected;
+
+    // If main health check fails, try a fallback endpoint
+    if (isOffline) {
+      try {
+        final fallbackResponse = await http
+            .get(Uri.parse('$baseUrl/auth/premium-status'))
+            .timeout(const Duration(seconds: 5));
+
+        final bool fallbackConnected = fallbackResponse.statusCode == 200 ||
+            fallbackResponse.statusCode ==
+                401; // 401 means server is up but auth is needed
+
+        isOffline = !fallbackConnected;
+        log('Fallback connectivity check: ${fallbackResponse.statusCode}, isConnected=${!isOffline}');
+      } catch (e) {
+        log('Fallback server check failed: $e');
+        // Keep offline status true
+      }
+    }
+  } catch (e) {
+    log('Server unreachable: $e');
+    isOffline = true;
+  }
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize API config with the appropriate environment
+  ApiConfig.initialize(environment: Environment.staging);
+
+  // Initialize connectivity monitoring
+  await initConnectivity();
+
+  // Create auth service
+  final authService = AuthService();
+
+  // Initialize auth service
+  await authService.initialize();
+
+  // Run the app
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthService>(
+          create: (_) => authService,
+        ),
+        // Additional providers can be added here
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 // Global navigator key to access navigation from anywhere
@@ -243,26 +235,63 @@ Future<void> backgroundCallback(Uri? uri) async {
   }
 }
 
-class MyApp extends StatelessWidget {
-  final bool hasSeenOnboarding;
-  const MyApp({super.key, required this.hasSeenOnboarding});
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _hasSeenOnboarding = false;
+  bool _isCheckingOnboarding = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
+
+      setState(() {
+        _hasSeenOnboarding = hasSeenOnboarding;
+        _isCheckingOnboarding = false;
+      });
+    } catch (e) {
+      debugPrint('Error checking onboarding status: $e');
+      setState(() {
+        _hasSeenOnboarding = false;
+        _isCheckingOnboarding = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthService()),
-      ],
-      child: MaterialApp(
+    if (_isCheckingOnboarding) {
+      return MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
+    return MaterialApp(
         navigatorKey: navigatorKey,
         title: 'Reconstruct',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
         ),
-        home: hasSeenOnboarding ? AuthWrapper() : const OnboardingScreen(),
+      home: _hasSeenOnboarding ? const AuthWrapper() : const OnboardingScreen(),
         routes: {
-          '/auth': (context) => AuthWrapper(),
+        '/auth': (context) => const AuthWrapper(),
           '/home': (context) => const HomePage(),
           '/login': (context) => const LoginPage(),
           '/register': (context) => const RegisterPage(),
@@ -273,8 +302,7 @@ class MyApp extends StatelessWidget {
           SlidingPuzzlePage.routeName: (context) => const SlidingPuzzlePage(),
           DailyNotesPage.routeName: (context) => const DailyNotesPage(),
           BreakThingsPage.routeName: (context) => const BreakThingsPage(),
-          ThoughtShredderPage.routeName: (context) =>
-              const ThoughtShredderPage(),
+        ThoughtShredderPage.routeName: (context) => const ThoughtShredderPage(),
           MakeMeSmilePage.routeName: (context) => const MakeMeSmilePage(),
           BubbleWrapPopperPage.routeName: (context) =>
               const BubbleWrapPopperPage(),
@@ -317,7 +345,6 @@ class MyApp extends StatelessWidget {
           JapaneseThemeWeeklyPlanner.routeName: (context) =>
               const JapaneseThemeWeeklyPlanner(dayIndex: 0),
         },
-      ),
     );
   }
 }

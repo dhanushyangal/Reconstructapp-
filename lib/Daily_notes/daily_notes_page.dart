@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'dart:ui' as ui;
 
 class DailyNotesPage extends StatefulWidget {
   static const routeName = '/daily-notes';
@@ -28,16 +29,6 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
   bool _isGridView = true;
   TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
-  final List<Color> _noteColors = [
-    Colors.white,
-    Colors.red.shade100,
-    Colors.orange.shade100,
-    Colors.yellow.shade100,
-    Colors.green.shade100,
-    Colors.blue.shade100,
-    Colors.purple.shade100,
-    Colors.pink.shade100,
-  ];
 
   @override
   void initState() {
@@ -396,7 +387,6 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                   _saveNotes();
                   Navigator.of(context).pop();
                 },
-          availableColors: _noteColors,
         ),
       ),
     );
@@ -664,11 +654,25 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
           Card(
             margin: const EdgeInsets.symmetric(vertical: 4.0),
             elevation: 1,
-            color: note.color,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-            child: cardContent,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                image: const DecorationImage(
+                  image: AssetImage('assets/floral_weekly/floral_1.png'),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withOpacity(0.1),
+                ),
+                child: cardContent,
+              ),
+            ),
           ),
           // Quick action buttons - positioned at the top-right corner
           Positioned(
@@ -773,14 +777,12 @@ class NoteEditorPage extends StatefulWidget {
   final NoteData note;
   final Function(NoteData) onSave;
   final Function(String)? onDelete;
-  final List<Color> availableColors;
 
   const NoteEditorPage({
     Key? key,
     required this.note,
     required this.onSave,
     this.onDelete,
-    required this.availableColors,
   }) : super(key: key);
 
   @override
@@ -794,7 +796,10 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   final _imagePicker = ImagePicker();
   bool _isChecklistMode = false;
   Timer? _autoSaveTimer;
-  bool _isSaving = false; // Flag to prevent duplicate saves
+  bool _isSaving = false;
+
+  // Map to store persistent controllers for checklist items
+  final Map<String, TextEditingController> _checklistControllers = {};
 
   @override
   void initState() {
@@ -820,6 +825,13 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     _autoSaveTimer?.cancel();
     _titleController.dispose();
     _contentController.dispose();
+
+    // Dispose all checklist controllers
+    for (var controller in _checklistControllers.values) {
+      controller.dispose();
+    }
+    _checklistControllers.clear();
+
     super.dispose();
   }
 
@@ -976,14 +988,13 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        // Ensure note is saved before popping
         _autoSave();
         return true;
       },
       child: Scaffold(
-        backgroundColor: _editedNote.color,
+        backgroundColor: Colors.white,
         appBar: AppBar(
-          backgroundColor: _editedNote.color,
+          backgroundColor: Colors.white,
           elevation: 0,
           iconTheme: IconThemeData(
             color: Colors.grey.shade800,
@@ -1000,13 +1011,6 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                 });
               },
               tooltip: _editedNote.isPinned ? 'Unpin' : 'Pin',
-            ),
-            IconButton(
-              icon: const Icon(Icons.color_lens_outlined),
-              onPressed: () {
-                _showColorPicker();
-              },
-              tooltip: 'Change color',
             ),
             PopupMenuButton<String>(
               onSelected: (value) {
@@ -1075,114 +1079,141 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
             ),
           ],
         ),
-        body: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image preview
-              if (_editedNote.imagePath != null &&
-                  _editedNote.imagePath!.isNotEmpty)
-                Stack(
-                  children: [
-                    Image.file(
-                      File(_editedNote.imagePath!),
-                      width: double.infinity,
-                      height: 200,
-                      fit: BoxFit.cover,
-                    ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: CircleAvatar(
-                        backgroundColor: Colors.black54,
-                        radius: 16,
-                        child: IconButton(
-                          icon: const Icon(Icons.close,
-                              size: 16, color: Colors.white),
-                          onPressed: () {
-                            setState(() {
-                              _editedNote.imagePath = null;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-              // Title field
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: TextField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(
-                    hintText: 'Title',
-                    border: InputBorder.none,
-                  ),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+        body: Stack(
+          children: [
+            // Background image fills the whole screen
+            Container(
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/floral_weekly/floral_1.png'),
+                  fit: BoxFit.cover,
                 ),
               ),
-
-              // Content - either text or checklist
-              if (!_isChecklistMode)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TextField(
-                    controller: _contentController,
-                    decoration: const InputDecoration(
-                      hintText: 'Note',
-                      border: InputBorder.none,
-                    ),
-                    style: const TextStyle(fontSize: 16),
-                    maxLines: null,
-                    keyboardType: TextInputType.multiline,
-                  ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: [
-                      // Checklist items
-                      for (var i = 0;
-                          i < _editedNote.checklistItems.length;
-                          i++)
-                        _buildChecklistItem(_editedNote.checklistItems[i]),
-
-                      // Add item button
-                      TextButton.icon(
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add item'),
-                        onPressed: _addChecklistItem,
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.grey.shade800,
+            ),
+            // Semi-transparent overlay (optional, for readability)
+            Container(
+              color: Colors.white.withOpacity(0.1),
+            ),
+            // The scrollable content
+            SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Image preview
+                  if (_editedNote.imagePath != null &&
+                      _editedNote.imagePath!.isNotEmpty)
+                    Stack(
+                      children: [
+                        Image.file(
+                          File(_editedNote.imagePath!),
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
                         ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: CircleAvatar(
+                            backgroundColor: Colors.black54,
+                            radius: 16,
+                            child: IconButton(
+                              icon: const Icon(Icons.close,
+                                  size: 16, color: Colors.white),
+                              onPressed: () {
+                                setState(() {
+                                  _editedNote.imagePath = null;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                  // Title field
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: TextField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
+                        hintText: 'Title',
+                        border: InputBorder.none,
                       ),
-                    ],
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
-            ],
-          ),
+
+                  // Content - either text or checklist
+                  if (!_isChecklistMode)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextField(
+                        controller: _contentController,
+                        decoration: const InputDecoration(
+                          hintText: 'Note',
+                          border: InputBorder.none,
+                        ),
+                        style: const TextStyle(fontSize: 16),
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        children: [
+                          // Checklist items
+                          for (var i = 0;
+                              i < _editedNote.checklistItems.length;
+                              i++)
+                            _buildChecklistItem(_editedNote.checklistItems[i]),
+
+                          // Add item button
+                          TextButton.icon(
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add item'),
+                            onPressed: _addChecklistItem,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.grey.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildChecklistItem(ChecklistItem item) {
-    final textController = TextEditingController(text: item.text);
+    // Get or create a persistent controller for this item
+    if (!_checklistControllers.containsKey(item.id)) {
+      _checklistControllers[item.id] = TextEditingController(text: item.text);
 
-    // Using addListener directly on the controller can cause double saves
-    // We'll handle it in a more controlled way
-    textController.addListener(() {
-      if (textController.text != item.text) {
-        _updateChecklistItem(item.id, text: textController.text);
-        // Note: No explicit _autoSave() call here as _updateChecklistItem
-        // will schedule an auto-save for text changes
-      }
-    });
+      // Add listener only once when controller is created
+      _checklistControllers[item.id]!.addListener(() {
+        if (_checklistControllers[item.id]!.text != item.text) {
+          _updateChecklistItem(item.id,
+              text: _checklistControllers[item.id]!.text);
+        }
+      });
+    } else if (_checklistControllers[item.id]!.text != item.text) {
+      // Update controller text if it doesn't match item text (avoid cursor jumps)
+      _checklistControllers[item.id]!.value = TextEditingValue(
+        text: item.text,
+        selection: _checklistControllers[item.id]!.selection,
+      );
+    }
+
+    final textController = _checklistControllers[item.id]!;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -1202,6 +1233,8 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
           Expanded(
             child: TextField(
               controller: textController,
+              textDirection:
+                  ui.TextDirection.ltr, // Explicitly set text direction
               decoration: const InputDecoration(
                 hintText: 'List item',
                 border: InputBorder.none,
@@ -1219,65 +1252,6 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
             onPressed: () => _removeChecklistItem(item.id),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showColorPicker() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        height: 120,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Note color',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: widget.availableColors.length,
-                itemBuilder: (context, index) {
-                  final color = widget.availableColors[index];
-                  final isSelected = _editedNote.color == color;
-
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _editedNote.color = color;
-                      });
-                      Navigator.pop(context);
-                      _autoSave(); // Save after changing color
-                    },
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      margin: const EdgeInsets.only(right: 8),
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected ? Colors.blue : Colors.grey,
-                          width: isSelected ? 2 : 1,
-                        ),
-                      ),
-                      child: isSelected
-                          ? const Icon(Icons.check, color: Colors.blue)
-                          : null,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

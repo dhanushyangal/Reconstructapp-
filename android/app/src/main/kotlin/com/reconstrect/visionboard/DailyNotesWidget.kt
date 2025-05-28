@@ -138,18 +138,13 @@ class DailyNotesWidget : AppWidgetProvider() {
         val colorValue = noteJson.optInt("colorValue", Color.WHITE)
         val hasChecklistItems = noteJson.has("checklistItems") && noteJson.getJSONArray("checklistItems").length() > 0
         
-        // Set background color based on note color
-        try {
-            // Set background color
-            views.setInt(R.id.widget_container, "setBackgroundColor", colorValue)
-        } catch (e: Exception) {
-            // Fallback to default background if there's an issue
-            views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.note_background)
-        }
+        // Set widget background to background image
+        views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.daily_notes_background)
         
         // Handle title
         if (title.isNotEmpty()) {
             views.setTextViewText(R.id.note_title, title)
+            views.setTextColor(R.id.note_title, Color.WHITE)
             views.setViewVisibility(R.id.note_title, View.VISIBLE)
         } else {
             views.setViewVisibility(R.id.note_title, View.GONE)
@@ -160,17 +155,33 @@ class DailyNotesWidget : AppWidgetProvider() {
             try {
                 val imageFile = File(imagePath)
                 if (imageFile.exists()) {
-                    // Load and resize the image
                     val options = BitmapFactory.Options().apply {
-                        inSampleSize = 2 // Reduce image size for better performance
+                        // First decode with inJustDecodeBounds=true to check dimensions
+                        inJustDecodeBounds = true
                     }
+                    BitmapFactory.decodeFile(imagePath, options)
+                    
+                    // Calculate inSampleSize
+                    options.inSampleSize = calculateInSampleSize(options, 800, 800)
+                    
+                    // Decode bitmap with inSampleSize set
+                    options.inJustDecodeBounds = false
                     val bitmap = BitmapFactory.decodeFile(imagePath, options)
                     if (bitmap != null) {
-                        // Scale the bitmap to fit the widget's image view
+                        // Scale the bitmap to fit perfectly in the widget
+                        val maxHeight = 300 // Increased max height for better visibility
+                        val displayMetrics = context.resources.displayMetrics
+                        val screenWidth = displayMetrics.widthPixels
+                        
+                        // Calculate optimal dimensions while maintaining aspect ratio
+                        val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
+                        val newHeight = maxHeight.coerceAtMost(bitmap.height)
+                        val newWidth = minOf((newHeight * ratio).toInt(), screenWidth - 32) // Account for padding
+                        
                         val scaledBitmap = Bitmap.createScaledBitmap(
                             bitmap,
-                            bitmap.width,
-                            160, // Match the height in the layout
+                            newWidth,
+                            newHeight,
                             true
                         )
                         views.setImageViewBitmap(R.id.note_image, scaledBitmap)
@@ -219,14 +230,17 @@ class DailyNotesWidget : AppWidgetProvider() {
             }
             
             views.setTextViewText(R.id.note_content, checklistText.toString().trim())
+            views.setTextColor(R.id.note_content, Color.WHITE)
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         } else if (content.isNotEmpty()) {
             // We have regular content
             views.setTextViewText(R.id.note_content, content)
+            views.setTextColor(R.id.note_content, Color.WHITE)
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         } else if (displayText != null && displayText.isNotEmpty()) {
             // Use display text if available
             views.setTextViewText(R.id.note_content, displayText)
+            views.setTextColor(R.id.note_content, Color.WHITE)
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         } else {
             views.setViewVisibility(R.id.note_content, View.GONE)
@@ -239,8 +253,32 @@ class DailyNotesWidget : AppWidgetProvider() {
     private fun setEmptyState(views: RemoteViews) {
         views.setViewVisibility(R.id.note_image, View.GONE)
         views.setViewVisibility(R.id.note_title, View.GONE)
-        views.setTextViewText(R.id.note_content, "Tap to add notes...")
-        views.setViewVisibility(R.id.note_content, View.VISIBLE)
+        views.setTextViewText(R.id.note_content, "")
+        views.setViewVisibility(R.id.note_content, View.GONE)
         views.setViewVisibility(R.id.checklist_container, View.GONE)
+        views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.daily_notes_background)
+    }
+
+    /**
+     * Calculate the optimal inSampleSize value for loading a bitmap efficiently
+     */
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        // Raw height and width of image
+        val height = options.outHeight
+        val width = options.outWidth
+        var inSampleSize = 1
+        
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight: Int = height / 2
+            val halfWidth: Int = width / 2
+            
+            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
+            // height and width larger than the requested height and width.
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        
+        return inSampleSize
     }
 } 

@@ -13,6 +13,7 @@ import '../Mind_tools/bubble_wrap_popper_page.dart';
 import '../Activity_Tools/sliding_puzzle_page.dart';
 import '../Activity_Tools/color_me_now.dart';
 import 'dart:convert';
+import '../vision_journey/vision-board-travel-journey.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -120,6 +121,10 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
   // Tool data organized by category
   final Map<String, List<Map<String, dynamic>>> _tools = {
     'vision': [
+      {
+        'name': 'Start guided journey',
+        'image': 'assets/start_guided_journey.png'
+      },
       {'name': 'Vision Boards', 'image': 'assets/vision-board-plain.jpg'},
       {'name': 'Weekly Planners', 'image': 'assets/weakly_planer.png'},
       {
@@ -452,100 +457,6 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
     ];
   }
 
-  // Helper methods for navigation
-  void _handleVisionToolNavigation(String toolName) {
-    switch (toolName) {
-      case 'Vision Boards':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const VisionBoardPage()),
-        );
-        break;
-      case 'Weekly Planners':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const WeeklyPlannerPage()),
-        );
-        break;
-      case 'To do List':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const AnnualPlannerPage()),
-        );
-        break;
-      case 'Fun Calendars':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const AnnualCalenderPage()),
-        );
-        break;
-      default:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const VisionBoardPage()),
-        );
-        break;
-    }
-  }
-
-  void _handleMindToolNavigation(String toolName) {
-    switch (toolName) {
-      case 'Thought Shredder':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const ThoughtShredderPage()),
-        );
-        break;
-      case 'Smile Therapy':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const MakeMeSmilePage()),
-        );
-        break;
-      case 'Break Things':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const BreakThingsPage()),
-        );
-        break;
-      case 'Bubble Wrap Popper':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const BubbleWrapPopperPage()),
-        );
-        break;
-      case 'Decide For Me':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Decide For Me coming soon')),
-        );
-        break;
-      default:
-        break;
-    }
-  }
-
-  void _handleActivityToolNavigation(String toolName) {
-    switch (toolName) {
-      case 'Digital Coloring':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const ColorMeNowPage()),
-        );
-        break;
-      case 'Memory Game':
-        Navigator.pushNamed(context, MemoryGamePage.routeName);
-        break;
-      case 'Riddles':
-        Navigator.pushNamed(context, RiddleQuizPage.routeName);
-        break;
-      case 'Sliding Puzzle':
-        Navigator.pushNamed(context, SlidingPuzzlePage.routeName);
-        break;
-      default:
-        break;
-    }
-  }
-
   Widget _buildRecentActivitySection() {
     return Container(
       width: double.infinity,
@@ -677,5 +588,107 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
         ),
       ),
     );
+  }
+
+  // Restore the navigation methods but add a case for 'Start guided journey'
+  void _handleVisionToolNavigation(String toolName) {
+    switch (toolName) {
+      case 'Start guided journey':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const VisionBoardTravelJourneyPage()),
+        );
+        break;
+      case 'Vision Boards':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const VisionBoardPage()),
+        );
+        break;
+      case 'Weekly Planners':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const WeeklyPlannerPage()),
+        );
+        break;
+      case 'To do List':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AnnualPlannerPage()),
+        );
+        break;
+      case 'Fun Calendars':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AnnualCalenderPage()),
+        );
+        break;
+      default:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const VisionBoardPage()),
+        );
+        break;
+    }
+  }
+
+  // Fix the onTap handler to use the existing methods again
+  void _handleMindToolNavigation(String toolName) {
+    switch (toolName) {
+      case 'Thought Shredder':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ThoughtShredderPage()),
+        );
+        break;
+      case 'Smile Therapy':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const MakeMeSmilePage()),
+        );
+        break;
+      case 'Break Things':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const BreakThingsPage()),
+        );
+        break;
+      case 'Bubble Wrap Popper':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const BubbleWrapPopperPage()),
+        );
+        break;
+      case 'Decide For Me':
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Decide For Me coming soon')),
+        );
+        break;
+      default:
+        break;
+    }
+  }
+
+  void _handleActivityToolNavigation(String toolName) {
+    switch (toolName) {
+      case 'Digital Coloring':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ColorMeNowPage()),
+        );
+        break;
+      case 'Memory Game':
+        Navigator.pushNamed(context, MemoryGamePage.routeName);
+        break;
+      case 'Riddles':
+        Navigator.pushNamed(context, RiddleQuizPage.routeName);
+        break;
+      case 'Sliding Puzzle':
+        Navigator.pushNamed(context, SlidingPuzzlePage.routeName);
+        break;
+      default:
+        break;
+    }
   }
 }

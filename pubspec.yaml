@@ -1,5 +1,6 @@
 name: reconstrect1
 description: "A new Flutter project."
+# Last updated for merge request
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -45,7 +46,7 @@ dependencies:
   image_picker: ^1.1.2
   flutter_gif: ^0.0.4
   gif: ^2.3.0
-  http: ^1.3.0
+  http: ^1.4.0
   url_launcher: ^6.2.4
   mysql1: ^0.20.0
   connectivity_plus: ^6.1.4
@@ -264,7 +265,7 @@ flutter:
     - assets/Activity_Tools/sliding-puzzle.png
     - assets/Activity_Tools/sliding-dog.png
     - assets/Activity_Tools/notes.png
-    - assets/Activity_Tools/daily-notes.png
+    - assets/Activity_Tools/daily-note.png
 
 
 

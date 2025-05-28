@@ -650,4 +650,45 @@ class AuthService extends ChangeNotifier {
   void updateApiUrl(String newUrl) {
     _mysqlService.baseUrl = newUrl;
   }
+
+  // Add a method to get the auth token for API calls
+  Future<String?> getToken() async {
+    try {
+      // First try to get token from shared preferences
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token != null && token.isNotEmpty) {
+        return token;
+      }
+
+      // If no token in preferences, check if we can get one from Firebase
+      final firebaseUser = _auth.currentUser;
+      if (firebaseUser != null) {
+        try {
+          final idToken = await firebaseUser.getIdToken();
+          if (idToken != null && idToken.isNotEmpty) {
+            // If this is the first time we're getting a Firebase token,
+            // we could store it in preferences for future use
+            await prefs.setString('auth_token', idToken);
+            return idToken;
+          }
+        } catch (e) {
+          debugPrint('Error getting Firebase ID token: $e');
+        }
+      }
+
+      // If we have userData but no token, attempt to login again to get a token
+      if (_userData != null && _userData!['email'] != null) {
+        // This is a fallback and might not work in all cases
+        debugPrint(
+            'No token found but user data exists. Consider re-authenticating.');
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('Error in getToken: $e');
+      return null;
+    }
+  }
 }

@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:http/http.dart' as http;
+import 'dart:async';
+import 'dart:io';
 import '../services/auth_service.dart';
+import '../services/offline_sync_service.dart';
 import '../pages/vision_board_page.dart';
 import '../pages/box_them_vision_board.dart';
 import '../pages/premium_them_vision_board.dart';
@@ -27,6 +32,7 @@ import '../weekly_planners/patterns_theme_weekly_planner.dart';
 import '../weekly_planners/japanese_theme_weekly_planner.dart';
 import '../weekly_planners/floral_theme_weekly_planner.dart';
 import '../weekly_planners/watercolor_theme_weekly_planner.dart';
+import '../config/api_config.dart';
 
 class ActiveTasksPage extends StatefulWidget {
   const ActiveTasksPage({super.key});
@@ -37,24 +43,320 @@ class ActiveTasksPage extends StatefulWidget {
 
 class _ActiveTasksPageState extends State<ActiveTasksPage> {
   final AuthService _authService = AuthService();
+  final OfflineSyncService _syncService = OfflineSyncService();
   String? _userId;
   bool _isLoading = true;
+  bool _isOffline = false;
+  bool _isCheckingConnectivity = false;
+  bool _hasPendingSync = false;
   List<Map<String, dynamic>> _activeBoards = [];
+  Timer? _connectivityCheckTimer;
+  int _consecutiveFailedChecks = 0;
 
   @override
   void initState() {
     super.initState();
+    _setupConnectivityListener();
+    _checkServerConnectivity(initialCheck: true);
     _loadUserInfo();
+    _checkPendingOfflineData();
     _loadActiveTasks();
+
+    // Setup periodic connectivity check
+    _connectivityCheckTimer =
+        Timer.periodic(const Duration(minutes: 2), (timer) {
+      if (_isOffline) {
+        // If offline, check more frequently
+        _checkServerConnectivity(quiet: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivityCheckTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkPendingOfflineData() async {
+    final hasPendingData = await _syncService.hasOfflineData();
+    if (mounted) {
+      setState(() {
+        _hasPendingSync = hasPendingData;
+      });
+    }
+  }
+
+  void _setupConnectivityListener() {
+    Connectivity().onConnectivityChanged.listen((result) {
+      if (result == ConnectivityResult.none) {
+        // Device is definitely offline
+        setState(() {
+          _isOffline = true;
+        });
+      } else {
+        // Device has connectivity, but we need to check server reachability
+        _checkServerConnectivity();
+      }
+    });
+  }
+
+  // DNS lookup to check if internet is generally available
+  Future<bool> _checkGeneralConnectivity() async {
+    for (String url in ApiConfig.externalConnectivityUrls) {
+      try {
+        final uri = Uri.parse(url);
+        final host = uri.host;
+        final List<InternetAddress> result = await InternetAddress.lookup(host)
+            .timeout(Duration(seconds: ApiConfig.dnsLookupTimeout));
+        if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+          debugPrint(
+              'DNS lookup successful for $host - general internet connectivity available');
+          return true;
+        }
+      } on SocketException catch (_) {
+        continue; // Try next URL
+      } catch (e) {
+        debugPrint('Error during DNS lookup for $url: $e');
+        continue; // Try next URL
+      }
+    }
+    debugPrint('All DNS lookups failed - no general internet connectivity');
+    return false;
+  }
+
+  // Check if a specific URL is reachable using HTTP HEAD request (lightweight)
+  Future<bool> _isUrlReachable(String url, {int timeout = 5}) async {
+    try {
+      final client = http.Client();
+      try {
+        final response = await client
+            .head(Uri.parse(url))
+            .timeout(Duration(seconds: timeout));
+        return response.statusCode >= 200 && response.statusCode < 400;
+      } finally {
+        client.close();
+      }
+    } catch (e) {
+      debugPrint('Error checking URL $url: $e');
+      return false;
+    }
+  }
+
+  Future<void> _checkServerConnectivity(
+      {bool initialCheck = false,
+      bool quiet = false,
+      bool forceNotification = false}) async {
+    if (_isCheckingConnectivity && !forceNotification) return;
+
+    setState(() {
+      _isCheckingConnectivity = true;
+    });
+
+    try {
+      // First check device connectivity
+      final connectivityResult = await Connectivity().checkConnectivity();
+
+      if (connectivityResult == ConnectivityResult.none) {
+        setState(() {
+          _isOffline = true;
+          _isCheckingConnectivity = false;
+          _consecutiveFailedChecks++;
+        });
+        debugPrint('Device has no network connectivity, setting offline mode');
+        return;
+      }
+
+      // Then check general internet connectivity using DNS lookup
+      final hasInternet = await _checkGeneralConnectivity();
+      if (!hasInternet) {
+        setState(() {
+          _isOffline = true;
+          _isCheckingConnectivity = false;
+          _consecutiveFailedChecks++;
+        });
+        debugPrint('General internet connectivity check failed');
+        return;
+      }
+
+      // Record previous state to detect changes
+      final wasOffline = _isOffline;
+      bool isServerReachable = false;
+
+      // Try multiple approaches to verify server connectivity
+      try {
+        final baseUrl = ApiConfig.baseUrl;
+
+        // Try each endpoint in order until one succeeds
+        for (String endpoint in ApiConfig.connectivityCheckEndpoints) {
+          final fullUrl = '$baseUrl$endpoint';
+          debugPrint('Checking server connectivity at: $fullUrl');
+
+          final endpointReachable = await _isUrlReachable(fullUrl,
+              timeout: ApiConfig.connectivityCheckTimeout);
+
+          if (endpointReachable) {
+            debugPrint('Server reached successfully via $endpoint');
+            isServerReachable = true;
+            break;
+          } else {
+            debugPrint('Failed to reach server via $endpoint');
+          }
+        }
+
+        setState(() {
+          _isOffline = !isServerReachable;
+          _isCheckingConnectivity = false;
+          if (isServerReachable) {
+            _consecutiveFailedChecks = 0;
+          } else {
+            _consecutiveFailedChecks++;
+          }
+        });
+
+        debugPrint(
+            'Server connectivity check result: ${isServerReachable ? 'ONLINE' : 'OFFLINE'}');
+        debugPrint('Consecutive failed checks: $_consecutiveFailedChecks');
+
+        // If we were offline before but now online, trigger sync
+        if (wasOffline && !_isOffline) {
+          debugPrint('Connection restored, syncing offline data');
+          if (!quiet || forceNotification) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Connection restored! Syncing data...'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+          await _syncOfflineData();
+          await _loadActiveTasks();
+        }
+        // If we just went offline and it wasn't the initial check
+        else if (!wasOffline && _isOffline && !initialCheck) {
+          if (!quiet || forceNotification) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content:
+                    Text('Connection to server lost. Working in offline mode.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+
+        // Adjust the connectivity check timer frequency based on consecutive failures
+        if (_consecutiveFailedChecks > ApiConfig.maxConsecutiveFailures) {
+          _connectivityCheckTimer?.cancel();
+          // Check less frequently after multiple failures
+          _connectivityCheckTimer =
+              Timer.periodic(const Duration(minutes: 5), (timer) {
+            if (_isOffline) {
+              _checkServerConnectivity(quiet: true);
+            }
+          });
+          debugPrint(
+              'Reduced connectivity check frequency after $_consecutiveFailedChecks consecutive failures');
+        }
+      } catch (e) {
+        debugPrint('Error during server connectivity checks: $e');
+        setState(() {
+          _isOffline = true;
+          _isCheckingConnectivity = false;
+          _consecutiveFailedChecks++;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error in connectivity check: $e');
+      setState(() {
+        _isOffline = true; // Default to offline on any error
+        _isCheckingConnectivity = false;
+        _consecutiveFailedChecks++;
+      });
+    }
+  }
+
+  Future<void> _syncOfflineData() async {
+    // Check if we have pending data to sync
+    if (!await _syncService.hasOfflineData()) {
+      setState(() {
+        _hasPendingSync = false;
+      });
+      return;
+    }
+
+    // Double-check connectivity before attempting sync
+    if (_isOffline) {
+      debugPrint(
+          'Server unavailable, postponing sync until connection is restored');
+      setState(() {
+        _hasPendingSync = true;
+      });
+      return;
+    }
+
+    setState(() {
+      _hasPendingSync = true;
+    });
+
+    try {
+      debugPrint('Starting sync of offline data...');
+      final success = await _syncService.syncMindToolsActivity().timeout(
+          Duration(seconds: ApiConfig.syncOperationTimeout), onTimeout: () {
+        debugPrint('Sync operation timed out');
+        return false;
+      });
+
+      setState(() {
+        _hasPendingSync = !success;
+      });
+
+      if (success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Successfully synced offline data'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Failed to sync some offline data. Will retry later.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error syncing offline data: $e');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error during data sync: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+
+      // Make sure the pending sync flag is still set
+      setState(() {
+        _hasPendingSync = true;
+      });
+    }
   }
 
   Future<void> _loadUserInfo() async {
-    // Get Firebase user (if available)
     final firebaseUser = FirebaseAuth.instance.currentUser;
-    // Get MySQL user data (if available)
     final mysqlUserData = _authService.userData;
 
-    // Determine which user data to use
     if (mysqlUserData != null) {
       _userId = mysqlUserData['id']?.toString() ?? 'mysql_user';
     } else if (firebaseUser != null) {
@@ -71,26 +373,22 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Clear cache to ensure we get fresh data - this helps prevent duplicates
       await prefs.reload();
 
       final allKeys = prefs.getKeys();
 
-      // Perform checks in specific order for better categorization - same as in _performFullRefresh
       _checkVisionBoardTodos(allKeys, prefs);
       _checkAnnualCalendarEvents(allKeys, prefs);
       _checkAnnualPlannerTodos(allKeys, prefs);
       _checkWeeklyPlannerTodos(allKeys, prefs);
 
-      // Only run dynamic detection if we haven't found enough boards - helps prevent duplicates
       if (_activeBoards.isEmpty || _activeBoards.length < 2) {
         _detectAdditionalTaskPatterns(allKeys, prefs);
       }
 
-      // Remove any duplicate boards
       _removeAllDuplicateBoards();
     } catch (e) {
-      // Handle errors silently
+      debugPrint('Error loading active tasks: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -99,7 +397,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
   }
 
   void _checkVisionBoardTodos(Set<String> allKeys, SharedPreferences prefs) {
-    // Check Box Theme Vision Board
     if (_checkBoardHasTasks(allKeys, 'BoxThem_todos_', prefs)) {
       _activeBoards.add({
         'name': 'Box Theme Vision Board',
@@ -110,7 +407,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       });
     }
 
-    // Check Premium Theme Vision Board
     if (_checkBoardHasTasks(allKeys, 'premium_todos_', prefs)) {
       _activeBoards.add({
         'name': 'Premium Theme Vision Board',
@@ -121,7 +417,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       });
     }
 
-    // Check PostIt Theme Vision Board
     if (_checkBoardHasTasks(allKeys, 'postit_todos_', prefs)) {
       _activeBoards.add({
         'name': 'PostIt Theme Vision Board',
@@ -132,7 +427,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       });
     }
 
-    // Check Winter Warmth Theme Vision Board
     if (_checkBoardHasTasks(allKeys, 'winterwarmth_todos_', prefs)) {
       _activeBoards.add({
         'name': 'Winter Warmth Theme Vision Board',
@@ -143,7 +437,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       });
     }
 
-    // Check Ruby Reds Theme Vision Board
     if (_checkBoardHasTasks(allKeys, 'rubyreds_todos_', prefs)) {
       _activeBoards.add({
         'name': 'Ruby Reds Theme Vision Board',
@@ -154,7 +447,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       });
     }
 
-    // Check Coffee Hues Theme Vision Board
     if (_checkBoardHasTasks(allKeys, 'coffeehues_todos_', prefs)) {
       _activeBoards.add({
         'name': 'Coffee Hues Theme Vision Board',
@@ -168,10 +460,8 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
 
   void _checkAnnualCalendarEvents(
       Set<String> allKeys, SharedPreferences prefs) {
-    // Track which calendar themes we've already added
     final Set<String> addedCalendarThemes = {};
 
-    // First check for direct matches - these are most reliable
     final directPatterns = [
       {
         'key': 'animal.calendar_events',
@@ -199,7 +489,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       },
     ];
 
-    // Process direct patterns first - highest priority
     for (var pattern in directPatterns) {
       final key = pattern['key'] as String;
       final theme = pattern['theme'] as String;
@@ -219,7 +508,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       }
     }
 
-    // Check for additional calendar files only if we haven't found the themes yet
     final directFilenamePatterns = [
       {
         'pattern': 'animal_theme_annual_calendar',
@@ -243,7 +531,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       },
     ];
 
-    // Process filename patterns only if not already added
     for (var pattern in directFilenamePatterns) {
       if (addedCalendarThemes.contains(pattern['theme'])) continue;
 
@@ -269,15 +556,13 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
             });
 
             addedCalendarThemes.add(theme);
-            break; // Only add one card per theme
+            break;
           }
         }
       }
     }
 
-    // Also check for month pattern keys, but only for themes we haven't added yet
     if (addedCalendarThemes.length < 4) {
-      // Only if we haven't found all themes
       _checkAdditionalCalendarFormats(allKeys, prefs, addedCalendarThemes);
     }
   }
@@ -293,14 +578,11 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       try {
         final eventsMap = jsonDecode(eventsJson);
         if (eventsMap is Map) {
-          // Always return true if the map has any entries
           return eventsMap.isNotEmpty;
         } else if (eventsMap is List) {
-          // Always return true if the list has any entries
           return eventsMap.isNotEmpty;
         }
       } catch (e) {
-        // Error parsing JSON, but still return true if there's content
         return eventsJson.length > 20;
       }
     }
@@ -310,7 +592,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
 
   void _checkAdditionalCalendarFormats(
       Set<String> allKeys, SharedPreferences prefs, Set<String> addedThemes) {
-    // Check for alternative storage formats for calendar events
     final calendarPatterns = [
       '.calendar_',
       'calendar.',
@@ -321,7 +602,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       '2025_events'
     ];
 
-    // Check for month-specific patterns
     final months = [
       'january',
       'february',
@@ -337,7 +617,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       'december'
     ];
 
-    // First, check for pattern-based keys
     for (var pattern in calendarPatterns) {
       final matchingKeys = allKeys.where((key) =>
           key.contains(pattern) &&
@@ -347,7 +626,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
           !key.startsWith('happy_couple.'));
 
       for (var key in matchingKeys) {
-        // Skip keys that are already part of planners
         if (key.contains('_todos_')) {
           continue;
         }
@@ -356,12 +634,10 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       }
     }
 
-    // Then check for month-based keys
     for (var month in months) {
       final monthKeys = allKeys.where((key) =>
           key.toLowerCase().contains(month) &&
           (key.contains('event') || key.contains('calendar')) &&
-          // Skip keys that are already part of planners
           !key.contains('_todos_'));
 
       for (var key in monthKeys) {
@@ -379,13 +655,10 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       final parsed = jsonDecode(data);
       if ((parsed is Map && parsed.isNotEmpty) ||
           (parsed is List && parsed.isNotEmpty)) {
-        // Generate theme based on key
         String theme = _extractCalendarTheme(key);
 
-        // Skip if we've already added this theme
         if (addedThemes.contains(theme)) return;
 
-        // Generate name based on key
         String themeName = _extractCalendarThemeName(key);
 
         _activeBoards.add({
@@ -397,16 +670,12 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
           'key': key
         });
 
-        // Mark this theme as added
         addedThemes.add(theme);
       }
     } catch (e) {
-      // Not valid JSON or empty data
       if (data.length > 20) {
-        // Still might be content, add it as a board
         String theme = _extractCalendarTheme(key);
 
-        // Skip if we've already added this theme
         if (addedThemes.contains(theme)) return;
 
         String themeName = _extractCalendarThemeName(key);
@@ -420,7 +689,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
           'key': key
         });
 
-        // Mark this theme as added
         addedThemes.add(theme);
       }
     }
@@ -438,10 +706,8 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
     } else if (key.contains('happy') || key.contains('couple')) {
       themeName = "Happy Couple Theme";
     } else {
-      // Extract a name from the key
       String name = key.split('.').first.split('_').first;
 
-      // Capitalize first letter of each word
       name = name.replaceAllMapped(RegExp(r'[_\.]'), (match) => ' ');
       name = name.split(' ').map((word) {
         if (word.isNotEmpty) {
@@ -471,7 +737,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
     if (key.contains('spaniel')) return Colors.brown;
     if (key.contains('happy') || key.contains('couple')) return Colors.pink;
 
-    // Generate a consistent color based on the key
     final int hash = key.hashCode;
     final int hue = hash % 360;
 
@@ -479,7 +744,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
   }
 
   void _checkAnnualPlannerTodos(Set<String> allKeys, SharedPreferences prefs) {
-    // Check Watercolor Theme Annual Planner
     if (_checkBoardHasTasks(allKeys, 'WatercolorTheme_todos_', prefs,
         excludeKeys: [
           'Monday',
@@ -513,7 +777,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       });
     }
 
-    // Check PostIt Theme Annual Planner
     if (_checkBoardHasTasks(allKeys, 'PostItTheme_todos_', prefs, excludeKeys: [
       'Monday',
       'Tuesday',
@@ -545,7 +808,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       });
     }
 
-    // Check Floral Theme Annual Planner
     if (_checkBoardHasTasks(allKeys, 'FloralTheme_todos_', prefs, excludeKeys: [
       'Monday',
       'Tuesday',
@@ -577,7 +839,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       });
     }
 
-    // Check Premium Theme Annual Planner
     if (_checkBoardHasTasks(allKeys, 'PremiumTheme_todos_', prefs,
         excludeKeys: [
           'Monday',
@@ -613,7 +874,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
   }
 
   void _checkWeeklyPlannerTodos(Set<String> allKeys, SharedPreferences prefs) {
-    // Check Patterns Theme Weekly Planner
     if (_checkBoardHasTasks(allKeys, 'PatternsTheme_todos_', prefs,
         excludeKeys: [
           'January',
@@ -647,7 +907,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       });
     }
 
-    // Check Japanese Theme Weekly Planner
     if (_checkBoardHasTasks(allKeys, 'JapaneseTheme_todos_', prefs,
         excludeKeys: [
           'January',
@@ -681,7 +940,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       });
     }
 
-    // Check Floral Theme Weekly Planner
     if (_checkBoardHasTasks(allKeys, 'FloralTheme_todos_', prefs, excludeKeys: [
       'January',
       'February',
@@ -713,7 +971,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       });
     }
 
-    // Check Watercolor Theme Weekly Planner
     if (_checkBoardHasTasks(allKeys, 'WatercolorTheme_todos_', prefs,
         excludeKeys: [
           'January',
@@ -753,12 +1010,10 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       {List<String>? excludeKeys, List<String>? requiredKeys}) {
     final taskKeys = allKeys.where((key) => key.startsWith(prefix));
 
-    // If no keys found, return false early
     if (taskKeys.isEmpty) {
       return false;
     }
 
-    // If required keys are specified, check that at least one exists
     if (requiredKeys != null && requiredKeys.isNotEmpty) {
       bool hasRequiredKey = false;
       for (var requiredKey in requiredKeys) {
@@ -768,11 +1023,10 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
         }
       }
       if (!hasRequiredKey) {
-        return false; // None of the required keys found
+        return false;
       }
     }
 
-    // If exclude keys are specified, filter them out
     Set<String> filteredKeys = taskKeys.toSet();
     if (excludeKeys != null && excludeKeys.isNotEmpty) {
       filteredKeys = filteredKeys
@@ -780,34 +1034,27 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
               !excludeKeys.any((excludeKey) => key.contains(excludeKey)))
           .toSet();
 
-      // If all keys were excluded, return false
       if (filteredKeys.isEmpty) {
         return false;
       }
     }
 
-    // Check the remaining keys for tasks
     for (var key in filteredKeys) {
       final tasksJson = prefs.getString(key);
       if (tasksJson != null && tasksJson.isNotEmpty) {
         try {
           final dynamic parsedData = jsonDecode(tasksJson);
 
-          // Handle different task formats
           if (parsedData is List) {
-            // List format (most common)
             final tasks = parsedData;
 
-            // Multiple ways tasks might be represented
             bool hasActiveTasks = false;
 
-            // Case 1: Standard format with 'completed' field
             final hasIncompleteTasks = tasks.any((task) =>
                 task is Map &&
                 task.containsKey('completed') &&
                 task['completed'] == false);
 
-            // Case 2: Tasks without 'completed' field (assume active)
             final hasTasksWithoutCompletedField = tasks.any((task) =>
                 task is Map &&
                 !task.containsKey('completed') &&
@@ -815,13 +1062,11 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
                     task.containsKey('content') ||
                     task.containsKey('title')));
 
-            // Case 3: Tasks with 'done' field instead
             final hasTasksWithDoneField = tasks.any((task) =>
                 task is Map &&
                 task.containsKey('done') &&
                 task['done'] == false);
 
-            // Case 4: Simple string list (assume all active)
             final hasStringTasks =
                 tasks.any((task) => task is String && task.isNotEmpty);
 
@@ -834,15 +1079,10 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
               return true;
             }
           } else if (parsedData is Map) {
-            // Map format - check for nested tasks
-
-            // Case 1: Map of tasks with IDs as keys
             bool hasActiveTasks = false;
 
-            // Loop through all entries in the map
             parsedData.forEach((taskId, taskData) {
               if (taskData is Map) {
-                // Check for common task status fields
                 if (taskData.containsKey('completed') &&
                     taskData['completed'] == false) {
                   hasActiveTasks = true;
@@ -853,11 +1093,9 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
                         taskData.containsKey('content')) &&
                     !taskData.containsKey('completed') &&
                     !taskData.containsKey('done')) {
-                  // If it has content but no status field, assume active
                   hasActiveTasks = true;
                 }
               } else if (taskData is String && taskData.isNotEmpty) {
-                // Simple string values could be tasks too
                 hasActiveTasks = true;
               }
             });
@@ -866,7 +1104,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
               return true;
             }
 
-            // Case 2: Check for nested categories containing tasks
             for (var categoryKey in parsedData.keys) {
               final categoryData = parsedData[categoryKey];
               if (categoryData is Map && categoryData.containsKey('tasks')) {
@@ -875,7 +1112,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
                   return true;
                 }
               } else if (categoryData is List) {
-                // The category might directly contain a list of tasks
                 return true;
               }
             }
@@ -891,10 +1127,8 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
 
   void _detectAdditionalTaskPatterns(
       Set<String> allKeys, SharedPreferences prefs) {
-    // Expanded pattern search - look for any key that might contain tasks
     final List<String> potentialTaskKeys = allKeys
         .where((key) =>
-            // Check for common task-related words in the key
             (key.contains('todo') ||
                 key.contains('task') ||
                 key.contains('item') ||
@@ -903,7 +1137,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
             !_isKeyAlreadyChecked(key))
         .toList();
 
-    // Process each potential task key
     for (String key in potentialTaskKeys) {
       final value = prefs.getString(key);
       if (value != null && value.isNotEmpty) {
@@ -912,34 +1145,25 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
           bool hasActiveTasks = false;
 
           if (jsonData is List && jsonData.isNotEmpty) {
-            // Check if this looks like a task list
             if (jsonData[0] is Map) {
-              // Check for common task fields
               final Map firstItem = jsonData[0];
 
-              // Check for tasks with 'completed' field
               if (firstItem.containsKey('completed')) {
                 hasActiveTasks = jsonData.any((item) =>
                     item is Map &&
                     item.containsKey('completed') &&
                     item['completed'] == false);
-              }
-              // Check for tasks with 'done' field
-              else if (firstItem.containsKey('done')) {
+              } else if (firstItem.containsKey('done')) {
                 hasActiveTasks = jsonData.any((item) =>
                     item is Map &&
                     item.containsKey('done') &&
                     item['done'] == false);
-              }
-              // Check for tasks with 'finished' field
-              else if (firstItem.containsKey('finished')) {
+              } else if (firstItem.containsKey('finished')) {
                 hasActiveTasks = jsonData.any((item) =>
                     item is Map &&
                     item.containsKey('finished') &&
                     item['finished'] == false);
-              }
-              // If there's a 'text' or 'content' field, assume it's a task
-              else if (firstItem.containsKey('text') ||
+              } else if (firstItem.containsKey('text') ||
                   firstItem.containsKey('content') ||
                   firstItem.containsKey('title') ||
                   firstItem.containsKey('description')) {
@@ -947,7 +1171,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
               }
             }
           } else if (jsonData is Map && jsonData.isNotEmpty) {
-            // For map-style storage, consider it has active tasks if it's not empty
             hasActiveTasks = true;
           }
 
@@ -962,7 +1185,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
   }
 
   bool _isKeyAlreadyChecked(String key) {
-    // List of prefixes we've already explicitly checked
     final List<String> checkedPrefixes = [
       'BoxThem_todos_',
       'premium_todos_',
@@ -978,7 +1200,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       'JapaneseTheme_todos_',
     ];
 
-    // Check if this key uses a prefix we've already handled
     for (String prefix in checkedPrefixes) {
       if (key.startsWith(prefix)) {
         return true;
@@ -989,10 +1210,8 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
   }
 
   String _extractPrefix(String key) {
-    // Extract a meaningful prefix from the key
     final parts = key.split('_');
     if (parts.length >= 2) {
-      // Try to extract theme name
       if (parts[0].toLowerCase().contains('theme')) {
         return parts[0];
       } else if (parts.length >= 3 &&
@@ -1003,17 +1222,14 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       }
     }
 
-    return key.split('.').first; // Fallback to get part before first period
+    return key.split('.').first;
   }
 
   void _addDynamicBoard(String prefix, String key, {bool isEvent = false}) {
-    // Format the name based on the prefix
     final String formattedName = _formatBoardName(prefix);
 
-    // Determine board type
     String boardType = 'other';
 
-    // Check the key pattern to guess the board type
     if (isEvent || key.contains('calendar') || key.contains('events')) {
       boardType = 'calendar';
     } else if (key.contains('annual') || key.contains('month')) {
@@ -1026,7 +1242,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       boardType = 'vision';
     }
 
-    // Check if we already have this board
     final bool boardExists = _activeBoards.any((board) =>
         board['name'] == formattedName && board['type'] == boardType);
 
@@ -1043,16 +1258,11 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
   }
 
   String _formatBoardName(String prefix) {
-    // Convert snake_case or camelCase to Title Case
     final String withSpaces = prefix
-        .replaceAllMapped(
-            RegExp(r'([A-Z])'),
-            (match) =>
-                ' ${match.group(0)}') // Add spaces before uppercase letters
-        .replaceAll('_', ' ') // Replace underscores with spaces
+        .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(0)}')
+        .replaceAll('_', ' ')
         .trim();
 
-    // Capitalize each word
     final formatted = withSpaces
         .split(' ')
         .map((word) => word.isNotEmpty
@@ -1060,7 +1270,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
             : '')
         .join(' ');
 
-    // Add board type if not present
     if (!formatted.toLowerCase().contains('board') &&
         !formatted.toLowerCase().contains('planner') &&
         !formatted.toLowerCase().contains('calendar')) {
@@ -1090,7 +1299,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
   }
 
   Color _getBoardColor(String prefix) {
-    // Generate a consistent color based on the prefix
     final int hash = prefix.hashCode;
     final int hue = hash % 360;
 
@@ -1122,13 +1330,11 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
             destinationPage = const CoffeeHuesThemeVisionBoard();
             break;
           default:
-            // For dynamically discovered vision boards, navigate to the main page
             destinationPage = const VisionBoardPage();
         }
         break;
 
       case 'calendar':
-        // Fix calendar navigation - always pass monthIndex: 0 and null eventId
         final int monthIndex = 0;
         final String? eventId = null;
 
@@ -1158,13 +1364,11 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
             );
             break;
           default:
-            // For dynamically discovered calendars, navigate to the calendar page
             destinationPage = const AnnualCalenderPage();
         }
         break;
 
       case 'annual':
-        // Navigate to the specific annual planner theme page
         switch (board['theme']) {
           case 'watercolor':
             destinationPage = WatercolorThemeAnnualPlanner(
@@ -1191,13 +1395,11 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
             );
             break;
           default:
-            // For dynamically discovered annual planners
             destinationPage = const AnnualPlannerPage();
         }
         break;
 
       case 'weekly':
-        // Navigate to the specific weekly planner theme page
         switch (board['theme']) {
           case 'patterns':
             destinationPage = PatternsThemeWeeklyPlanner(
@@ -1224,15 +1426,12 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
             );
             break;
           default:
-            // For dynamically discovered weekly planners
             destinationPage = const WeeklyPlannerPage();
         }
         break;
 
       default:
-        // For unknown types, show an info dialog and then navigate to the appropriate page
         _showDynamicBoardInfoDialog(board).then((_) {
-          // After showing info, navigate to the most appropriate main page
           if (board['type'] == 'vision' ||
               board['name'].toLowerCase().contains('vision')) {
             Navigator.push(
@@ -1262,20 +1461,17 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
             ).then((_) => _loadActiveTasks());
           }
         });
-        return; // Exit early since we're handling navigation in the callback
+        return;
     }
 
-    // If we have a valid destination page, navigate to it
     if (destinationPage != null) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => destinationPage!),
       ).then((_) {
-        // Refresh the list when returning from the board
         _loadActiveTasks();
       });
     } else {
-      // If we couldn't determine a specific page, show a message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -1325,222 +1521,283 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Active Boards'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
+        title: const Text('Active Boards'),
         actions: [
-          IconButton(
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ))
-                : const Icon(Icons.refresh),
-            onPressed: _isLoading ? null : _performFullRefresh,
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Loading your active boards...',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : _activeBoards.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.check_circle_outline,
-                        size: 64,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No active tasks found',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey,
+          if (_isOffline)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: InkWell(
+                onTap: () => _showConnectivityInfoDialog(),
+                child: Tooltip(
+                  message:
+                      'Connection issue detected. Data is saved locally and will sync when connection is restored.',
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orangeAccent)),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.cloud_off,
+                          color: Colors.orangeAccent,
+                          size: 16,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Create tasks in your planners and they will appear here',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const VisionBoardPage(),
-                                ),
-                              ).then((_) => _loadActiveTasks());
-                            },
-                            child: const Text('Go to Vision Boards'),
-                          ),
-                          const SizedBox(width: 16),
-                          ElevatedButton.icon(
-                            onPressed: _forceDeepScan,
-                            icon: const Icon(Icons.search),
-                            label: const Text('Force Refresh'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.secondary,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _performFullRefresh,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Vision Boards Section
-                          _buildSectionWithBoards(
-                            context,
-                            'Vision Boards',
-                            'assets/vision-board-plain.jpg',
-                            _activeBoards
-                                .where((board) => board['type'] == 'vision')
-                                .toList(),
-                            Icons.dashboard,
-                            Colors.purple.shade700,
-                          ),
-
-                          // Calendar Section
-                          _buildSectionWithBoards(
-                            context,
-                            'Annual Calendars',
-                            'assets/calendar.jpg',
-                            _activeBoards
-                                .where((board) => board['type'] == 'calendar')
-                                .toList(),
-                            Icons.calendar_today,
-                            Colors.blue.shade700,
-                          ),
-
-                          // Annual Planner Section
-                          _buildSectionWithBoards(
-                            context,
-                            'Annual Planners',
-                            'assets/watercolor_theme_annual_planner.png',
-                            _activeBoards
-                                .where((board) => board['type'] == 'annual')
-                                .toList(),
-                            Icons.view_timeline,
-                            Colors.teal.shade700,
-                          ),
-
-                          // Weekly Planner Section
-                          _buildSectionWithBoards(
-                            context,
-                            'Weekly Planners',
-                            'assets/weakly_planer.png',
-                            _activeBoards
-                                .where((board) => board['type'] == 'weekly')
-                                .toList(),
-                            Icons.view_week,
-                            Colors.amber.shade700,
-                          ),
-
-                          // Other Boards Section
-                          _buildSectionWithBoards(
-                            context,
-                            'Other Boards',
-                            null,
-                            _activeBoards
-                                .where((board) =>
-                                    board['type'] != 'vision' &&
-                                    board['type'] != 'calendar' &&
-                                    board['type'] != 'annual' &&
-                                    board['type'] != 'weekly')
-                                .toList(),
-                            Icons.folder,
-                            Colors.grey.shade700,
-                          ),
-                        ],
-                      ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Offline',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orangeAccent,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+              ),
+            ),
+          if (_isOffline)
+            IconButton(
+              icon: _isCheckingConnectivity
+                  ? CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Colors.orangeAccent),
+                    )
+                  : const Icon(Icons.sync),
+              tooltip: 'Check connection and sync data',
+              onPressed: _isCheckingConnectivity
+                  ? null
+                  : () async {
+                      // Show checking indicator
+                      setState(() {
+                        _isCheckingConnectivity = true;
+                      });
+
+                      await _checkServerConnectivity(forceNotification: true);
+
+                      if (!_isOffline) {
+                        await _syncOfflineData();
+                        await _performFullRefresh();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                'Connection restored! Data synced successfully.'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                'Still unable to connect to server after $_consecutiveFailedChecks attempts. Your data is saved locally and will sync automatically when connection is restored.'),
+                            duration: Duration(seconds: 4),
+                          ),
+                        );
+                      }
+                    },
+            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: _performFullRefresh,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (_isOffline)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              color: Colors.orange.shade50,
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      color: Colors.orange.shade800, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Working Offline',
+                          style: TextStyle(
+                            color: Colors.orange.shade900,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Connection to server unavailable. Your boards are accessible and changes will be saved locally until connection is restored.',
+                          style: TextStyle(
+                              color: Colors.orange.shade800, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.refresh,
+                            color: Colors.orange.shade800, size: 16),
+                        tooltip: 'Try to reconnect',
+                        onPressed: () =>
+                            _checkServerConnectivity(forceNotification: true),
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints.tight(Size(24, 24)),
+                      ),
+                      Text(
+                        'Reconnect',
+                        style: TextStyle(
+                          color: Colors.orange.shade800,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          if (_hasPendingSync && !_isOffline)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              color: Colors.blue.shade50,
+              child: Row(
+                children: [
+                  Icon(Icons.cloud_upload,
+                      color: Colors.blue.shade800, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You have pending data to sync. Tap the upload icon to sync now.',
+                      style:
+                          TextStyle(color: Colors.blue.shade800, fontSize: 12),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.cloud_upload,
+                        color: Colors.blue.shade800, size: 16),
+                    tooltip: 'Sync now',
+                    onPressed: _syncOfflineData,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints.tight(Size(24, 24)),
+                  )
+                ],
+              ),
+            ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _activeBoards.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.dashboard_outlined,
+                                size: 64, color: Colors.grey),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No active boards found',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Create a new board to get started',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: Colors.grey),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: _forceDeepScan,
+                              child: const Text('Scan for existing boards'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _performFullRefresh,
+                        child: ListView.builder(
+                          itemCount: _activeBoards.length,
+                          itemBuilder: (context, index) {
+                            final board = _activeBoards[index];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: board['color'],
+                                  child: Icon(
+                                    board['icon'],
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                title: Text(board['name']),
+                                subtitle:
+                                    Text(_getBoardTypeName(board['type'])),
+                                trailing: const Icon(Icons.arrow_forward_ios),
+                                onTap: () => _navigateToBoard(board),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+          ),
+        ],
+      ),
     );
   }
 
-  // Enhanced refresh function that performs a complete reload
   Future<void> _performFullRefresh() async {
+    await _checkServerConnectivity();
+    await _checkPendingOfflineData();
+
     setState(() {
       _isLoading = true;
     });
 
-    // Clear existing boards before reloading
     _activeBoards.clear();
 
     try {
-      // Wait a moment to ensure UI shows loading state
       await Future.delayed(const Duration(milliseconds: 300));
 
-      // Get fresh SharedPreferences instance
       final prefs = await SharedPreferences.getInstance();
 
-      // Clear cache to ensure we get fresh data
       await prefs.reload();
 
       final allKeys = prefs.getKeys();
 
-      // Check each task type - be more aggressive with clearing caches
-      _activeBoards = []; // Ensure we start with a clean list
+      _activeBoards = [];
 
-      // Perform checks in a specific order for better categorization
       _checkVisionBoardTodos(allKeys, prefs);
       _checkAnnualCalendarEvents(allKeys, prefs);
       _checkAnnualPlannerTodos(allKeys, prefs);
       _checkWeeklyPlannerTodos(allKeys, prefs);
 
-      // Only run dynamic detection if we haven't found enough boards
       if (_activeBoards.isEmpty || _activeBoards.length < 2) {
         _detectAdditionalTaskPatterns(allKeys, prefs);
       }
 
-      // If no boards found, try deeper scan
       if (_activeBoards.isEmpty) {
         await _forceDeepScan(showNotification: false);
       }
 
-      // Remove any duplicate boards that might have been added
       _removeAllDuplicateBoards();
 
-      // Show success message
+      if (!_isOffline && _hasPendingSync) {
+        await _syncOfflineData();
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1551,7 +1808,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
         );
       }
     } catch (e) {
-      // Show error message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1570,61 +1826,49 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
     }
   }
 
-  // Updated deep scan function
   Future<void> _forceDeepScan({bool showNotification = true}) async {
     setState(() {
       _isLoading = true;
     });
 
     final prefs = await SharedPreferences.getInstance();
-    // Force reload of shared preferences
     await prefs.reload();
 
     final allKeys = prefs.getKeys();
 
-    // Reset the active boards
     _activeBoards = [];
 
-    // Try to find any content in SharedPreferences
     for (var key in allKeys) {
       if (key == 'hasSeenOnboarding' ||
           key.startsWith('flutter.') ||
           key.isEmpty) {
-        continue; // Skip certain system keys
+        continue;
       }
 
       var value = prefs.get(key);
       if (value == null) continue;
 
       if (value is String && value.isNotEmpty) {
-        // Try to parse as JSON first
         try {
           final data = jsonDecode(value);
 
           if (data is List && data.isNotEmpty) {
-            // It's a list - assume it could be tasks
             _addDynamicBoard(key.split('_').first, key);
           } else if (data is Map && data.isNotEmpty) {
-            // It's a map - assume it could be an event or settings
             _addDynamicBoard(key.split('.').first, key, isEvent: true);
           }
         } catch (e) {
-          // Not JSON, but still might be relevant
           if (value.length > 10) {
-            // Only consider non-trivial strings
             _addDynamicBoard(key, key);
           }
         }
       } else if (value is bool || value is int || value is double) {
-        // Skip simple primitive values
         continue;
       }
     }
 
-    // Special check for calendar entries
     _scanForCalendarEntries(allKeys, prefs);
 
-    // Remove duplicates
     _removeAllDuplicateBoards();
 
     setState(() {
@@ -1651,15 +1895,12 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
     }
   }
 
-  // Special calendar scan function to ensure we catch calendar entries
   void _scanForCalendarEntries(Set<String> allKeys, SharedPreferences prefs) {
-    // Get existing calendar themes
     final Set<String> existingThemes = _activeBoards
         .where((board) => board['type'] == 'calendar')
         .map((board) => board['theme'] as String)
         .toSet();
 
-    // Specific calendar theme keys to look for with more exact matching
     final calendarThemes = [
       {'key': 'animal', 'name': 'Animal Theme', 'color': Colors.orange},
       {
@@ -1675,7 +1916,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       },
     ];
 
-    // First check for direct matches - these are the most reliable
     final directPatterns = [
       'animal.calendar_events',
       'summer.calendar_events',
@@ -1684,8 +1924,8 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
     ];
 
     for (var pattern in directPatterns) {
-      final theme = pattern.split('.')[0]; // Extract theme name
-      if (existingThemes.contains(theme)) continue; // Skip if already added
+      final theme = pattern.split('.')[0];
+      if (existingThemes.contains(theme)) continue;
 
       if (allKeys.contains(pattern)) {
         final eventsJson = prefs.getString(pattern);
@@ -1694,7 +1934,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
             final decoded = jsonDecode(eventsJson);
             if ((decoded is Map && decoded.isNotEmpty) ||
                 (decoded is List && decoded.isNotEmpty)) {
-              // Find the matching theme data
               final themeData = calendarThemes.firstWhere(
                 (t) => t['key'] == theme,
                 orElse: () => {
@@ -1720,9 +1959,7 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
       }
     }
 
-    // Then look for pattern-based keys for any themes we haven't found yet
     for (var theme in calendarThemes) {
-      // Skip if we already have this theme
       if (existingThemes.contains(theme['key'])) continue;
 
       final themeKey = theme['key'] as String;
@@ -1733,7 +1970,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
           .toList();
 
       if (themeKeys.isNotEmpty) {
-        // Try to find a key with actual content
         bool foundValidContent = false;
 
         for (var key in themeKeys) {
@@ -1747,7 +1983,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
                 break;
               }
             } catch (e) {
-              // Not JSON but still has content
               if (data.length > 20) {
                 foundValidContent = true;
                 break;
@@ -1767,41 +2002,33 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
             'theme': themeKey
           });
 
-          // Add to existing themes to prevent duplicates
           existingThemes.add(themeKey);
         }
       }
     }
   }
 
-  // Helper method to capitalize first letter of a string
   String _capitalizeFirstLetter(String input) {
     if (input.isEmpty) return input;
     return input[0].toUpperCase() + input.substring(1);
   }
 
-  // Remove all duplicate boards across all types
   void _removeAllDuplicateBoards() {
-    // Get all board types
     final Set<String> boardTypes =
         _activeBoards.map((board) => board['type'] as String).toSet();
 
-    // For each type, remove duplicates
     for (final type in boardTypes) {
       final boards =
           _activeBoards.where((board) => board['type'] == type).toList();
 
-      // Skip if there's only one board of this type
       if (boards.length <= 1) continue;
 
-      // Create a set to track themes we've seen
       final Set<String> processedThemes = {};
       final List<Map<String, dynamic>> duplicatesToRemove = [];
 
       for (final board in boards) {
         final theme = board['theme'];
 
-        // If we've seen this theme before, mark it for removal
         if (processedThemes.contains(theme)) {
           duplicatesToRemove.add(board);
         } else {
@@ -1809,7 +2036,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
         }
       }
 
-      // Remove duplicates
       for (final duplicate in duplicatesToRemove) {
         _activeBoards.remove(duplicate);
       }
@@ -1821,195 +2047,78 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
     }
   }
 
-  Widget _buildSectionWithBoards(
-    BuildContext context,
-    String title,
-    String? imagePath,
-    List<Map<String, dynamic>> boards,
-    IconData fallbackIcon,
-    Color sectionColor,
-  ) {
-    if (boards.isEmpty) return const SizedBox.shrink();
+  String _getBoardTypeName(String type) {
+    switch (type) {
+      case 'vision':
+        return 'Vision Board';
+      case 'calendar':
+        return 'Annual Calendar';
+      case 'annual':
+        return 'Annual Planner';
+      case 'weekly':
+        return 'Weekly Planner';
+      default:
+        return 'Other Board';
+    }
+  }
 
-    // Sort boards by name for consistent display
-    boards.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Simplified section header
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: sectionColor,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
+  // Show detailed connectivity information dialog
+  Future<void> _showConnectivityInfoDialog() async {
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
             children: [
-              Icon(
-                fallbackIcon,
-                color: Colors.white,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
+              Icon(_isOffline ? Icons.cloud_off : Icons.cloud_done,
+                  color: _isOffline ? Colors.orangeAccent : Colors.green),
+              const SizedBox(width: 10),
+              Text(_isOffline ? 'Offline Mode' : 'Online Mode'),
             ],
           ),
-        ),
-        const SizedBox(height: 16),
-        // Grid of boards
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.8,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Connection Status: ${_isOffline ? 'Offline' : 'Online'}'),
+              const SizedBox(height: 8),
+              Text('Failed Connection Attempts: $_consecutiveFailedChecks'),
+              const SizedBox(height: 8),
+              Text('Server URL: ${ApiConfig.baseUrl}'),
+              const SizedBox(height: 16),
+              const Text(
+                'While offline, all your changes are saved locally on your device. '
+                'When connection is restored, data will automatically sync with the server.',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              if (_isOffline)
+                const Text(
+                  'Troubleshooting tips:\n'
+                  '• Check your internet connection\n'
+                  '• Make sure you have a stable network\n'
+                  '• Our server might be temporarily unavailable\n'
+                  '• Try again in a few minutes',
+                  style: TextStyle(fontSize: 13),
+                ),
+            ],
           ),
-          itemCount: boards.length,
-          itemBuilder: (context, index) {
-            final board = boards[index];
-            return _buildBoardCard(context, board);
-          },
-        ),
-        const SizedBox(height: 24),
-        const Divider(height: 1),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-
-  Widget _buildBoardCard(BuildContext context, Map<String, dynamic> board) {
-    String? thumbImage = _getBoardThumbnail(board);
-
-    return Card(
-      elevation: 4,
-      shadowColor: (board['color'] as Color?)?.withOpacity(0.3) ??
-          Colors.grey.withOpacity(0.3),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: () => _navigateToBoard(board),
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Board thumbnail or icon
-            Expanded(
-              child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(12)),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Board image or color
-                    thumbImage != null
-                        ? Image.asset(
-                            thumbImage,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          )
-                        : Container(
-                            width: double.infinity,
-                            color: board['color'] as Color? ?? Colors.grey,
-                            child: Center(
-                              child: Icon(
-                                board['icon'] as IconData? ?? Icons.dashboard,
-                                color: Colors.white,
-                                size: 48,
-                              ),
-                            ),
-                          ),
-                  ],
-                ),
-              ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
             ),
-            // Board info
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12.0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius:
-                    const BorderRadius.vertical(bottom: Radius.circular(12)),
+            if (_isOffline)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _checkServerConnectivity(forceNotification: true);
+                },
+                child: Text('Try Reconnecting'),
               ),
-              child: Text(
-                board['name'] as String,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
           ],
-        ),
-      ),
+        );
+      },
     );
-  }
-
-  String? _getBoardThumbnail(Map<String, dynamic> board) {
-    final type = board['type'] as String;
-    final theme = board['theme'] as String;
-
-    // Vision board thumbnails
-    if (type == 'vision') {
-      if (theme == 'box') return 'assets/vision-board-plain.jpg';
-      if (theme == 'premium') return 'assets/premium-theme.png';
-      if (theme == 'postit') return 'assets/Postit-Theme-Vision-Board.png';
-      if (theme == 'winter')
-        return 'assets/winter-warmth-theme-vision-board.png';
-      if (theme == 'ruby') return 'assets/ruby-reds-theme-vision-board.png';
-      if (theme == 'coffee') return 'assets/coffee-hues-theme-vision-board.png';
-    }
-
-    // Calendar thumbnails
-    if (type == 'calendar') {
-      if (theme == 'animal') return 'assets/animal_theme_calendar.png';
-      if (theme == 'summer') return 'assets/summer_theme_calendar.png';
-      if (theme == 'spaniel') return 'assets/spaniel_theme_calendar.png';
-      if (theme == 'happy_couple')
-        return 'assets/happy_couple_theme_calendar.png';
-    }
-
-    // Annual planner thumbnails
-    if (type == 'annual') {
-      if (theme == 'watercolor')
-        return 'assets/watercolor_theme_annual_planner.png';
-      if (theme == 'postit') return 'assets/postit_theme_annual_planner.png';
-      if (theme == 'floral') return 'assets/floral_theme_annual_planner.png';
-      if (theme == 'premium') return 'assets/premium_theme_annual_planner.png';
-    }
-
-    // Weekly planner thumbnails
-    if (type == 'weekly') {
-      if (theme == 'patterns')
-        return 'assets/patterns_theme_weekly_planner.png';
-      if (theme == 'japanese')
-        return 'assets/japanese_theme_weekly_planner.png';
-      if (theme == 'floral') return 'assets/floral_theme_weekly_planner.png';
-      if (theme == 'watercolor')
-        return 'assets/watercolor_theme_weekly_planner.png';
-    }
-
-    // Default images by type if no specific theme match
-    if (type == 'vision') return 'assets/vision-board-plain.jpg';
-    if (type == 'calendar') return 'assets/calendar.jpg';
-    if (type == 'annual') return 'assets/watercolor_theme_annual_planner.png';
-    if (type == 'weekly') return 'assets/weakly_planer.png';
-
-    // No matching image found
-    return null;
   }
 }
