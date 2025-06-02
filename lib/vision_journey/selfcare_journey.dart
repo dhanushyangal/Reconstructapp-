@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:home_widget/home_widget.dart';
 
 class SelfCareJourney extends StatefulWidget {
   const SelfCareJourney({Key? key}) : super(key: key);
@@ -11,48 +14,192 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
   int currentStep = 1;
   String selectedHabit = 'Look Better';
   String selectedMonth = 'June';
+  int currentHabitIndex = 0;
   int satisfactionRating = 0; // 0-4 for 5 emoji ratings
   String weeklyReflection = '';
 
-  // Add task management with completion state
-  final Map<String, List<HabitTask>> habitTasks = {
-    'Look Better': [
-      HabitTask(task: 'Daily showers'),
-      HabitTask(task: 'Brushing teeth (twice a day)'),
-      HabitTask(task: 'Trimmed nails'),
-      HabitTask(task: 'Moisturized skin'),
-    ],
-    'Dress Well': [
-      HabitTask(task: 'Plan outfits ahead'),
-      HabitTask(task: 'Iron clothes'),
-      HabitTask(task: 'Organize wardrobe'),
-      HabitTask(task: 'Accessorize appropriately'),
-    ],
-    'Feel More Confident': [
-      HabitTask(task: 'Practice positive affirmations'),
-      HabitTask(task: 'Maintain good posture'),
-      HabitTask(task: 'Prepare for social interactions'),
-      HabitTask(task: 'Exercise regularly'),
-    ],
-  };
+  // New properties for modern UI
+  final Map<String, String> notesMap = {};
+  final Map<String, String> remindersMap = {};
+  String? editingTaskId;
+  TextEditingController editingTaskController = TextEditingController();
 
-  // Get current tasks based on selected habit
-  List<HabitTask> get currentTasks => habitTasks[selectedHabit] ?? [];
+  // Add data structure for habit tasks with selection state
+  final Map<int, List<SelfCareTask>> weeklyTasks = {1: [], 2: [], 3: [], 4: []};
+
+  // Add a map to store selected tasks for each habit
+  final Map<String, List<SelfCareTask>> selectedTasksByHabit = {};
+
+  // Add a map to store selected tasks for each habit index
+  final Map<int, Set<String>> selectedTasksByHabitIndex = {};
+
+  // Add a map to store week dates
+  final Map<int, DateTime> weekDates = {};
+
+  // Add a map to store week dates for each habit
+  final Map<int, Map<int, DateTime>> weekDatesByHabit = {};
+
+  // List of habits
+  final List<String> habits = [
+    'Look Better',
+    'Dress Well',
+    'Feel More Confident'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeDefaultTasks();
+    _initializeDefaultDates();
+  }
+
+  // Initialize default tasks for each week and habit
+  void _initializeDefaultTasks() {
+    // Structure: Map<HabitName, Map<WeekNumber, List<TaskDescriptions>>>
+    final Map<String, Map<String, List<String>>> habitTasks = {
+      'Look Better': {
+        'Week 1': [
+          'Daily showers',
+          'Brushing teeth (twice a day)',
+          'Trimmed nails',
+          'Moisturized skin'
+        ],
+        'Week 2': ['Get a fresh haircut', 'Exfoliate skin', 'Visit a spa'],
+        'Week 3': [
+          'Style hair neatly',
+          'Apply sunscreen daily',
+          'Wear clean, pressed clothes'
+        ],
+        'Week 4': [
+          'Get a facial treatment',
+          'Upgrade your wardrobe',
+          'Maintain good posture',
+          'Stay hydrated'
+        ]
+      },
+      'Dress Well': {
+        'Week 1': ['Basic grooming: Showers, teeth, nails, moisturize'],
+        'Week 2': ['Haircut & exfoliation', 'Spa day'],
+        'Week 3': [
+          'Daily sunscreen',
+          'Styled hair',
+          'Wear clean & pressed clothes'
+        ],
+        'Week 4': [
+          'Facial treatment',
+          'Wardrobe upgrade',
+          'Posture check',
+          'Drink lots of water'
+        ]
+      },
+      'Feel More Confident': {
+        'Week 1': ['Daily hygiene + grooming (teeth, skin, nails)'],
+        'Week 2': ['Haircut', 'Spa / relaxation ritual'],
+        'Week 3': ['Sunscreen & skin care', 'Maintain polished look'],
+        'Week 4': [
+          'Facial, wardrobe tweaks, posture improvement',
+          'Hydration challenge'
+        ]
+      }
+    };
+
+    // Initialize weeks with default tasks
+    for (int week = 1; week <= 4; week++) {
+      weeklyTasks[week] = [];
+      for (String habit in habits) {
+        final weekTasks = habitTasks[habit]?['Week $week'] ?? [];
+        for (String taskDesc in weekTasks) {
+          weeklyTasks[week]!.add(
+            SelfCareTask(
+              description: taskDesc,
+              weekNumber: week,
+              habitIndex: habits.indexOf(habit),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  // Initialize default dates for each week
+  void _initializeDefaultDates() {
+    // Use the selected month
+    if (selectedMonth.isNotEmpty) {
+      try {
+        final List<String> allMonths = [
+          'January',
+          'February',
+          'March',
+          'April',
+          'May',
+          'June',
+          'July',
+          'August',
+          'September',
+          'October',
+          'November',
+          'December'
+        ];
+
+        final monthIndex = allMonths.indexOf(selectedMonth);
+        if (monthIndex != -1) {
+          // Create a date from the selected month (middle of the month)
+          final baseDate = DateTime(2025, monthIndex + 1, 15);
+
+          // Set each week to be 7 days apart
+          for (int week = 1; week <= 4; week++) {
+            weekDates[week] = baseDate.add(Duration(days: (week - 1) * 7));
+          }
+          return;
+        }
+      } catch (e) {
+        // Fallback to default if parsing fails
+      }
+    }
+
+    // Fallback: Use current date if no month is selected
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+
+    for (int week = 1; week <= 4; week++) {
+      weekDates[week] = monday.add(Duration(days: (week - 1) * 7));
+    }
+  }
+
+  // Helper method to get tasks for a specific week and habit
+  List<SelfCareTask> getTasksForWeekAndHabit(int week, int habitIndex) {
+    if (habitIndex < 0 || habitIndex >= habits.length) {
+      return [];
+    }
+
+    return weeklyTasks[week]
+            ?.where((task) =>
+                task.habitIndex == habitIndex || task.habitIndex == -1)
+            .toList() ??
+        [];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F3FF),
+      backgroundColor: const Color(0xFFF5F3FF), // purple-50
       body: SafeArea(
         child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                _buildStepper(),
-                const SizedBox(height: 16),
-                _buildCurrentStep(),
-              ],
+          child: Center(
+            child: Container(
+              width: MediaQuery.of(context).size.width > 768
+                  ? 680
+                  : MediaQuery.of(context).size.width * 0.92,
+              margin: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildHeader(),
+                  _buildStepper(),
+                  const SizedBox(height: 16),
+                  _buildCurrentStep(),
+                ],
+              ),
             ),
           ),
         ),
@@ -60,57 +207,101 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
     );
   }
 
-  Widget _buildStepper() {
-    return Row(
-      children: List.generate(5, (index) {
-        final stepNumber = index + 1;
-        final isActive = stepNumber <= currentStep;
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.purple),
+            onPressed: () => Navigator.pop(context),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            'Self-Care Journey',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.purple,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-        return Expanded(
-          child: Row(
-            children: [
-              Column(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: isActive ? Colors.purple : Colors.purple.shade100,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$stepNumber',
-                        style: TextStyle(
-                          color:
-                              isActive ? Colors.white : Colors.purple.shade700,
-                          fontWeight: FontWeight.bold,
+  Widget _buildStepper() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(5, (index) {
+            final stepNumber = index + 1;
+            final isActive = stepNumber <= currentStep;
+
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? Colors.purple.shade500
+                            : Colors.purple.shade200,
+                        shape: BoxShape.circle,
+                        boxShadow: isActive
+                            ? [
+                                BoxShadow(
+                                  color: Colors.purple.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$stepNumber',
+                          style: TextStyle(
+                            color: isActive
+                                ? Colors.white
+                                : Colors.purple.shade700,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _getStepTitle(stepNumber),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.purple.shade700,
+                    const SizedBox(height: 4),
+                    Text(
+                      _getStepTitle(stepNumber),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.purple.shade700,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              if (index < 4)
-                Expanded(
-                  child: Container(
-                    height: 2,
-                    color: Colors.purple.shade200,
-                  ),
+                  ],
                 ),
-            ],
-          ),
-        );
-      }),
+                if (index < 4)
+                  Container(
+                    width: 40,
+                    height: 2,
+                    color: stepNumber < currentStep
+                        ? Colors.purple.shade500
+                        : Colors.purple.shade200,
+                  ),
+              ],
+            );
+          }),
+        ),
+      ),
     );
   }
 
@@ -149,95 +340,112 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
   }
 
   Widget _buildStep1() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            const Text(
-              '🌱 Welcome to Your Self-Care Journey!',
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            '🌱 Welcome to Your Self-Care Journey!',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF7E22CE), // purple-600
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Design your personalized self-care plan for the next month. You\'ll choose a habit to focus on, set a schedule, and track your progress along the way.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 16,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                currentStep = 2;
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9333EA), // purple-500
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 32,
+                vertical: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(50), // Rounded full style
+              ),
+              elevation: 3,
+            ),
+            child: const Text(
+              'Start',
               style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF7E22CE),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Design your personalized self-care plan for the next month. You\'ll choose a habit to focus on, set a schedule, and track your progress along the way.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF6B7280),
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  currentStep = 2;
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
-              child: const Text(
-                'Start',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildStep2() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            const Text(
-              'Step 2: Choose a Self-Care Habit',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF7E22CE),
-              ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Text(
+            'Step 2: Choose a Self-Care Habit',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.purple.shade700,
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Select one habit to focus on for the next month:',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF6B7280),
-              ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Select one habit to focus on for the next month:',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey.shade600,
             ),
-            const SizedBox(height: 24),
+          ),
+          const SizedBox(height: 24),
 
-            // Habit selection grid
-            GridView.count(
-              crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
+          // Habit selection grid
+          LayoutBuilder(builder: (context, constraints) {
+            return GridView.count(
+              crossAxisCount: constraints.maxWidth > 600 ? 3 : 1,
               shrinkWrap: true,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
@@ -250,23 +458,23 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
                 _buildHabitCard('Feel More Confident', '💪',
                     'Build confidence through physical care'),
               ],
-            ),
+            );
+          }),
 
-            const SizedBox(height: 24),
-            _buildNavigationButtons(
-              onBack: () {
-                setState(() {
-                  currentStep = 1;
-                });
-              },
-              onNext: () {
-                setState(() {
-                  currentStep = 3;
-                });
-              },
-            ),
-          ],
-        ),
+          const SizedBox(height: 24),
+          _buildNavigationButtons(
+            onBack: () {
+              setState(() {
+                currentStep = 1;
+              });
+            },
+            onNext: () {
+              setState(() {
+                currentStep = 3;
+              });
+            },
+          ),
+        ],
       ),
     );
   }
@@ -278,48 +486,56 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
       onTap: () {
         setState(() {
           selectedHabit = title;
+          currentHabitIndex = habits.indexOf(title);
         });
       },
       child: Container(
         decoration: BoxDecoration(
           color: isSelected ? Colors.purple.shade50 : Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? Colors.purple.shade400 : Colors.grey.shade200,
             width: 2,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              height: 64,
+              height: 80,
               decoration: BoxDecoration(
                 color: Colors.purple.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),
               alignment: Alignment.center,
-              margin: const EdgeInsets.only(bottom: 12),
+              margin: const EdgeInsets.only(bottom: 16),
               child: Text(
                 emoji,
-                style: const TextStyle(fontSize: 32),
+                style: const TextStyle(fontSize: 40),
               ),
             ),
             Text(
               title,
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
-                fontSize: 16,
+                fontSize: 18,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               description,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF6B7280),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
@@ -332,139 +548,124 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
   }
 
   Widget _buildStep3() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            const Text(
-              'Step 3: Pick a Start Month',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF7E22CE),
-              ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Text(
+            'Step 3: Pick a Start Month',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.purple.shade700,
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'When do you want to begin your self-care journey?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF6B7280),
-              ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'When do you want to begin your self-care journey?',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey.shade600,
             ),
-            const SizedBox(height: 24),
+          ),
+          const SizedBox(height: 24),
 
-            // Month selection
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.purple.shade200),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'Selected Habit: $selectedHabit',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF7E22CE),
-                    ),
-                    textAlign: TextAlign.center,
+          // Month selection
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.purple.shade200),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'Selected Habit: $selectedHabit',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF7E22CE),
                   ),
-                  const SizedBox(height: 24),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Choose Month:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF4B5563),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                LayoutBuilder(builder: (context, constraints) {
+                  // More responsive layout for small screens
+                  if (constraints.maxWidth < 400) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Choose Month:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF4B5563),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
+                        const SizedBox(height: 8),
+                        _buildMonthDropdown(),
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.shade50,
                             borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                BorderSide(color: Colors.purple.shade300),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
+                          alignment: Alignment.center,
+                          child: const Text(
+                            '2025',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        value: selectedMonth,
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'January',
-                            child: Text('January'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'February',
-                            child: Text('February'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'March',
-                            child: Text('March'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'April',
-                            child: Text('April'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'May',
-                            child: Text('May'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'June',
-                            child: Text('June'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'July',
-                            child: Text('July'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'August',
-                            child: Text('August'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'September',
-                            child: Text('September'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'October',
-                            child: Text('October'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'November',
-                            child: Text('November'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'December',
-                            child: Text('December'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              selectedMonth = value;
-                            });
-                          }
-                        },
+                      ],
+                    );
+                  }
+
+                  // Original layout for larger screens
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Choose Month:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF4B5563),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildMonthDropdown(),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(width: 16),
                       Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.purple.shade50,
                           borderRadius: BorderRadius.circular(8),
@@ -474,272 +675,754 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
                           '2025',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
+                            fontSize: 16,
                           ),
                         ),
                       ),
                     ],
-                  ),
-                ],
-              ),
+                  );
+                }),
+              ],
             ),
+          ),
 
-            const SizedBox(height: 24),
-            _buildNavigationButtons(
-              onBack: () {
-                setState(() {
-                  currentStep = 2;
-                });
-              },
-              onNext: () {
-                setState(() {
-                  currentStep = 4;
-                });
-              },
-            ),
-          ],
-        ),
+          const SizedBox(height: 24),
+          _buildNavigationButtons(
+            onBack: () {
+              setState(() {
+                currentStep = 2;
+              });
+            },
+            onNext: () {
+              setState(() {
+                currentStep = 4;
+                // Reset habit index when entering step 4
+                currentHabitIndex = habits.indexOf(selectedHabit);
+              });
+            },
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildMonthDropdown() {
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.purple.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.purple.shade500, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      value: selectedMonth,
+      items: const [
+        DropdownMenuItem(value: 'January', child: Text('January')),
+        DropdownMenuItem(value: 'February', child: Text('February')),
+        DropdownMenuItem(value: 'March', child: Text('March')),
+        DropdownMenuItem(value: 'April', child: Text('April')),
+        DropdownMenuItem(value: 'May', child: Text('May')),
+        DropdownMenuItem(value: 'June', child: Text('June')),
+        DropdownMenuItem(value: 'July', child: Text('July')),
+        DropdownMenuItem(value: 'August', child: Text('August')),
+        DropdownMenuItem(value: 'September', child: Text('September')),
+        DropdownMenuItem(value: 'October', child: Text('October')),
+        DropdownMenuItem(value: 'November', child: Text('November')),
+        DropdownMenuItem(value: 'December', child: Text('December')),
+      ],
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            selectedMonth = value;
+          });
+        }
+      },
+      dropdownColor: Colors.white,
     );
   }
 
   Widget _buildStep4() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            const Text(
-              'Step 4: Weekly Routine Plan',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF7E22CE),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Build your weekly self-care routine:',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF6B7280),
-              ),
-            ),
-            const SizedBox(height: 24),
+    // Get the current habit name
+    final habitName = selectedHabit;
 
-            // Weekly routine card
-            _buildWeeklyRoutineCard(),
-
-            const SizedBox(height: 24),
-            _buildNavigationButtons(
-              onBack: () {
-                setState(() {
-                  currentStep = 3;
-                });
-              },
-              onNext: () {
-                setState(() {
-                  currentStep = 5;
-                });
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWeeklyRoutineCard() {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 2,
-            spreadRadius: 1,
+            color: Colors.purple.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
+      padding: const EdgeInsets.all(24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Let\'s build your self-care routine:',
+            'Step 4: Weekly Preparation Plan',
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
               color: Colors.purple.shade700,
             ),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          Text(
+            'Plan your self-care activities for $habitName:',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Selected habit card
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             decoration: BoxDecoration(
               color: Colors.purple.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.purple.shade200),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Week 1',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.purple.shade700,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        SizedBox(
-                          height: 36,
-                          child: TextField(
-                            decoration: InputDecoration(
-                              isDense: true,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                                borderSide:
-                                    BorderSide(color: Colors.purple.shade300),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 8),
-                            ),
-                            readOnly: true,
-                            controller: TextEditingController(
-                                text: DateTime.now().toString().split(' ')[0]),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            // Would show reminder dialog in a real app
-                          },
-                          icon: const Icon(Icons.notifications_outlined),
-                          color: Colors.purple.shade600,
-                          iconSize: 20,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const Divider(),
-                // Task list - now with state
-                ...currentTasks.map((task) => _buildTaskItem(task)),
-                // Add task button
-                TextButton.icon(
-                  onPressed: () {
-                    _showAddTaskDialog();
-                  },
-                  icon: Icon(Icons.add, color: Colors.purple.shade600),
-                  label: Text(
-                    'Add New Task',
-                    style: TextStyle(color: Colors.purple.shade600),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade500,
+                    borderRadius: BorderRadius.circular(50),
                   ),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    habitName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              // Would show next week in a real app
+
+          // Weekly tasks
+          _buildWeeklyPlan(),
+
+          const SizedBox(height: 24),
+          _buildNavigationButtons(
+            onBack: () {
+              setState(() {
+                currentStep = 3;
+              });
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.purple,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-            ),
-            child: const Text('Save & Continue to Week 2'),
+            onNext: () {
+              // Save selections before moving to summary
+              _saveCurrentSelections();
+              setState(() {
+                currentStep = 5;
+              });
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTaskItem(HabitTask task) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.purple.shade100),
-      ),
-      child: Row(
-        children: [
-          Checkbox(
-            value: task.isCompleted,
-            onChanged: (value) {
-              // Update the task state
-              setState(() {
-                task.isCompleted = value ?? false;
-              });
-            },
-            activeColor: Colors.purple,
-          ),
-          Expanded(
-            child: Text(
-              task.task,
-              style: TextStyle(
-                decoration: task.isCompleted
-                    ? TextDecoration.lineThrough
-                    : TextDecoration.none,
-              ),
-            ),
-          ),
-          Row(
-            children: [
-              IconButton(
-                onPressed: () {
-                  // Would show edit dialog in a real app
-                },
-                icon: const Icon(Icons.edit, size: 16),
-                color: Colors.grey.shade600,
-              ),
-              IconButton(
-                onPressed: () {
-                  // Would show notes dialog in a real app
-                },
-                icon: const Icon(Icons.chat_bubble_outline, size: 16),
-                color: Colors.grey.shade600,
-              ),
-              IconButton(
-                onPressed: () {
-                  // Show delete confirmation
-                  _showDeleteConfirmation(task);
-                },
-                icon: const Icon(Icons.delete_outline, size: 16),
-                color: Colors.red.shade300,
+  Widget _buildWeeklyPlan() {
+    final int habitIndex = habits.indexOf(selectedHabit);
+
+    // Restore dates for the current habit instead of refreshing
+    _restoreDatesForCurrentHabit();
+
+    return Column(
+      children: List.generate(4, (weekIndex) {
+        final weekNumber = weekIndex + 1;
+        final tasksForWeek = getTasksForWeekAndHabit(weekNumber, habitIndex);
+        final weekDate = weekDates[weekNumber] ?? DateTime.now();
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 2,
+                spreadRadius: 1,
               ),
             ],
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12.0),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade50,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '$weekNumber',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.purple.shade600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Week $weekNumber',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.purple.shade600,
+                              ),
+                            ),
+                            Text(
+                              '${weekDate.day}/${weekDate.month}/${weekDate.year}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.purple.shade400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    // Date picker button
+                    TextButton.icon(
+                      onPressed: () async {
+                        // Prepare the date parameters
+                        DateTime initialDate = weekDate;
+                        DateTime firstDate = DateTime.now();
+                        DateTime lastDate = DateTime(2026);
+
+                        // If a month is selected, use it to limit date selection
+                        if (selectedMonth.isNotEmpty) {
+                          try {
+                            final List<String> allMonths = [
+                              'January',
+                              'February',
+                              'March',
+                              'April',
+                              'May',
+                              'June',
+                              'July',
+                              'August',
+                              'September',
+                              'October',
+                              'November',
+                              'December'
+                            ];
+
+                            final monthIndex = allMonths.indexOf(selectedMonth);
+                            if (monthIndex != -1) {
+                              // Set the initial date to the selected month
+                              initialDate =
+                                  DateTime(2025, monthIndex + 1, weekDate.day);
+
+                              // Set first and last date to constrain to the selected month
+                              firstDate = DateTime(2025, monthIndex + 1, 1);
+
+                              // Only allow selecting dates within the selected month
+                              lastDate = DateTime(
+                                  2025, monthIndex + 2, 0); // Last day of month
+                            }
+                          } catch (e) {
+                            // Fallback to default values if parsing fails
+                            debugPrint('Error parsing date: $e');
+                          }
+                        }
+
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: initialDate,
+                          firstDate: firstDate,
+                          lastDate: lastDate,
+                        );
+
+                        if (picked != null) {
+                          setState(() {
+                            weekDates[weekNumber] = picked;
+
+                            // Save the date change
+                            _saveCurrentSelections();
+                          });
+                        }
+                      },
+                      icon: Icon(Icons.calendar_today,
+                          color: Colors.purple.shade600, size: 18),
+                      label: Text(
+                        'Change Date',
+                        style: TextStyle(color: Colors.purple.shade600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+
+              // Tasks for this week
+              ...tasksForWeek.map((task) => _buildTaskItem(task)),
+
+              // Add new task button
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    // Show dialog to add a new task
+                    _showAddTaskDialog(weekNumber);
+                  },
+                  icon: const Icon(Icons.add),
+                  label: Text('Add New Task for Week $weekNumber'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.purple.shade600,
+                    elevation: 0,
+                    side: BorderSide(color: Colors.purple.shade300),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  // Task item layout with radio buttons instead of checkboxes
+  Widget _buildTaskItem(SelfCareTask task) {
+    final String habitName = selectedHabit;
+    final String taskId = "${task.weekNumber}-$habitName-${task.description}";
+    final bool hasNotes = notesMap.containsKey(taskId);
+    final bool hasReminder = remindersMap.containsKey(taskId);
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade200),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Radio button instead of checkbox
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Radio<bool>(
+                value: true,
+                groupValue: task.isSelected ? true : null,
+                onChanged: (value) {
+                  setState(() {
+                    task.isSelected = !task.isSelected;
+
+                    // Add or remove from selectedTasksByHabit based on selection
+                    if (!selectedTasksByHabit.containsKey(habitName)) {
+                      selectedTasksByHabit[habitName] = [];
+                    }
+
+                    if (task.isSelected) {
+                      if (!selectedTasksByHabit[habitName]!.contains(task)) {
+                        selectedTasksByHabit[habitName]!.add(task);
+                      }
+                    } else {
+                      selectedTasksByHabit[habitName]!.remove(task);
+                    }
+                  });
+                },
+                activeColor: Colors.purple.shade500,
+              ),
+            ),
+
+            // Task content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.description,
+                    style: TextStyle(
+                      color: task.isSelected
+                          ? Colors.purple.shade700
+                          : Colors.grey.shade800,
+                      fontWeight:
+                          task.isSelected ? FontWeight.w500 : FontWeight.normal,
+                    ),
+                  ),
+
+                  // Notes and reminders
+                  if (hasNotes || hasReminder)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (hasNotes)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 2),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.chat_bubble_outline,
+                                    size: 14,
+                                    color: Colors.purple.shade400,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      notesMap[taskId]!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.purple.shade400,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (hasReminder)
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.notifications_none,
+                                  size: 14,
+                                  color: Colors.purple.shade400,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    remindersMap[taskId]!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.purple.shade400,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Action buttons - wrap in a row that allows overflowing to be handled properly
+            Wrap(
+              spacing: 0,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 18),
+                  onPressed: () => _editTask(task, task.weekNumber, habitName),
+                  color: Colors.grey.shade600,
+                  tooltip: 'Edit task',
+                  constraints: const BoxConstraints(maxWidth: 30),
+                  padding: EdgeInsets.zero,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                  onPressed: () => _addNote(task, task.weekNumber, habitName),
+                  color: Colors.grey.shade600,
+                  tooltip: 'Add note',
+                  constraints: const BoxConstraints(maxWidth: 30),
+                  padding: EdgeInsets.zero,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  onPressed: () => _deleteTask(task, task.weekNumber),
+                  color: Colors.red.shade400,
+                  tooltip: 'Delete task',
+                  constraints: const BoxConstraints(maxWidth: 30),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // Add dialog to create new tasks
-  void _showAddTaskDialog() {
+  // Helper methods for task management
+  void _editTask(SelfCareTask task, int weekNumber, String habitName) {
+    TextEditingController controller =
+        TextEditingController(text: task.description);
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Edit Task for Week $weekNumber'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: 'Enter task description',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (controller.text.isNotEmpty) {
+                  // Get old taskId to update notes and reminders
+                  final oldTaskId =
+                      '$weekNumber-$habitName-${task.description}';
+                  final newTaskId = '$weekNumber-$habitName-${controller.text}';
+
+                  setState(() {
+                    // Create a new task with the updated description
+                    final updatedTask = SelfCareTask(
+                      description: controller.text,
+                      weekNumber: task.weekNumber,
+                      habitIndex: task.habitIndex,
+                      isSelected: task.isSelected,
+                    );
+
+                    // Replace the old task with the updated one in the list
+                    final index = weeklyTasks[weekNumber]!.indexOf(task);
+                    if (index != -1) {
+                      weeklyTasks[weekNumber]![index] = updatedTask;
+                    }
+
+                    // Transfer notes and reminders to new task id
+                    if (notesMap.containsKey(oldTaskId)) {
+                      notesMap[newTaskId] = notesMap[oldTaskId]!;
+                      notesMap.remove(oldTaskId);
+                    }
+
+                    if (remindersMap.containsKey(oldTaskId)) {
+                      remindersMap[newTaskId] = remindersMap[oldTaskId]!;
+                      remindersMap.remove(oldTaskId);
+                    }
+                  });
+                  Navigator.pop(context);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _addNote(SelfCareTask task, int weekNumber, String habitName) {
+    final taskId = '$weekNumber-$habitName-${task.description}';
+    TextEditingController controller = TextEditingController(
+        text: notesMap.containsKey(taskId) ? notesMap[taskId] : '');
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Add Note'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: 'Enter note...',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  if (controller.text.isNotEmpty) {
+                    notesMap[taskId] = controller.text;
+                  } else {
+                    notesMap.remove(taskId);
+                  }
+                });
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Save Note'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _deleteTask(SelfCareTask task, int weekNumber) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Task'),
+          content:
+              Text('Are you sure you want to delete "${task.description}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  weeklyTasks[weekNumber]!.remove(task);
+
+                  // Remove associated notes and reminders
+                  final taskId =
+                      '$weekNumber-$selectedHabit-${task.description}';
+                  notesMap.remove(taskId);
+                  remindersMap.remove(taskId);
+                });
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showSetReminderDialog(int weekNumber, String habitName) {
+    final TextEditingController dateController = TextEditingController();
+    final TextEditingController messageController = TextEditingController(
+        text: 'Complete tasks for Week $weekNumber in $habitName');
+
+    // Set default date to tomorrow
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    dateController.text =
+        '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Set Reminder for Week $weekNumber'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: dateController,
+                decoration: const InputDecoration(
+                  labelText: 'Date (YYYY-MM-DD)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: messageController,
+                decoration: const InputDecoration(
+                  labelText: 'Reminder Message',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final date = dateController.text;
+                final message = messageController.text;
+
+                if (date.isNotEmpty && message.isNotEmpty) {
+                  final reminderText = '$date: $message';
+                  final taskId = '$weekNumber-$selectedHabit-Week$weekNumber';
+
+                  setState(() {
+                    remindersMap[taskId] = reminderText;
+                  });
+
+                  Navigator.pop(context);
+
+                  // Show confirmation
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Reminder set for $date'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Save Reminder'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Add method to show dialog for adding new tasks
+  void _showAddTaskDialog(int weekNumber) {
     final TextEditingController controller = TextEditingController();
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Add New Task'),
+          title: Text('Add Task for Week $weekNumber'),
           content: TextField(
             controller: controller,
             decoration: InputDecoration(
@@ -756,8 +1439,12 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
               onPressed: () {
                 if (controller.text.isNotEmpty) {
                   setState(() {
-                    habitTasks[selectedHabit]!
-                        .add(HabitTask(task: controller.text));
+                    weeklyTasks[weekNumber]!.add(SelfCareTask(
+                      description: controller.text,
+                      weekNumber: weekNumber,
+                      habitIndex: currentHabitIndex,
+                      isSelected: false,
+                    ));
                   });
                   Navigator.pop(context);
                 }
@@ -774,272 +1461,279 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
     );
   }
 
-  // Add confirmation dialog for deleting tasks
-  void _showDeleteConfirmation(HabitTask task) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Delete Task'),
-          content: Text('Are you sure you want to delete "${task.task}"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  habitTasks[selectedHabit]!.remove(task);
-                });
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
+  // Helper method to save selections for selected habit
+  void _saveCurrentSelections() {
+    final habitName = selectedHabit;
+    final habitIndex = habits.indexOf(habitName);
+
+    if (habitIndex >= 0) {
+      // Get all selected tasks for this habit
+      final selectedTaskIds = <String>{};
+
+      for (var week in weeklyTasks.keys) {
+        for (var task in weeklyTasks[week]!) {
+          if (task.isSelected && task.habitIndex == habitIndex) {
+            selectedTaskIds.add('${task.weekNumber}-${task.description}');
+
+            // Also save to selectedTasksByHabit for summary view
+            if (!selectedTasksByHabit.containsKey(habitName)) {
+              selectedTasksByHabit[habitName] = [];
+            }
+            if (!selectedTasksByHabit[habitName]!.contains(task)) {
+              selectedTasksByHabit[habitName]!.add(task);
+            }
+          }
+        }
+      }
+
+      // Save selected task IDs for this habit
+      selectedTasksByHabitIndex[habitIndex] = selectedTaskIds;
+
+      // Also save the week dates for this habit
+      if (!weekDatesByHabit.containsKey(habitIndex)) {
+        weekDatesByHabit[habitIndex] = {};
+      }
+
+      // Copy the current week dates to the habit-specific map
+      for (var entry in weekDates.entries) {
+        weekDatesByHabit[habitIndex]![entry.key] = entry.value;
+      }
+    }
+  }
+
+  // Method to restore dates for the current habit
+  void _restoreDatesForCurrentHabit() {
+    final habitIndex = habits.indexOf(selectedHabit);
+
+    // Restore saved week dates for current habit
+    if (weekDatesByHabit.containsKey(habitIndex)) {
+      final savedWeekDates = weekDatesByHabit[habitIndex]!;
+      for (var entry in savedWeekDates.entries) {
+        weekDates[entry.key] = entry.value;
+      }
+    } else {
+      // If no saved dates, reinitialize them
+      _initializeDefaultDates();
+    }
   }
 
   Widget _buildStep5() {
-    // Get completed tasks
-    final completedTasks =
-        currentTasks.where((task) => task.isCompleted).toList();
-
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            const Text(
-              'Step 5: Self-Care Summary',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF7E22CE),
-              ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Text(
+            'Step 5: Self-Care Summary',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.purple.shade700,
             ),
-            const SizedBox(height: 24),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
 
-            // Habit summary
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.purple.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Self-Care Focus: $selectedHabit',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF7E22CE),
-                    ),
+          // Show only the selected habit card
+          _buildHabitSummaryCard(selectedHabit),
+
+          // Weekly reflection
+          Container(
+            margin: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.purple.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Weekly Reflection',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF7E22CE),
                   ),
-                  const SizedBox(height: 8),
-                  Text('Starting: $selectedMonth 2025'),
-                  const SizedBox(height: 8),
-
-                  // Progress
-                  Row(
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Take time to reflect on your progress each week:',
+                  style: TextStyle(
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.purple.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Progress: ${completedTasks.length}/${currentTasks.length} tasks',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            LinearProgressIndicator(
-                              value: currentTasks.isEmpty
-                                  ? 0
-                                  : completedTasks.length / currentTasks.length,
-                              backgroundColor: Colors.white,
-                              color: Colors.purple,
-                              minHeight: 8,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ],
+                      const Text(
+                        'How do you feel after Week 1?',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF4B5563),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          '${(currentTasks.isEmpty ? 0 : (completedTasks.length / currentTasks.length * 100)).toStringAsFixed(0)}%',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.purple.shade700,
+                      const SizedBox(height: 8),
+                      TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Share your thoughts on your progress...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                BorderSide(color: Colors.purple.shade300),
                           ),
+                          contentPadding: const EdgeInsets.all(12),
                         ),
+                        maxLines: 3,
+                        onChanged: (value) {
+                          setState(() {
+                            weeklyReflection = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Rate your satisfaction:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF4B5563),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildEmojiButton('😞', 0),
+                          _buildEmojiButton('😐', 1),
+                          _buildEmojiButton('🙂', 2),
+                          _buildEmojiButton('😀', 3),
+                          _buildEmojiButton('🤩', 4),
+                        ],
                       ),
                     ],
                   ),
+                ),
+              ],
+            ),
+          ),
 
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Your Selected Tasks:',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Week tasks summary
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.purple.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          // Badges and actions - fix layout for smaller screens
+          Container(
+            margin: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.purple.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: LayoutBuilder(builder: (context, constraints) {
+              // Use column layout for smaller screens
+              if (constraints.maxWidth < 400) {
+                return Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          'Week 1',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.purple.shade700,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.shade100,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Text(
+                            '+100 XP',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF7E22CE),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        if (completedTasks.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              'No tasks completed yet',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontStyle: FontStyle.italic,
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.shade500,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Row(
+                            children: [
+                              Text(
+                                '🏅 SELF-CARE PRO',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
-                          )
-                        else
-                          ...completedTasks
-                              .map((task) => _buildSummaryTask(task)),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Weekly reflection
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.purple.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Weekly Reflection',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF7E22CE),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Take time to reflect on your progress each week:',
-                    style: TextStyle(
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.purple.shade200),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
-                          'How do you feel after Week 1?',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF4B5563),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Share your thoughts on your progress...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  BorderSide(color: Colors.purple.shade300),
-                            ),
-                            contentPadding: const EdgeInsets.all(12),
-                          ),
-                          maxLines: 3,
-                          onChanged: (value) {
+                        TextButton(
+                          onPressed: () {
                             setState(() {
-                              weeklyReflection = value;
+                              currentStep = 4;
                             });
                           },
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Rate your satisfaction:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF4B5563),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.grey.shade700,
                           ),
+                          child: const Text('Back'),
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildEmojiButton('😞', 0),
-                            _buildEmojiButton('😐', 1),
-                            _buildEmojiButton('🙂', 2),
-                            _buildEmojiButton('😀', 3),
-                            _buildEmojiButton('🤩', 4),
-                          ],
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            // Save the self-care plan
+                            _saveSelfCarePlan();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.purple.shade500,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                          ),
+                          child: const Text('Save Plan'),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-            ),
+                  ],
+                );
+              }
 
-            // Badges
-            Container(
-              margin: const EdgeInsets.only(top: 24, bottom: 16),
-              child: Row(
+              // Original layout for larger screens
+              return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
@@ -1050,14 +1744,14 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade100,
+                          color: Colors.purple.shade100,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: const Text(
                           '+100 XP',
                           style: TextStyle(
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF1D4ED8),
+                            color: Color(0xFF7E22CE),
                           ),
                         ),
                       ),
@@ -1071,55 +1765,223 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
                           color: Colors.purple.shade500,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: const Text(
-                          '🏅 LIFESTYLE REFRESHER',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
+                        child: const Row(
+                          children: [
+                            Text(
+                              '🏅 SELF-CARE MASTER',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            currentStep = 4;
+                          });
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.grey.shade700,
+                        ),
+                        child: const Text('Back'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          // Save the self-care plan
+                          _saveSelfCarePlan();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple.shade500,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: const Text('Save Plan'),
+                      ),
+                    ],
+                  ),
                 ],
-              ),
-            ),
-
-            _buildNavigationButtons(
-              onBack: () {
-                setState(() {
-                  currentStep = 4;
-                });
-              },
-              onNext: () {
-                // In a real app, this would save the plan
-                Navigator.pop(context);
-              },
-              nextLabel: 'Save Plan',
-            ),
-          ],
-        ),
+              );
+            }),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSummaryTask(HabitTask task) {
+  Widget _buildHabitSummaryCard(String habitName) {
+    final selectedTasks = selectedTasksByHabit[habitName] ?? [];
+
+    String emoji = '💄';
+    if (habitName == 'Dress Well') {
+      emoji = '👔';
+    } else if (habitName == 'Feel More Confident') {
+      emoji = '💪';
+    }
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.check_circle,
-            size: 16,
-            color: Colors.purple.shade600,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.1),
+            blurRadius: 6,
+            offset: const Offset(0, 4),
           ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(task.task)),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          // Summary header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.purple.shade500,
+                  Colors.purple.shade700,
+                ],
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        emoji,
+                        style: const TextStyle(fontSize: 20),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Self-Care Focus: $habitName',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Starting: $selectedMonth 2025',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Selected tasks content
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.white,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Selected Tasks:',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Task cards in a grid layout
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: selectedTasks.map((task) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade50,
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(
+                          color: Colors.purple.shade200,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.radio_button_checked,
+                            size: 16,
+                            color: Colors.purple.shade600,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              task.description,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.purple.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+                if (selectedTasks.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    child: Text(
+                      'No tasks selected yet',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1136,9 +1998,10 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
       },
       style: ElevatedButton.styleFrom(
         backgroundColor:
-            isSelected ? Colors.purple.shade100 : Colors.grey.shade100,
+            isSelected ? Colors.purple.shade300 : Colors.grey.shade100,
         padding: const EdgeInsets.all(8),
         minimumSize: const Size(40, 40),
+        shape: const CircleBorder(),
       ),
       child: Text(
         emoji,
@@ -1152,51 +2015,348 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
     required VoidCallback onNext,
     String? nextLabel,
   }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        ElevatedButton(
-          onPressed: onBack,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.grey.shade100,
-            foregroundColor: Colors.grey.shade700,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 12,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-          ),
-          child: const Text('Back'),
-        ),
-        ElevatedButton(
-          onPressed: onNext,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.purple,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 12,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: ElevatedButton(
+              onPressed: onBack,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey.shade100,
+                foregroundColor: Colors.grey.shade700,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                elevation: 0,
+              ),
+              child: const Text('Back'),
             ),
           ),
-          child: Text(nextLabel ?? 'Continue'),
-        ),
-      ],
+          const SizedBox(width: 8),
+          Flexible(
+            child: ElevatedButton(
+              onPressed: onNext,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple.shade500,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                elevation: 2,
+              ),
+              child: Text(nextLabel ?? 'Continue'),
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  // Add a method to save self-care tasks to SharedPreferences
+  Future<void> _saveSelfCarePlan() async {
+    try {
+      // Get SharedPreferences instance
+      final prefs = await SharedPreferences.getInstance();
+
+      // First, read existing data from SharedPreferences
+      // Read existing vision board tasks
+      List<Map<String, dynamic>> existingVisionBoardTasks = [];
+      final existingVisionBoardStr = prefs.getString('BoxThem_todos_Self Care');
+      if (existingVisionBoardStr != null && existingVisionBoardStr.isNotEmpty) {
+        try {
+          final List<dynamic> decoded = json.decode(existingVisionBoardStr);
+          existingVisionBoardTasks =
+              decoded.map((item) => Map<String, dynamic>.from(item)).toList();
+        } catch (e) {
+          debugPrint('Error parsing existing vision board tasks: $e');
+        }
+      }
+
+      // Create a list for the selected self-care tasks
+      List<Map<String, dynamic>> selfCareTasks = [];
+      final selectedTasks = selectedTasksByHabit[selectedHabit] ?? [];
+
+      // Format tasks for vision board
+      for (var task in selectedTasks) {
+        final taskId = DateTime.now().millisecondsSinceEpoch.toString() +
+            '_${task.description.hashCode}';
+        selfCareTasks.add({
+          "id": taskId,
+          "text": "${task.description} for $selectedHabit in $selectedMonth",
+          "isDone": false
+        });
+      }
+
+      // If no tasks were selected, add default tasks
+      if (selfCareTasks.isEmpty) {
+        final defaultTasks = [
+          "Daily self-care routine for $selectedHabit",
+          "Weekly check-in for $selectedMonth",
+          "Self-care progress review"
+        ];
+
+        for (var taskText in defaultTasks) {
+          final taskId = DateTime.now().millisecondsSinceEpoch.toString() +
+              '_${taskText.hashCode}';
+          selfCareTasks.add({"id": taskId, "text": taskText, "isDone": false});
+        }
+      }
+
+      // For vision board tasks, add new tasks to existing ones
+      // First create a set of existing task texts to avoid duplicates
+      final Set<String> existingTaskTexts = existingVisionBoardTasks
+          .map((task) => task['text']?.toString() ?? '')
+          .toSet();
+
+      // Add only new tasks (avoid duplicates by text)
+      for (var task in selfCareTasks) {
+        final taskText = task['text']?.toString() ?? '';
+        if (taskText.isNotEmpty && !existingTaskTexts.contains(taskText)) {
+          existingVisionBoardTasks.add(task);
+        }
+      }
+
+      // Save the combined vision board tasks
+      await prefs.setString(
+          'BoxThem_todos_Self Care', json.encode(existingVisionBoardTasks));
+
+      // Save to animal calendar format
+      // First, read existing animal calendar data
+      Map<String, dynamic> existingEvents = {};
+      Map<String, dynamic> existingTheme = {};
+
+      // Read existing animal calendar events
+      final existingEventsStr = prefs.getString('animal.calendar_events');
+      if (existingEventsStr != null && existingEventsStr.isNotEmpty) {
+        try {
+          existingEvents = json.decode(existingEventsStr);
+        } catch (e) {
+          debugPrint('Error parsing existing calendar events: $e');
+        }
+      }
+
+      // Read existing animal calendar theme
+      final existingThemeStr = prefs.getString('animal.calendar_theme_2025');
+      if (existingThemeStr != null && existingThemeStr.isNotEmpty) {
+        try {
+          existingTheme = json.decode(existingThemeStr);
+        } catch (e) {
+          debugPrint('Error parsing existing calendar theme: $e');
+        }
+      }
+
+      // Create format for animal calendar
+      Map<String, dynamic> calendarEvents = {};
+      Map<String, dynamic> calendarTheme = {};
+
+      // Get selected tasks and their dates
+      final tasksToSave = selectedTasksByHabit[selectedHabit] ?? [];
+
+      if (tasksToSave.isNotEmpty) {
+        // Use "Health" category for self-care
+        const category = "Health";
+
+        // Create animal calendar format tasks
+        for (var task in tasksToSave) {
+          // Get the date for this task's week
+          final weekDate = weekDates[task.weekNumber];
+          if (weekDate != null) {
+            // Format date in ISO8601 format for events
+            final dateStr = weekDate.toIso8601String();
+
+            // Format date for theme (YYYY-MM-DD)
+            final themeDate =
+                "${weekDate.year}-${weekDate.month.toString().padLeft(2, '0')}-${weekDate.day.toString().padLeft(2, '0')}";
+
+            // Create task entry
+            final taskEntry = {
+              'category': category,
+              'title': category,
+              'type': task.description,
+              'is_all_day': 'true',
+              'event_hour': '9',
+              'event_minute': '0',
+              'has_custom_notification': 'false',
+              'notification_hour': '9',
+              'notification_minute': '0',
+              'reminder_minutes': '0',
+              'notification_day_offset': '0',
+              'task_id': DateTime.now().millisecondsSinceEpoch.toString(),
+            };
+
+            // Add to calendar events and theme
+            if (!calendarEvents.containsKey(dateStr)) {
+              calendarEvents[dateStr] = [];
+            }
+            calendarEvents[dateStr]!.add(taskEntry);
+            calendarTheme[themeDate] = category;
+          }
+        }
+      }
+
+      // Merge with existing data
+      existingEvents.addAll(calendarEvents);
+      existingTheme.addAll(calendarTheme);
+
+      // Save to SharedPreferences
+      await prefs.setString(
+          'animal.calendar_events', json.encode(existingEvents));
+      await prefs.setString(
+          'animal.calendar_theme_2025', json.encode(existingTheme));
+      await prefs.setString('animal.calendar_data', json.encode(existingTheme));
+
+      // Also save to weekly planner format
+      // First, read existing weekly planner tasks
+      Map<String, List<Map<String, dynamic>>> weeklyPlannerTasks = {};
+      for (int week = 1; week <= 4; week++) {
+        final dayOfWeek = _getDayOfWeekFromWeekNumber(week);
+        final tasks = getTasksForWeekAndHabit(week, currentHabitIndex)
+            .where((task) => task.isSelected)
+            .toList();
+
+        if (tasks.isNotEmpty) {
+          // Convert to weekly planner format
+          List<Map<String, dynamic>> weekTasks = tasks
+              .map((task) => {"text": task.description, "completed": false})
+              .toList();
+
+          weeklyPlannerTasks[dayOfWeek] = weekTasks;
+        }
+      }
+
+      // Save to weekly planner format
+      for (var entry in weeklyPlannerTasks.entries) {
+        final day = entry.key;
+        final tasks = entry.value;
+
+        // Read existing weekly planner tasks
+        List<Map<String, dynamic>> existingWeeklyTasks = [];
+        final existingWeeklyStr = prefs.getString('WatercolorTheme_todos_$day');
+        if (existingWeeklyStr != null && existingWeeklyStr.isNotEmpty) {
+          try {
+            final List<dynamic> decoded = json.decode(existingWeeklyStr);
+            existingWeeklyTasks =
+                decoded.map((item) => Map<String, dynamic>.from(item)).toList();
+          } catch (e) {
+            debugPrint('Error parsing existing weekly tasks: $e');
+          }
+        }
+
+        // Merge with existing tasks
+        final Set<String> existingTexts = existingWeeklyTasks
+            .map((task) => task['text']?.toString() ?? '')
+            .toSet();
+
+        for (var task in tasks) {
+          final taskText = task['text']?.toString() ?? '';
+          if (taskText.isNotEmpty && !existingTexts.contains(taskText)) {
+            existingWeeklyTasks.add(task);
+          }
+        }
+
+        // Save merged tasks
+        await prefs.setString(
+            'WatercolorTheme_todos_$day', json.encode(existingWeeklyTasks));
+
+        // Also create widget format
+        List<Map<String, dynamic>> widgetTasks = existingWeeklyTasks
+            .map((task) => {
+                  "id": "${task['text'].hashCode}",
+                  "text": task['text'],
+                  "isDone": task['completed'] ?? false
+                })
+            .toList();
+
+        await prefs.setString(
+            'watercolor_widget_todos_$day', json.encode(widgetTasks));
+
+        // Format display text
+        final String displayText = existingWeeklyTasks.map((task) {
+          final checkmark = task['completed'] == true ? '✓ ' : '• ';
+          return "$checkmark${task['text']}";
+        }).join('\n');
+
+        await prefs.setString('watercolor_todo_text_$day', displayText);
+      }
+
+      // Update the widgets
+      try {
+        await HomeWidget.updateWidget(
+          androidName: 'VisionBoardWidget',
+          iOSName: 'VisionBoardWidget',
+        );
+
+        await HomeWidget.updateWidget(
+          androidName: 'WeeklyPlannerWidget',
+          iOSName: 'WeeklyPlannerWidget',
+        );
+      } catch (e) {
+        debugPrint('Error updating widgets: $e');
+      }
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Self-care plan saved successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      // Return to previous screen
+      Navigator.pop(context);
+    } catch (e) {
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving self-care plan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Helper method to get day of week from week number
+  String _getDayOfWeekFromWeekNumber(int weekNumber) {
+    switch (weekNumber) {
+      case 1:
+        return 'Monday';
+      case 2:
+        return 'Tuesday';
+      case 3:
+        return 'Wednesday';
+      case 4:
+        return 'Thursday';
+      default:
+        return 'Monday';
+    }
   }
 }
 
 // Add a class to track habit task completion
-class HabitTask {
-  final String task;
-  bool isCompleted;
+class SelfCareTask {
+  final String description;
+  final int weekNumber;
+  final int habitIndex; // Index in the habits list
+  bool isSelected;
 
-  HabitTask({
-    required this.task,
-    this.isCompleted = false,
+  SelfCareTask({
+    required this.description,
+    required this.weekNumber,
+    this.habitIndex = -1,
+    this.isSelected = false,
   });
 }

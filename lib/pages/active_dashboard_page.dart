@@ -14,6 +14,8 @@ import '../Activity_Tools/sliding_puzzle_page.dart';
 import '../Activity_Tools/color_me_now.dart';
 import 'dart:convert';
 import '../vision_journey/vision-board-travel-journey.dart';
+import '../reset-emotions/reset-emotions-dashboard.dart';
+import '../district-my-mind/distract-my-mind-journey.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -134,6 +136,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
       {'name': 'Fun Calendars', 'image': 'assets/calendar.jpg'}
     ],
     'mind': [
+      {'name': 'Reset Emotions', 'image': 'assets/reset-emotions.png'},
       {
         'name': 'Thought Shredder',
         'image': 'assets/Mind_tools/thought-shredder.png'
@@ -146,6 +149,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
       }
     ],
     'activity': [
+      {'name': 'Distract My Mind', 'image': 'assets/distract-my-mind.png'},
       {
         'name': 'Digital Coloring',
         'image': 'assets/Activity_Tools/coloring-sheet.png'
@@ -636,6 +640,13 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
   // Fix the onTap handler to use the existing methods again
   void _handleMindToolNavigation(String toolName) {
     switch (toolName) {
+      case 'Reset Emotions':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const ResetEmotionsDashboard()),
+        );
+        break;
       case 'Thought Shredder':
         Navigator.push(
           context,
@@ -672,6 +683,13 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
 
   void _handleActivityToolNavigation(String toolName) {
     switch (toolName) {
+      case 'Distract My Mind':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const DistractMyMindJourney()),
+        );
+        break;
       case 'Digital Coloring':
         Navigator.push(
           context,
