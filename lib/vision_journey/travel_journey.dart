@@ -126,36 +126,25 @@ class _TravelJourneyState extends State<TravelJourney> {
 
   // Initialize default dates for each week
   void _initializeDefaultDates() {
-    // Use the selected month for the current city if available
+    // Use the selected date for the current city if available
     if (selectedMonths.isNotEmpty && currentCityIndex < selectedMonths.length) {
-      final selectedMonthYear = selectedMonths[currentCityIndex];
-      if (selectedMonthYear.isNotEmpty) {
-        final dateStr = _getFormattedDateFromMonth(selectedMonthYear);
-        if (dateStr.isNotEmpty) {
-          try {
-            final parts = dateStr.split('-');
-            if (parts.length == 3) {
-              final year = int.parse(parts[0]);
-              final month = int.parse(parts[1]);
-              final day = int.parse(parts[2]);
-
-              // Create a date from the selected month (middle of the month)
-              final baseDate = DateTime(year, month, day);
-
-              // Set each week to be 7 days apart
-              for (int week = 1; week <= 4; week++) {
-                weekDates[week] = baseDate.add(Duration(days: (week - 1) * 7));
-              }
-              return;
-            }
-          } catch (e) {
-            // Fallback to default if parsing fails
+      final selectedDate = selectedMonths[currentCityIndex];
+      if (selectedDate.isNotEmpty) {
+        try {
+          final date = DateTime.parse(selectedDate);
+          // Set each week to be 7 days apart
+          for (int week = 1; week <= 4; week++) {
+            weekDates[week] = date.add(Duration(days: (week - 1) * 7));
           }
+          return;
+        } catch (e) {
+          debugPrint('Error parsing date: $e');
+          // Fall through to default date handling
         }
       }
     }
 
-    // Fallback: Use current date if no month is selected
+    // Fallback: Use current date if no date is selected
     final now = DateTime.now();
     final monday = now.subtract(Duration(days: now.weekday - 1));
 
@@ -650,6 +639,25 @@ class _TravelJourneyState extends State<TravelJourney> {
       controller.text = selectedLocations[destinationNum - 1];
     }
 
+    // Popular travel destinations with their countries
+    final List<Map<String, String>> popularDestinations = [
+      {"name": "Paris", "country": "France", "countryCode": "FR"},
+      {"name": "Tokyo", "country": "Japan", "countryCode": "JP"},
+      {"name": "New York", "country": "USA", "countryCode": "US"},
+      {"name": "London", "country": "UK", "countryCode": "GB"},
+      {"name": "Rome", "country": "Italy", "countryCode": "IT"},
+      {"name": "Barcelona", "country": "Spain", "countryCode": "ES"},
+      {"name": "Amsterdam", "country": "Netherlands", "countryCode": "NL"},
+      {"name": "Sydney", "country": "Australia", "countryCode": "AU"},
+      {"name": "Dubai", "country": "UAE", "countryCode": "AE"},
+      {"name": "Singapore", "country": "Singapore", "countryCode": "SG"},
+      {"name": "Bangkok", "country": "Thailand", "countryCode": "TH"},
+      {"name": "Cairo", "country": "Egypt", "countryCode": "EG"},
+      {"name": "Cape Town", "country": "South Africa", "countryCode": "ZA"},
+      {"name": "Mumbai", "country": "India", "countryCode": "IN"},
+      {"name": "Toronto", "country": "Canada", "countryCode": "CA"},
+    ];
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 24.0),
       child: Column(
@@ -712,12 +720,12 @@ class _TravelJourneyState extends State<TravelJourney> {
                       return const SizedBox.shrink();
                     }
 
-                    // Filter cities based on text input
+                    // Filter destinations based on text input
                     final query = controller.text.toLowerCase();
-                    final filteredCities = citiesData
-                        .where((city) =>
-                            city["name"]!.toLowerCase().contains(query) ||
-                            city["country"]!.toLowerCase().contains(query))
+                    final filteredDestinations = popularDestinations
+                        .where((dest) =>
+                            dest["name"]!.toLowerCase().contains(query) ||
+                            dest["country"]!.toLowerCase().contains(query))
                         .take(5)
                         .toList();
 
@@ -739,11 +747,11 @@ class _TravelJourneyState extends State<TravelJourney> {
                           ],
                         ),
                         child: Column(
-                          children: filteredCities.map((city) {
+                          children: filteredDestinations.map((dest) {
                             return InkWell(
                               onTap: () {
-                                final cityName = city["name"]!;
-                                final countryName = city["country"]!;
+                                final cityName = dest["name"]!;
+                                final countryName = dest["country"]!;
                                 final fullName = '$cityName, $countryName';
 
                                 controller.text = fullName;
@@ -773,28 +781,33 @@ class _TravelJourneyState extends State<TravelJourney> {
                                     Container(
                                       width: 24,
                                       height: 16,
-                                      color: Colors.grey.shade200,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade200,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
                                       margin: const EdgeInsets.only(right: 8),
                                     ),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          city["name"]!,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            color: Color(0xFF1E293B),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            dest["name"]!,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w500,
+                                              color: Color(0xFF1E293B),
+                                            ),
                                           ),
-                                        ),
-                                        Text(
-                                          city["country"]!,
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                            fontSize: 12,
+                                          Text(
+                                            dest["country"]!,
+                                            style: TextStyle(
+                                              color: Colors.grey.shade600,
+                                              fontSize: 12,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -809,6 +822,113 @@ class _TravelJourneyState extends State<TravelJourney> {
               ],
             );
           }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateSelection(int cityIndex) {
+    final city =
+        selectedLocations.isNotEmpty && cityIndex < selectedLocations.length
+            ? selectedLocations[cityIndex].split(',').first
+            : 'City ${cityIndex + 1}';
+
+    // Get previously selected dates to enforce 2-week gap rule
+    final List<DateTime> disabledDates = [];
+    for (int i = 0; i < selectedMonths.length; i++) {
+      if (i != cityIndex &&
+          selectedMonths.length > i &&
+          selectedMonths[i].isNotEmpty) {
+        try {
+          final date = DateTime.parse(selectedMonths[i]);
+          // Disable 2 weeks before and after the selected date
+          disabledDates.add(date.subtract(const Duration(days: 14)));
+          disabledDates.add(date);
+          disabledDates.add(date.add(const Duration(days: 14)));
+        } catch (e) {
+          debugPrint('Error parsing date: $e');
+        }
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // City name
+          Text(
+            '$city:',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.blue.shade700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Date selection
+          TextField(
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              hintText: 'Select date',
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.calendar_today),
+                onPressed: () async {
+                  final DateTime? picked = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime(2026),
+                    selectableDayPredicate: (DateTime date) {
+                      // Check if the date is in the disabled dates list
+                      return !disabledDates.any((disabledDate) =>
+                          date.year == disabledDate.year &&
+                          date.month == disabledDate.month &&
+                          date.day == disabledDate.day);
+                    },
+                  );
+
+                  if (picked != null) {
+                    setState(() {
+                      if (selectedMonths.length <= cityIndex) {
+                        while (selectedMonths.length < cityIndex) {
+                          selectedMonths.add('');
+                        }
+                        selectedMonths.add(picked.toIso8601String());
+                      } else {
+                        selectedMonths[cityIndex] = picked.toIso8601String();
+                      }
+                    });
+                  }
+                },
+              ),
+            ),
+            readOnly: true,
+            controller: TextEditingController(
+              text:
+                  selectedMonths.isNotEmpty && cityIndex < selectedMonths.length
+                      ? selectedMonths[cityIndex].isNotEmpty
+                          ? DateTime.parse(selectedMonths[cityIndex])
+                              .toString()
+                              .split(' ')[0]
+                          : ''
+                      : '',
+            ),
+          ),
         ],
       ),
     );
@@ -831,7 +951,7 @@ class _TravelJourneyState extends State<TravelJourney> {
       child: Column(
         children: [
           Text(
-            'Step 3: Pick a Travel Month for Each City',
+            'Step 3: Pick Travel Dates for Each City',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -841,7 +961,7 @@ class _TravelJourneyState extends State<TravelJourney> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Choose the best time to visit each destination:',
+            'Choose the best dates to visit each destination:',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.grey.shade600,
@@ -849,12 +969,12 @@ class _TravelJourneyState extends State<TravelJourney> {
           ),
           const SizedBox(height: 24),
 
-          // Month selection for each city
+          // Date selection for each city
           ...List.generate(selectedLocations.length, (index) {
-            return _buildMonthSelection(index);
+            return _buildDateSelection(index);
           }),
 
-          // Info about 2-month gap rule
+          // Info about 2-week gap rule
           Container(
             margin: const EdgeInsets.only(top: 16),
             padding: const EdgeInsets.all(12),
@@ -868,7 +988,7 @@ class _TravelJourneyState extends State<TravelJourney> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'To avoid travel fatigue, a 2-month gap is required between trips. Some months may be disabled accordingly.',
+                    'To avoid travel fatigue, a 2-week gap is required between trips. Some dates may be disabled accordingly.',
                     style: TextStyle(
                       color: Colors.blue.shade700,
                       fontSize: 13,
@@ -888,7 +1008,7 @@ class _TravelJourneyState extends State<TravelJourney> {
             },
             onNext: () {
               if (selectedMonths.length == selectedLocations.length &&
-                  selectedMonths.every((month) => month.isNotEmpty)) {
+                  selectedMonths.every((date) => date.isNotEmpty)) {
                 setState(() {
                   currentStep = 4;
                   // Reset city index when entering step 4
@@ -896,200 +1016,13 @@ class _TravelJourneyState extends State<TravelJourney> {
                 });
               } else {
                 _showErrorDialog(
-                    'Please select a month for each destination before continuing.');
+                    'Please select dates for each destination before continuing.');
               }
             },
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildMonthSelection(int cityIndex) {
-    final city =
-        selectedLocations.isNotEmpty && cityIndex < selectedLocations.length
-            ? selectedLocations[cityIndex].split(',').first
-            : 'City ${cityIndex + 1}';
-
-    final List<String> allMonths = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December'
-    ];
-
-    // Get previously selected months to enforce 2-month gap rule
-    final List<int> disabledMonths = [];
-    for (int i = 0; i < selectedMonths.length; i++) {
-      if (i != cityIndex &&
-          selectedMonths.length > i &&
-          selectedMonths[i].isNotEmpty) {
-        final String monthName = selectedMonths[i].split(' ').first;
-        final int monthIndex = allMonths.indexOf(monthName);
-
-        if (monthIndex != -1) {
-          // Disable the month itself
-          disabledMonths.add(monthIndex);
-
-          // Disable month before
-          if (monthIndex > 0) {
-            disabledMonths.add(monthIndex - 1);
-          }
-
-          // Disable month after
-          if (monthIndex < 11) {
-            disabledMonths.add(monthIndex + 1);
-          }
-        }
-      }
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade200),
-      ),
-      child: Row(
-        children: [
-          // City name
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$city:',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.blue.shade700,
-              ),
-            ),
-          ),
-
-          // Month selection
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              hint: const Text('Select month'),
-              items: allMonths.map((month) {
-                final int monthIndex = allMonths.indexOf(month);
-                final bool isDisabled = disabledMonths.contains(monthIndex);
-
-                return DropdownMenuItem<String>(
-                  value: '$month 2025',
-                  enabled: !isDisabled,
-                  child: Text(
-                    '$month 2025',
-                    style: TextStyle(
-                      color: isDisabled ? Colors.grey.shade400 : Colors.black,
-                    ),
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    if (selectedMonths.length <= cityIndex) {
-                      while (selectedMonths.length < cityIndex) {
-                        selectedMonths.add('');
-                      }
-                      selectedMonths.add(value);
-                    } else {
-                      selectedMonths[cityIndex] = value;
-                    }
-                  });
-                }
-              },
-              value:
-                  selectedMonths.isNotEmpty && cityIndex < selectedMonths.length
-                      ? selectedMonths[cityIndex]
-                      : null,
-            ),
-          ),
-
-          // Date picker
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                hintText: 'Select date',
-              ),
-              readOnly: true,
-              controller: TextEditingController(
-                text: selectedMonths.isNotEmpty &&
-                        cityIndex < selectedMonths.length
-                    ? _getFormattedDateFromMonth(selectedMonths[cityIndex])
-                    : '',
-              ),
-              onTap: () {
-                // In a real app, show a date picker
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper method to format a date string from a month string
-  String _getFormattedDateFromMonth(String monthYear) {
-    if (monthYear.isEmpty) return '';
-
-    final parts = monthYear.split(' ');
-    if (parts.length != 2) return '';
-
-    final month = parts[0];
-    final year = parts[1];
-
-    final List<String> allMonths = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December'
-    ];
-
-    final monthIndex = allMonths.indexOf(month);
-    if (monthIndex == -1) return '';
-
-    // Return middle of the month
-    return '$year-${monthIndex + 1}-15';
   }
 
   Widget _buildStep4() {
@@ -1370,33 +1303,22 @@ class _TravelJourneyState extends State<TravelJourney> {
                         // If a month is selected for this city, use it to limit date selection
                         if (selectedMonths.isNotEmpty &&
                             currentCityIndex < selectedMonths.length) {
-                          final selectedMonthYear =
-                              selectedMonths[currentCityIndex];
-                          if (selectedMonthYear.isNotEmpty) {
-                            final dateStr =
-                                _getFormattedDateFromMonth(selectedMonthYear);
-                            if (dateStr.isNotEmpty) {
-                              try {
-                                final parts = dateStr.split('-');
-                                if (parts.length == 3) {
-                                  final year = int.parse(parts[0]);
-                                  final month = int.parse(parts[1]);
+                          final selectedDate = selectedMonths[currentCityIndex];
+                          if (selectedDate.isNotEmpty) {
+                            try {
+                              final date = DateTime.parse(selectedDate);
+                              // Set the initial date to the selected date
+                              initialDate = date;
 
-                                  // Set the initial date to the selected month
-                                  initialDate =
-                                      DateTime(year, month, weekDate.day);
+                              // Set first and last date to constrain to the selected month
+                              firstDate = DateTime(date.year, date.month, 1);
 
-                                  // Set first and last date to constrain to the selected month
-                                  firstDate = DateTime(year, month, 1);
-
-                                  // Only allow selecting dates within the selected month
-                                  lastDate = DateTime(
-                                      year, month + 1, 0); // Last day of month
-                                }
-                              } catch (e) {
-                                // Fallback to default values if parsing fails
-                                debugPrint('Error parsing date: $e');
-                              }
+                              // Only allow selecting dates within the selected month
+                              lastDate = DateTime(date.year, date.month + 1,
+                                  0); // Last day of month
+                            } catch (e) {
+                              // Fallback to default values if parsing fails
+                              debugPrint('Error parsing date: $e');
                             }
                           }
                         }
@@ -1763,83 +1685,6 @@ class _TravelJourneyState extends State<TravelJourney> {
                 foregroundColor: Colors.white,
               ),
               child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showSetReminderDialog(int weekNumber, String cityName) {
-    final TextEditingController dateController = TextEditingController();
-    final TextEditingController messageController = TextEditingController(
-        text: 'Complete tasks for Week $weekNumber in $cityName');
-
-    // Set default date to tomorrow
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    dateController.text =
-        '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Set Reminder for Week $weekNumber'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: dateController,
-                decoration: const InputDecoration(
-                  labelText: 'Date (YYYY-MM-DD)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: messageController,
-                decoration: const InputDecoration(
-                  labelText: 'Reminder Message',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final date = dateController.text;
-                final message = messageController.text;
-
-                if (date.isNotEmpty && message.isNotEmpty) {
-                  final reminderText = '$date: $message';
-                  final taskId = '$weekNumber-$cityName-Week$weekNumber';
-
-                  setState(() {
-                    remindersMap[taskId] = reminderText;
-                  });
-
-                  Navigator.pop(context);
-
-                  // Show confirmation
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Reminder set for $date'),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Save Reminder'),
             ),
           ],
         );
@@ -2255,24 +2100,6 @@ class _TravelJourneyState extends State<TravelJourney> {
         );
       },
     );
-  }
-
-  // Add helper method to clear tasks for a specific city
-  void _clearTasksForCity(int cityIndex) {
-    // Clear tasks in weeklyTasks
-    for (var week in weeklyTasks.keys) {
-      for (var task in weeklyTasks[week]!) {
-        if (task.cityIndex == cityIndex) {
-          task.isSelected = false;
-        }
-      }
-    }
-
-    // Clear tasks in completedTasksByCity
-    if (cityIndex < selectedLocations.length) {
-      final cityName = selectedLocations[cityIndex].split(',').first;
-      completedTasksByCity.remove(cityName);
-    }
   }
 
   // Helper method to save selections for current city
