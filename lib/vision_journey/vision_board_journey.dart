@@ -13,25 +13,43 @@ class VisionBoardJourney extends StatelessWidget {
       body: SafeArea(
         child: Stack(
           children: [
-            // Decorative background shapes
+            // Decorative background shapes - replaced with Container decorations
             Positioned(
               left: -40,
               top: -40,
-              child: Image.asset(
-                'assets/shape_top_left.png',
+              child: Container(
                 width: 200,
                 height: 200,
-                color: Colors.indigo.withOpacity(0.3),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.indigo.withOpacity(0.2),
+                      Colors.indigo.withOpacity(0.1),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
             Positioned(
               right: -40,
               bottom: -40,
-              child: Image.asset(
-                'assets/shape_bottom_right.png',
+              child: Container(
                 width: 200,
                 height: 200,
-                color: Colors.amber.withOpacity(0.3),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.amber.withOpacity(0.2),
+                      Colors.amber.withOpacity(0.1),
+                    ],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
 
