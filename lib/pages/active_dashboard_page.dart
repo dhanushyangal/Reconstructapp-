@@ -123,10 +123,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
   // Tool data organized by category
   final Map<String, List<Map<String, dynamic>>> _tools = {
     'vision': [
-      {
-        'name': 'Start guided journey',
-        'image': 'assets/start_guided_journey.png'
-      },
+      {'name': 'Start guided journey', 'image': 'assets/journey.png'},
       {'name': 'Vision Boards', 'image': 'assets/vision-board-plain.jpg'},
       {'name': 'Weekly Planners', 'image': 'assets/weakly_planer.png'},
       {
@@ -136,7 +133,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
       {'name': 'Fun Calendars', 'image': 'assets/calendar.jpg'}
     ],
     'mind': [
-      {'name': 'Reset Emotions', 'image': 'assets/reset-emotions.png'},
+      {'name': 'Reset Emotions', 'image': 'assets/journey.png'},
       {
         'name': 'Thought Shredder',
         'image': 'assets/Mind_tools/thought-shredder.png'
@@ -149,7 +146,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
       }
     ],
     'activity': [
-      {'name': 'Distract My Mind', 'image': 'assets/distract-my-mind.png'},
+      {'name': 'Start Guided Journey', 'image': 'assets/journey.png'},
       {
         'name': 'Digital Coloring',
         'image': 'assets/Activity_Tools/coloring-sheet.png'
@@ -253,7 +250,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
                   DropdownMenuItem(
                       value: 'mind', child: Text('Reset my emotions')),
                   DropdownMenuItem(
-                      value: 'activity', child: Text('Distract my mind')),
+                      value: 'activity', child: Text('Start Guided Journey')),
                 ],
                 onChanged: (value) {
                   setState(() {
@@ -683,7 +680,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
 
   void _handleActivityToolNavigation(String toolName) {
     switch (toolName) {
-      case 'Distract My Mind':
+      case 'Start Guided Journey':
         Navigator.push(
           context,
           MaterialPageRoute(

@@ -7,6 +7,7 @@ import '../services/calendar_database_service.dart';
 import '../services/weekly_planner_service.dart';
 import '../services/user_service.dart';
 import '../config/api_config.dart';
+import '../pages/box_them_vision_board.dart';
 
 // Define the FinanceTask class
 class FinanceTask {
@@ -1429,83 +1430,6 @@ class _FinanceJourneyState extends State<FinanceJourney> {
     );
   }
 
-  void _showSetReminderDialog(int weekNumber, String goalName) {
-    final TextEditingController dateController = TextEditingController();
-    final TextEditingController messageController = TextEditingController(
-        text: 'Complete tasks for Week $weekNumber in $goalName');
-
-    // Set default date to tomorrow
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    dateController.text =
-        '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Set Reminder for Week $weekNumber'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: dateController,
-                decoration: const InputDecoration(
-                  labelText: 'Date (YYYY-MM-DD)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: messageController,
-                decoration: const InputDecoration(
-                  labelText: 'Reminder Message',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final date = dateController.text;
-                final message = messageController.text;
-
-                if (date.isNotEmpty && message.isNotEmpty) {
-                  final reminderText = '$date: $message';
-                  final taskId = '$weekNumber-$selectedGoal-Week$weekNumber';
-
-                  setState(() {
-                    remindersMap[taskId] = reminderText;
-                  });
-
-                  Navigator.pop(context);
-
-                  // Show confirmation
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Reminder set for $date'),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Save Reminder'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   // Add method to show dialog for adding new tasks
   void _showAddTaskDialog(int weekNumber) {
     final TextEditingController controller = TextEditingController();
@@ -2149,33 +2073,14 @@ class _FinanceJourneyState extends State<FinanceJourney> {
 
   Future<void> saveAndExit() async {
     try {
+      // Get SharedPreferences instance
       final prefs = await SharedPreferences.getInstance();
 
-      // Prepare all the data to save
+      // Set a flag to indicate we're attempting to save
+      await prefs.setBool('finance_journey_saving', true);
+      debugPrint('Setting finance saving flag');
 
-      // 1. Convert selected tasks to required formats
-      final selectedTasks = selectedTasksByGoal[selectedGoal] ?? [];
-
-      // Get user info for database saving
-      final userInfo = await UserService.instance.getUserInfo();
-      final hasUserInfo = userInfo['userName'] != null &&
-          userInfo['userName']?.isNotEmpty == true &&
-          userInfo['email'] != null &&
-          userInfo['email']?.isNotEmpty == true;
-
-      // --- VISION BOARD SAVING ---
-
-      // 1. Save to Vision Board (BoxThem_todos_Invest)
-      List<Map<String, dynamic>> visionBoardTasks = [];
-
-      for (var task in selectedTasks) {
-        visionBoardTasks.add({
-          'id': DateTime.now().millisecondsSinceEpoch.toString(),
-          'text': '${selectedGoal}: ${task.description}',
-          'isDone': false,
-        });
-      }
-
+      // First, read existing data from SharedPreferences
       // Read existing vision board tasks
       List<Map<String, dynamic>> existingVisionBoardTasks = [];
       final existingVisionBoardStr = prefs.getString('BoxThem_todos_Invest');
@@ -2189,148 +2094,124 @@ class _FinanceJourneyState extends State<FinanceJourney> {
         }
       }
 
-      // Merge tasks (avoid duplicates)
+      // Create a list for the selected finance tasks
+      List<Map<String, dynamic>> financeTasks = [];
+      final selectedTasks = selectedTasksByGoal[selectedGoal] ?? [];
+
+      // Format tasks for vision board
+      for (var task in selectedTasks) {
+        final taskId = DateTime.now().millisecondsSinceEpoch.toString() +
+            '_${task.description.hashCode}';
+        financeTasks.add({
+          "id": taskId,
+          "text": "${task.description} for $selectedGoal in $selectedMonth",
+          "isDone": false
+        });
+      }
+
+      // If no tasks were selected, add default tasks
+      if (financeTasks.isEmpty) {
+        final defaultTasks = [
+          "Daily finance routine for $selectedGoal",
+          "Weekly check-in for $selectedMonth",
+          "Finance progress review"
+        ];
+
+        for (var taskText in defaultTasks) {
+          final taskId = DateTime.now().millisecondsSinceEpoch.toString() +
+              '_${taskText.hashCode}';
+          financeTasks.add({"id": taskId, "text": taskText, "isDone": false});
+        }
+      }
+
+      // For vision board tasks, add new tasks to existing ones
+      // First create a set of existing task texts to avoid duplicates
       final Set<String> existingTaskTexts = existingVisionBoardTasks
           .map((task) => task['text']?.toString() ?? '')
           .toSet();
 
-      for (var task in visionBoardTasks) {
+      // Add only new tasks (avoid duplicates by text)
+      for (var task in financeTasks) {
         final taskText = task['text']?.toString() ?? '';
         if (taskText.isNotEmpty && !existingTaskTexts.contains(taskText)) {
           existingVisionBoardTasks.add(task);
         }
       }
 
-      // Save the combined vision board tasks to SharedPreferences
+      // Save the combined vision board tasks
       await prefs.setString(
           'BoxThem_todos_Invest', json.encode(existingVisionBoardTasks));
 
-      // Save to widget data
-      await HomeWidget.saveWidgetData(
-          'BoxThem_todos_Invest', json.encode(existingVisionBoardTasks));
-
-      // Save to database if user is logged in
-      if (_isConnected && hasUserInfo) {
-        // Vision board database save
-        final visionBoardJson = json.encode(existingVisionBoardTasks);
-        final visionSaveSuccess = await _databaseService.saveTodoItem(
-            userInfo, 'Invest', visionBoardJson, 'BoxThem');
-
-        debugPrint(
-            'Vision board save to database: ${visionSaveSuccess ? 'Success' : 'Failed'}');
-      }
-
-      // --- CALENDAR SAVING ---
-
       // Save to animal calendar format
-      Map<String, List<Map<String, String>>> calendarEvents = {};
-      Map<String, String> calendarTheme = {};
+      // First, read existing animal calendar data
+      Map<String, dynamic> existingEvents = {};
+      Map<String, dynamic> existingTheme = {};
 
-      // Read existing calendar data
-      Map<String, List<Map<String, String>>> existingEvents = {};
-      Map<String, String> existingTheme = {};
-
+      // Read existing animal calendar events
       final existingEventsStr = prefs.getString('animal.calendar_events');
-      final existingThemeStr = prefs.getString('animal.calendar_theme_2025');
-
       if (existingEventsStr != null && existingEventsStr.isNotEmpty) {
         try {
-          final Map<String, dynamic> decoded = json.decode(existingEventsStr);
-          decoded.forEach((key, value) {
-            if (value is List) {
-              existingEvents[key] = (value as List)
-                  .map((item) => Map<String, String>.from(item))
-                  .toList();
-            }
-          });
+          existingEvents = json.decode(existingEventsStr);
         } catch (e) {
           debugPrint('Error parsing existing calendar events: $e');
         }
       }
 
+      // Read existing animal calendar theme
+      final existingThemeStr = prefs.getString('animal.calendar_theme_2025');
       if (existingThemeStr != null && existingThemeStr.isNotEmpty) {
         try {
-          final Map<String, dynamic> decoded = json.decode(existingThemeStr);
-          decoded.forEach((key, value) {
-            if (value is String) {
-              existingTheme[key] = value;
-            }
-          });
+          existingTheme = json.decode(existingThemeStr);
         } catch (e) {
           debugPrint('Error parsing existing calendar theme: $e');
         }
       }
 
-      // Use "Finance" category for finance journey
-      const category = "Finance";
+      // Create format for animal calendar
+      Map<String, dynamic> calendarEvents = {};
+      Map<String, dynamic> calendarTheme = {};
 
-      // Create animal calendar format tasks for each selected task
-      for (var task in selectedTasks) {
-        // Get the date for this task's week
-        final weekDate = weekDates[task.weekNumber];
-        if (weekDate != null) {
-          // Format date in ISO8601 format for events
-          final dateStr = weekDate.toIso8601String();
+      // Get selected tasks and their dates
+      final tasksToSave = selectedTasksByGoal[selectedGoal] ?? [];
 
-          // Format date for theme (YYYY-MM-DD)
-          final themeDate =
-              "${weekDate.year}-${weekDate.month.toString().padLeft(2, '0')}-${weekDate.day.toString().padLeft(2, '0')}";
+      if (tasksToSave.isNotEmpty) {
+        // Use "Finance" category for finance journey
+        const category = "Finance";
 
-          // Create task entry
-          final taskEntry = {
-            'category': category,
-            'title': category,
-            'type': task.description,
-            'is_all_day': 'true',
-            'event_hour': '9',
-            'event_minute': '0',
-            'has_custom_notification': 'false',
-            'notification_hour': '9',
-            'notification_minute': '0',
-            'reminder_minutes': '0',
-            'notification_day_offset': '0',
-            'task_id': DateTime.now().millisecondsSinceEpoch.toString(),
-          };
-
-          // Add to calendar events and theme
-          if (!calendarEvents.containsKey(dateStr)) {
-            calendarEvents[dateStr] = [];
-          }
-          calendarEvents[dateStr]!.add(taskEntry);
-          calendarTheme[themeDate] = category;
-        }
-      }
-
-      // Save to database if user is logged in
-      if (_isConnected && hasUserInfo) {
-        // Save calendar tasks to database
-        final taskType = 3; // Finance = 3
-
-        // Get the current time for task timestamps
-        final now = DateTime.now();
-        final taskTime =
-            "[${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}]";
-
-        // Save each task with its exact date
-        for (var task in selectedTasks) {
+        // Create animal calendar format tasks
+        for (var task in tasksToSave) {
+          // Get the date for this task's week
           final weekDate = weekDates[task.weekNumber];
           if (weekDate != null) {
-            final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-            final formattedTask =
-                "$taskTime [COLOR-$taskType] ${task.description} #$timestamp";
+            // Format date in ISO8601 format for events
+            final dateStr = weekDate.toIso8601String();
 
-            // Save to database
-            final result = await _calendarDatabaseService.saveCalendarTask(
-                taskDate: weekDate,
-                taskType: taskType,
-                description: formattedTask,
-                colorCode: 'selected-color-$taskType',
-                theme: 'animal');
+            // Format date for theme (YYYY-MM-DD)
+            final themeDate =
+                "${weekDate.year}-${weekDate.month.toString().padLeft(2, '0')}-${weekDate.day.toString().padLeft(2, '0')}";
 
-            debugPrint(
-                'Calendar task for ${weekDate.day}/${weekDate.month} saved to database: ${result['success'] ? 'Success' : 'Failed'}');
-            debugPrint(
-                'Saved task for date ${weekDate.day}/${weekDate.month}: $formattedTask');
+            // Create task entry
+            final taskEntry = {
+              'category': category,
+              'title': category,
+              'type': task.description,
+              'is_all_day': 'true',
+              'event_hour': '9',
+              'event_minute': '0',
+              'has_custom_notification': 'false',
+              'notification_hour': '9',
+              'notification_minute': '0',
+              'reminder_minutes': '0',
+              'notification_day_offset': '0',
+              'task_id': DateTime.now().millisecondsSinceEpoch.toString(),
+            };
+
+            // Add to calendar events and theme
+            if (!calendarEvents.containsKey(dateStr)) {
+              calendarEvents[dateStr] = [];
+            }
+            calendarEvents[dateStr]!.add(taskEntry);
+            calendarTheme[themeDate] = category;
           }
         }
       }
@@ -2346,7 +2227,6 @@ class _FinanceJourneyState extends State<FinanceJourney> {
           'animal.calendar_theme_2025', json.encode(existingTheme));
       await prefs.setString('animal.calendar_data', json.encode(existingTheme));
 
-      // --- WEEKLY PLANNER SAVING ---
       // Also save to weekly planner format
       // First, read existing weekly planner tasks
       Map<String, List<Map<String, dynamic>>> weeklyPlannerTasks = {};
@@ -2419,21 +2299,11 @@ class _FinanceJourneyState extends State<FinanceJourney> {
         }).join('\n');
 
         await prefs.setString('watercolor_todo_text_$day', displayText);
-
-        // Save to database if user is logged in
-        if (_isConnected && hasUserInfo) {
-          final weeklyTasksJson = json.encode(existingWeeklyTasks);
-          final weeklySaveSuccess = await _weeklyPlannerService.saveTodoItem(
-              userInfo, day, weeklyTasksJson,
-              theme: 'watercolor');
-
-          debugPrint(
-              'Weekly planner save to database for $day: ${weeklySaveSuccess ? 'Success' : 'Failed'}');
-        }
       }
 
-      // Update the widgets
+      // Update the widgets with explicit debugging
       try {
+        debugPrint('Updating home widgets...');
         await HomeWidget.updateWidget(
           androidName: 'VisionBoardWidget',
           iOSName: 'VisionBoardWidget',
@@ -2448,27 +2318,47 @@ class _FinanceJourneyState extends State<FinanceJourney> {
           androidName: 'CalendarThemeWidget',
           iOSName: 'CalendarThemeWidget',
         );
+        debugPrint('Widgets updated successfully');
       } catch (e) {
         debugPrint('Error updating widgets: $e');
       }
 
-      // Show success message
+      // Set a flag to indicate successful save
+      await prefs.setBool('finance_journey_saved', true);
+      await prefs.setBool('finance_journey_saving', false);
+      debugPrint('Finance journey saved successfully flag set');
+
+      // Show success message and navigate
       if (mounted) {
+        debugPrint('Showing success message and navigating...');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Finance plan saved successfully!' +
-                (_isConnected && hasUserInfo
-                    ? ' Synced to cloud.'
-                    : ' Saved locally only.')),
+            content: Text('Finance plan saved successfully!'),
             backgroundColor: Colors.green,
           ),
         );
+        // Navigate to Vision Board page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                VisionBoardDetailsPage(title: 'Box Theme Vision Board'),
+          ),
+        );
+      }
+    } catch (e) {
+      // Mark the save operation as failed
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('finance_journey_saving', false);
+        await prefs.setBool('finance_journey_save_failed', true);
+      } catch (_) {
+        // Ignore errors in error handling
       }
 
-      // Return to previous screen
-      Navigator.pop(context);
-    } catch (e) {
-      // Show error message
+      // Show error message with detailed logging
+      debugPrint('ERROR SAVING FINANCE PLAN: $e');
+      debugPrint('Error stack trace: ${StackTrace.current}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
