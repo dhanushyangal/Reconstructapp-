@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'activity_progress.dart';
 
 class CrosswordPuzzle extends StatefulWidget {
   final VoidCallback onComplete;
@@ -739,6 +740,44 @@ class _CrosswordPuzzleState extends State<CrosswordPuzzle> {
                               ),
                             ),
                           ),
+                        SizedBox(height: 24),
+
+                        // Next Button
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ActivityProgress(),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFF2196F3),
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 40,
+                              vertical: 16,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 4,
+                            shadowColor: Color(0xFF2196F3).withOpacity(0.4),
+                          ),
+                          child: Container(
+                            width: 200,
+                            child: Text(
+                              'Next',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),

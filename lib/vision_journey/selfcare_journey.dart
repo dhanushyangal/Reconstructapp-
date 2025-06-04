@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:home_widget/home_widget.dart';
+import '../pages/box_them_vision_board.dart';
 
 class SelfCareJourney extends StatefulWidget {
   const SelfCareJourney({Key? key}) : super(key: key);
@@ -2068,6 +2069,10 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
       // Get SharedPreferences instance
       final prefs = await SharedPreferences.getInstance();
 
+      // Set a flag to indicate we're attempting to save
+      await prefs.setBool('selfcare_journey_saving', true);
+      debugPrint('Setting selfcare saving flag');
+
       // First, read existing data from SharedPreferences
       // Read existing vision board tasks
       List<Map<String, dynamic>> existingVisionBoardTasks = [];
@@ -2289,8 +2294,9 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
         await prefs.setString('watercolor_todo_text_$day', displayText);
       }
 
-      // Update the widgets
+      // Update the widgets with explicit debugging
       try {
+        debugPrint('Updating home widgets...');
         await HomeWidget.updateWidget(
           androidName: 'VisionBoardWidget',
           iOSName: 'VisionBoardWidget',
@@ -2300,24 +2306,48 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
           androidName: 'WeeklyPlannerWidget',
           iOSName: 'WeeklyPlannerWidget',
         );
+        debugPrint('Widgets updated successfully');
       } catch (e) {
         debugPrint('Error updating widgets: $e');
       }
 
-      // Show success message
+      // Set a flag to indicate successful save
+      await prefs.setBool('selfcare_journey_saved', true);
+      await prefs.setBool('selfcare_journey_saving', false);
+      debugPrint('Self-care journey saved successfully flag set');
+
+      // Show success message and navigate
       if (mounted) {
+        debugPrint('Showing success message and navigating...');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Self-care plan saved successfully!'),
             backgroundColor: Colors.green,
           ),
         );
+
+        // Navigate to Vision Board page - ensure navigation happens after saving
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                VisionBoardDetailsPage(title: 'Box Theme Vision Board'),
+          ),
+        );
+      }
+    } catch (e) {
+      // Mark the save operation as failed
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('selfcare_journey_saving', false);
+        await prefs.setBool('selfcare_journey_save_failed', true);
+      } catch (_) {
+        // Ignore errors in error handling
       }
 
-      // Return to previous screen
-      Navigator.pop(context);
-    } catch (e) {
-      // Show error message
+      // Show error message with detailed logging
+      debugPrint('ERROR SAVING SELF-CARE PLAN: $e');
+      debugPrint('Error stack trace: ${StackTrace.current}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

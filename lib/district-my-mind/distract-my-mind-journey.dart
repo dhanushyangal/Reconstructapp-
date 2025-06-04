@@ -77,7 +77,7 @@ class _DistractMyMindJourneyState extends State<DistractMyMindJourney> {
         activity = NumberGames();
         break;
       case 'creative_activities':
-        activity = const CreativeActivities();
+        activity = CreativeActivitiesPage();
         break;
       default:
         return;
@@ -139,9 +139,7 @@ class _DistractMyMindJourneyState extends State<DistractMyMindJourney> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => ActivityProgress(
-                              progress: _activityProgress,
-                            ),
+                            builder: (context) => ActivityProgress(),
                           ),
                         );
                       },
@@ -243,19 +241,27 @@ class _DistractMyMindJourneyState extends State<DistractMyMindJourney> {
                           onPressed: () => _goToStep(2),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Color(0xFF1E88E5),
+                            foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(
-                              horizontal: 32,
-                              vertical: 14,
+                              horizontal: 40,
+                              vertical: 16,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(16),
                             ),
+                            elevation: 4,
+                            shadowColor: Color(0xFF2196F3).withOpacity(0.4),
                           ),
-                          child: Text(
-                            'Continue',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
+                          child: Container(
+                            width: 200,
+                            child: Text(
+                              'Continue',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ),
@@ -296,44 +302,83 @@ class _DistractMyMindJourneyState extends State<DistractMyMindJourney> {
                       ),
                       SizedBox(height: 24),
                       Container(
-                        height: 400, // Fixed height for the stack container
+                        height: 500, // Increased height for better spacing
                         child: Stack(
                           children: [
                             Positioned(
                               top: 0,
                               left: 0,
                               right: 0,
-                              child: _buildActivityCard(
-                                '🔤',
-                                'Word Games',
-                                'Engage your brain with word puzzles and riddles',
-                                () => _navigateToActivity('word_games'),
-                                _activityProgress['word_games'] ?? 0,
+                              child: TweenAnimationBuilder(
+                                duration: Duration(milliseconds: 600),
+                                tween: Tween<double>(begin: 0, end: 1),
+                                builder: (context, double value, child) {
+                                  return Transform.translate(
+                                    offset: Offset(0, 50 * (1 - value)),
+                                    child: Opacity(
+                                      opacity: value,
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: _buildActivityCard(
+                                  '🔤',
+                                  'Word Games',
+                                  'Engage your brain with word puzzles and riddles',
+                                  () => _navigateToActivity('word_games'),
+                                  _activityProgress['word_games'] ?? 0,
+                                ),
                               ),
                             ),
                             Positioned(
-                              top: 140,
+                              top: 160,
                               left: 0,
                               right: 0,
-                              child: _buildActivityCard(
-                                '🔢',
-                                'Number Games',
-                                'Focus your mind with number puzzles and challenges',
-                                () => _navigateToActivity('number_games'),
-                                _activityProgress['number_games'] ?? 0,
+                              child: TweenAnimationBuilder(
+                                duration: Duration(milliseconds: 800),
+                                tween: Tween<double>(begin: 0, end: 1),
+                                builder: (context, double value, child) {
+                                  return Transform.translate(
+                                    offset: Offset(0, 50 * (1 - value)),
+                                    child: Opacity(
+                                      opacity: value,
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: _buildActivityCard(
+                                  '🔢',
+                                  'Number Games',
+                                  'Focus your mind with number puzzles and challenges',
+                                  () => _navigateToActivity('number_games'),
+                                  _activityProgress['number_games'] ?? 0,
+                                ),
                               ),
                             ),
                             Positioned(
-                              top: 280,
+                              top: 320,
                               left: 0,
                               right: 0,
-                              child: _buildActivityCard(
-                                '🎨',
-                                'Creative',
-                                'Express yourself through coloring and creative activities',
-                                () =>
-                                    _navigateToActivity('creative_activities'),
-                                _activityProgress['creative_activities'] ?? 0,
+                              child: TweenAnimationBuilder(
+                                duration: Duration(milliseconds: 1000),
+                                tween: Tween<double>(begin: 0, end: 1),
+                                builder: (context, double value, child) {
+                                  return Transform.translate(
+                                    offset: Offset(0, 50 * (1 - value)),
+                                    child: Opacity(
+                                      opacity: value,
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: _buildActivityCard(
+                                  '🎨',
+                                  'Creative',
+                                  'Express yourself through coloring and creative activities',
+                                  () => _navigateToActivity(
+                                      'creative_activities'),
+                                  _activityProgress['creative_activities'] ?? 0,
+                                ),
                               ),
                             ),
                           ],
@@ -403,58 +448,72 @@ class _DistractMyMindJourneyState extends State<DistractMyMindJourney> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.white.withOpacity(0.95),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: Offset(0, 5),
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 15,
+              offset: Offset(0, 8),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                emoji,
-                style: TextStyle(fontSize: 40),
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Color(0xFF1E88E5).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  emoji,
+                  style: TextStyle(fontSize: 40),
+                ),
               ),
-              SizedBox(height: 12),
+              SizedBox(height: 16),
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1E88E5),
                 ),
               ),
-              SizedBox(height: 6),
+              SizedBox(height: 8),
               Text(
                 description,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   color: Colors.grey[600],
+                  height: 1.4,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: progress / 100,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E88E5)),
+              SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: LinearProgressIndicator(
+                  value: progress / 100,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E88E5)),
+                  minHeight: 8,
+                ),
               ),
-              SizedBox(height: 6),
+              SizedBox(height: 8),
               Text(
                 '$progress% Complete',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey[700],
                 ),
               ),
             ],

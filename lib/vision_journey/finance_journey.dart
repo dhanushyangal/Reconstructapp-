@@ -7,6 +7,7 @@ import '../services/calendar_database_service.dart';
 import '../services/weekly_planner_service.dart';
 import '../services/user_service.dart';
 import '../config/api_config.dart';
+import '../pages/box_them_vision_board.dart';
 
 // Define the FinanceTask class
 class FinanceTask {
@@ -1429,83 +1430,6 @@ class _FinanceJourneyState extends State<FinanceJourney> {
     );
   }
 
-  void _showSetReminderDialog(int weekNumber, String goalName) {
-    final TextEditingController dateController = TextEditingController();
-    final TextEditingController messageController = TextEditingController(
-        text: 'Complete tasks for Week $weekNumber in $goalName');
-
-    // Set default date to tomorrow
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    dateController.text =
-        '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Set Reminder for Week $weekNumber'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: dateController,
-                decoration: const InputDecoration(
-                  labelText: 'Date (YYYY-MM-DD)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: messageController,
-                decoration: const InputDecoration(
-                  labelText: 'Reminder Message',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final date = dateController.text;
-                final message = messageController.text;
-
-                if (date.isNotEmpty && message.isNotEmpty) {
-                  final reminderText = '$date: $message';
-                  final taskId = '$weekNumber-$selectedGoal-Week$weekNumber';
-
-                  setState(() {
-                    remindersMap[taskId] = reminderText;
-                  });
-
-                  Navigator.pop(context);
-
-                  // Show confirmation
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Reminder set for $date'),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Save Reminder'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   // Add method to show dialog for adding new tasks
   void _showAddTaskDialog(int weekNumber) {
     final TextEditingController controller = TextEditingController();
@@ -2152,6 +2076,10 @@ class _FinanceJourneyState extends State<FinanceJourney> {
       // Get SharedPreferences instance
       final prefs = await SharedPreferences.getInstance();
 
+      // Set a flag to indicate we're attempting to save
+      await prefs.setBool('finance_journey_saving', true);
+      debugPrint('Setting finance saving flag');
+
       // First, read existing data from SharedPreferences
       // Read existing vision board tasks
       List<Map<String, dynamic>> existingVisionBoardTasks = [];
@@ -2373,8 +2301,9 @@ class _FinanceJourneyState extends State<FinanceJourney> {
         await prefs.setString('watercolor_todo_text_$day', displayText);
       }
 
-      // Update the widgets
+      // Update the widgets with explicit debugging
       try {
+        debugPrint('Updating home widgets...');
         await HomeWidget.updateWidget(
           androidName: 'VisionBoardWidget',
           iOSName: 'VisionBoardWidget',
@@ -2389,24 +2318,47 @@ class _FinanceJourneyState extends State<FinanceJourney> {
           androidName: 'CalendarThemeWidget',
           iOSName: 'CalendarThemeWidget',
         );
+        debugPrint('Widgets updated successfully');
       } catch (e) {
         debugPrint('Error updating widgets: $e');
       }
 
-      // Show success message
+      // Set a flag to indicate successful save
+      await prefs.setBool('finance_journey_saved', true);
+      await prefs.setBool('finance_journey_saving', false);
+      debugPrint('Finance journey saved successfully flag set');
+
+      // Show success message and navigate
       if (mounted) {
+        debugPrint('Showing success message and navigating...');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Finance plan saved successfully!'),
             backgroundColor: Colors.green,
           ),
         );
+        // Navigate to Vision Board page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                VisionBoardDetailsPage(title: 'Box Theme Vision Board'),
+          ),
+        );
+      }
+    } catch (e) {
+      // Mark the save operation as failed
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('finance_journey_saving', false);
+        await prefs.setBool('finance_journey_save_failed', true);
+      } catch (_) {
+        // Ignore errors in error handling
       }
 
-      // Return to previous screen
-      Navigator.pop(context);
-    } catch (e) {
-      // Show error message
+      // Show error message with detailed logging
+      debugPrint('ERROR SAVING FINANCE PLAN: $e');
+      debugPrint('Error stack trace: ${StackTrace.current}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

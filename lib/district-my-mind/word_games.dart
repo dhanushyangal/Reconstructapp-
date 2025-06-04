@@ -44,10 +44,7 @@ class _WordGamesState extends State<WordGames> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ActivityProgress(
-          progress: {'word_games': _progress},
-          activityType: 'word',
-        ),
+        builder: (context) => ActivityProgress(),
       ),
     ).then((value) {
       if (value != null && mounted) {

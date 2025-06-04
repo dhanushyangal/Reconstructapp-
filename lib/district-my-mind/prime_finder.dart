@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'activity_progress.dart';
 
 class PrimeFinder extends StatefulWidget {
   final VoidCallback onComplete;
@@ -34,8 +35,27 @@ class _PrimeFinderState extends State<PrimeFinder> {
     });
 
     if (correctCount >= 10) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ActivityProgressPage(
+            activityType: 'prime',
+          ),
+        ),
+      );
       widget.onComplete();
     }
+  }
+
+  void _navigateToProgress() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ActivityProgressPage(
+          activityType: 'prime',
+        ),
+      ),
+    );
   }
 
   @override
@@ -130,6 +150,25 @@ class _PrimeFinderState extends State<PrimeFinder> {
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: correctCount >= 10 ? Colors.green : Color(0xFF1E88E5),
+          ),
+        ),
+        SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: _navigateToProgress,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Color(0xFF1976D2),
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+          child: Text(
+            'View Progress',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],

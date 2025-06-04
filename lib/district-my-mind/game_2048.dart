@@ -283,6 +283,38 @@ class _Game2048State extends State<Game2048> {
               ),
             ),
           ),
+        SizedBox(height: 24),
+        ElevatedButton(
+          onPressed: () {
+            widget.onComplete();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Color(0xFF2196F3),
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(
+              horizontal: 40,
+              vertical: 16,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 4,
+            shadowColor: Color(0xFF2196F3).withOpacity(0.4),
+          ),
+          child: Container(
+            width: 200,
+            child: Text(
+              'Next',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        SizedBox(height: 16),
       ],
     );
   }

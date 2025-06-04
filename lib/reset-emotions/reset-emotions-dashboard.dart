@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'angry.dart';
+import 'low.dart';
+import 'numb.dart';
+import 'overwhelmed.dart';
+import 'restless.dart';
 
 class ResetEmotionsDashboard extends StatelessWidget {
   const ResetEmotionsDashboard({Key? key}) : super(key: key);
@@ -77,48 +82,49 @@ class ResetEmotionsDashboard extends StatelessWidget {
                           physics: NeverScrollableScrollPhysics(),
                           crossAxisCount:
                               MediaQuery.of(context).size.width > 900
-                                  ? 3
+                                  ? 4
                                   : MediaQuery.of(context).size.width > 640
-                                      ? 2
-                                      : 1,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
+                                      ? 3
+                                      : 2,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
                           childAspectRatio: 0.85,
+                          padding: EdgeInsets.symmetric(horizontal: 4),
                           children: [
                             _buildEmotionCard(
+                              context: context,
                               emoji: '🤯',
                               title: 'Overwhelmed',
                               description:
                                   'Find tools to calm your mind and regain focus.',
-                              onTap: () {},
                             ),
                             _buildEmotionCard(
+                              context: context,
                               emoji: '😔',
                               title: 'Low',
                               description:
                                   'Activities to help you vent and lift your spirits.',
-                              onTap: () {},
                             ),
                             _buildEmotionCard(
+                              context: context,
                               emoji: '😠',
                               title: 'Angry',
                               description:
                                   'Techniques to soothe yourself and find peace.',
-                              onTap: () {},
                             ),
                             _buildEmotionCard(
+                              context: context,
                               emoji: '😬',
                               title: 'Restless',
                               description:
                                   'Exercises to help you gain clarity and calm.',
-                              onTap: () {},
                             ),
                             _buildEmotionCard(
+                              context: context,
                               emoji: '😶',
                               title: 'Numb',
                               description:
                                   'Explore ways to reconnect with your emotions.',
-                              onTap: () {},
                             ),
                           ],
                         ),
@@ -147,34 +153,43 @@ class ResetEmotionsDashboard extends StatelessWidget {
   }
 
   Widget _buildEmotionCard({
+    required BuildContext context,
     required String emoji,
     required String title,
     required String description,
-    required VoidCallback onTap,
   }) {
     return Card(
-      elevation: 2,
+      elevation: 1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           color: Colors.white,
         ),
         child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content:
+                    Text('Coming Soon! $title journey is under development.'),
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(8),
           child: Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   emoji,
-                  style: TextStyle(fontSize: 32),
+                  style: TextStyle(fontSize: 28),
                 ),
-                SizedBox(height: 8),
+                SizedBox(height: 2),
                 Text(
                   title,
                   style: TextStyle(
@@ -183,31 +198,31 @@ class ResetEmotionsDashboard extends StatelessWidget {
                     color: Color(0xFF1E40AF),
                   ),
                 ),
-                SizedBox(height: 4),
+                SizedBox(height: 2),
                 Text(
                   description,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: Colors.grey[600],
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                Spacer(),
+                SizedBox(height: 4),
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.symmetric(vertical: 8),
+                  padding: EdgeInsets.symmetric(vertical: 6),
                   decoration: BoxDecoration(
                     color: Color(0xFF3B82F6),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     'Begin Journey',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
-                      fontSize: 12,
+                      fontSize: 13,
                     ),
                     textAlign: TextAlign.center,
                   ),

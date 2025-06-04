@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:home_widget/home_widget.dart';
+import '../pages/box_them_vision_board.dart';
 
 class TravelJourney extends StatefulWidget {
   const TravelJourney({Key? key}) : super(key: key);
@@ -639,25 +640,6 @@ class _TravelJourneyState extends State<TravelJourney> {
       controller.text = selectedLocations[destinationNum - 1];
     }
 
-    // Popular travel destinations with their countries
-    final List<Map<String, String>> popularDestinations = [
-      {"name": "Paris", "country": "France", "countryCode": "FR"},
-      {"name": "Tokyo", "country": "Japan", "countryCode": "JP"},
-      {"name": "New York", "country": "USA", "countryCode": "US"},
-      {"name": "London", "country": "UK", "countryCode": "GB"},
-      {"name": "Rome", "country": "Italy", "countryCode": "IT"},
-      {"name": "Barcelona", "country": "Spain", "countryCode": "ES"},
-      {"name": "Amsterdam", "country": "Netherlands", "countryCode": "NL"},
-      {"name": "Sydney", "country": "Australia", "countryCode": "AU"},
-      {"name": "Dubai", "country": "UAE", "countryCode": "AE"},
-      {"name": "Singapore", "country": "Singapore", "countryCode": "SG"},
-      {"name": "Bangkok", "country": "Thailand", "countryCode": "TH"},
-      {"name": "Cairo", "country": "Egypt", "countryCode": "EG"},
-      {"name": "Cape Town", "country": "South Africa", "countryCode": "ZA"},
-      {"name": "Mumbai", "country": "India", "countryCode": "IN"},
-      {"name": "Toronto", "country": "Canada", "countryCode": "CA"},
-    ];
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 24.0),
       child: Column(
@@ -672,7 +654,7 @@ class _TravelJourneyState extends State<TravelJourney> {
           ),
           const SizedBox(height: 4),
           StatefulBuilder(builder: (context, setState) {
-            return Stack(
+            return Column(
               children: [
                 TextField(
                   controller: controller,
@@ -697,7 +679,9 @@ class _TravelJourneyState extends State<TravelJourney> {
                   ),
                   onChanged: (value) {
                     // Show suggestions if there's any input
-                    showSuggestions.value = value.isNotEmpty;
+                    setState(() {
+                      showSuggestions.value = value.isNotEmpty;
+                    });
 
                     // Update selected locations
                     if (selectedLocations.length < destinationNum) {
@@ -710,50 +694,78 @@ class _TravelJourneyState extends State<TravelJourney> {
                     }
                   },
                   onTap: () {
-                    showSuggestions.value = true;
+                    setState(() {
+                      showSuggestions.value = controller.text.isNotEmpty;
+                    });
                   },
                 ),
-                ValueListenableBuilder<bool>(
-                  valueListenable: showSuggestions,
-                  builder: (context, isVisible, child) {
-                    if (!isVisible) {
-                      return const SizedBox.shrink();
-                    }
-
-                    // Filter destinations based on text input
-                    final query = controller.text.toLowerCase();
-                    final filteredDestinations = popularDestinations
-                        .where((dest) =>
-                            dest["name"]!.toLowerCase().contains(query) ||
-                            dest["country"]!.toLowerCase().contains(query))
-                        .take(5)
-                        .toList();
-
-                    return Positioned(
-                      top: 52, // Below the TextField
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                if (showSuggestions.value && controller.text.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    constraints: const BoxConstraints(
+                      maxHeight: 250,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
                         ),
-                        child: Column(
-                          children: filteredDestinations.map((dest) {
-                            return InkWell(
-                              onTap: () {
-                                final cityName = dest["name"]!;
-                                final countryName = dest["country"]!;
-                                final fullName = '$cityName, $countryName';
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _getFilteredCities(controller.text).length,
+                        itemBuilder: (context, index) {
+                          final city =
+                              _getFilteredCities(controller.text)[index];
+                          return ListTile(
+                            dense: true,
+                            leading: Container(
+                              width: 30,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                              child: city["countryCode"] != null
+                                  ? Center(
+                                      child: Text(
+                                        city["countryCode"]!,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey.shade800,
+                                        ),
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            title: Text(
+                              city["name"]!,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            subtitle: Text(
+                              city["country"]!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            onTap: () {
+                              final cityName = city["name"]!;
+                              final countryName = city["country"]!;
+                              final fullName = '$cityName, $countryName';
 
+                              setState(() {
                                 controller.text = fullName;
 
                                 // Update selected locations
@@ -769,56 +781,13 @@ class _TravelJourneyState extends State<TravelJourney> {
                                 }
 
                                 showSuggestions.value = false;
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0,
-                                  vertical: 12.0,
-                                ),
-                                child: Row(
-                                  children: [
-                                    // Flag placeholder (in a real app, use actual flag images)
-                                    Container(
-                                      width: 24,
-                                      height: 16,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade200,
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                      margin: const EdgeInsets.only(right: 8),
-                                    ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            dest["name"]!,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w500,
-                                              color: Color(0xFF1E293B),
-                                            ),
-                                          ),
-                                          Text(
-                                            dest["country"]!,
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
+                              });
+                            },
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
               ],
             );
           }),
@@ -827,27 +796,75 @@ class _TravelJourneyState extends State<TravelJourney> {
     );
   }
 
+  // Helper method to filter cities based on search query
+  List<Map<String, String>> _getFilteredCities(String query) {
+    if (query.isEmpty) return [];
+
+    final lowerQuery = query.toLowerCase();
+    return citiesData
+        .where((city) =>
+            city["name"]!.toLowerCase().contains(lowerQuery) ||
+            city["country"]!.toLowerCase().contains(lowerQuery))
+        .take(10)
+        .toList();
+  }
+
   Widget _buildDateSelection(int cityIndex) {
     final city =
         selectedLocations.isNotEmpty && cityIndex < selectedLocations.length
             ? selectedLocations[cityIndex].split(',').first
             : 'City ${cityIndex + 1}';
 
-    // Get previously selected dates to enforce 2-week gap rule
-    final List<DateTime> disabledDates = [];
+    // Get previously selected dates to enforce 2-month gap rule
+    final Set<String> disabledMonths =
+        {}; // Track disabled months in format YYYY-MM
+
     for (int i = 0; i < selectedMonths.length; i++) {
       if (i != cityIndex &&
           selectedMonths.length > i &&
           selectedMonths[i].isNotEmpty) {
         try {
           final date = DateTime.parse(selectedMonths[i]);
-          // Disable 2 weeks before and after the selected date
-          disabledDates.add(date.subtract(const Duration(days: 14)));
-          disabledDates.add(date);
-          disabledDates.add(date.add(const Duration(days: 14)));
+
+          // Only disable the exact month (not 1 month before and after)
+          // This allows more flexible scheduling while still avoiding same-month trips
+          disabledMonths
+              .add('${date.year}-${date.month.toString().padLeft(2, '0')}');
+
+          // Only apply the strict 2-month gap rule if this is a consecutive city
+          // This ensures we can still select dates for all cities
+          if (i == cityIndex - 1 || i == cityIndex + 1) {
+            // Add month before for consecutive cities only
+            final monthBefore = DateTime(
+                date.month == 1 ? date.year - 1 : date.year,
+                date.month == 1 ? 12 : date.month - 1);
+            disabledMonths.add(
+                '${monthBefore.year}-${monthBefore.month.toString().padLeft(2, '0')}');
+
+            // Add month after for consecutive cities only
+            final monthAfter = DateTime(
+                date.month == 12 ? date.year + 1 : date.year,
+                date.month == 12 ? 1 : date.month + 1);
+            disabledMonths.add(
+                '${monthAfter.year}-${monthAfter.month.toString().padLeft(2, '0')}');
+          }
         } catch (e) {
           debugPrint('Error parsing date: $e');
         }
+      }
+    }
+
+    // Get the selected date for display
+    String displayDate = '';
+    if (selectedMonths.isNotEmpty &&
+        cityIndex < selectedMonths.length &&
+        selectedMonths[cityIndex].isNotEmpty) {
+      try {
+        final date = DateTime.parse(selectedMonths[cityIndex]);
+        displayDate =
+            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      } catch (e) {
+        debugPrint('Error parsing date for display: $e');
       }
     }
 
@@ -871,62 +888,86 @@ class _TravelJourneyState extends State<TravelJourney> {
             ),
           ),
           const SizedBox(height: 8),
-          // Date selection
-          TextField(
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              hintText: 'Select date',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.calendar_today),
-                onPressed: () async {
-                  final DateTime? picked = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime(2026),
-                    selectableDayPredicate: (DateTime date) {
-                      // Check if the date is in the disabled dates list
-                      return !disabledDates.any((disabledDate) =>
-                          date.year == disabledDate.year &&
-                          date.month == disabledDate.month &&
-                          date.day == disabledDate.day);
-                    },
-                  );
+          // Date selection - Make the entire field tappable, not just the icon
+          InkWell(
+            onTap: () async {
+              final DateTime now = DateTime.now();
+              DateTime initialDate = now;
 
-                  if (picked != null) {
-                    setState(() {
-                      if (selectedMonths.length <= cityIndex) {
-                        while (selectedMonths.length < cityIndex) {
-                          selectedMonths.add('');
-                        }
-                        selectedMonths.add(picked.toIso8601String());
-                      } else {
-                        selectedMonths[cityIndex] = picked.toIso8601String();
-                      }
-                    });
+              if (displayDate.isNotEmpty) {
+                try {
+                  initialDate = DateTime.parse(displayDate);
+                } catch (e) {
+                  debugPrint('Error parsing date: $e');
+                }
+              }
+
+              // Find valid initial date if the current one is disabled
+              final String initialMonthKey =
+                  '${initialDate.year}-${initialDate.month.toString().padLeft(2, '0')}';
+              if (disabledMonths.contains(initialMonthKey)) {
+                // Try to find a valid month
+                for (int monthOffset = 1; monthOffset <= 12; monthOffset++) {
+                  final testDate = DateTime(
+                      initialDate.year, initialDate.month + monthOffset, 1);
+                  final testMonthKey =
+                      '${testDate.year}-${testDate.month.toString().padLeft(2, '0')}';
+                  if (!disabledMonths.contains(testMonthKey)) {
+                    initialDate = testDate;
+                    break;
                   }
+                }
+              }
+
+              final DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: initialDate,
+                firstDate: now,
+                lastDate: DateTime(2026),
+                selectableDayPredicate: (DateTime date) {
+                  // Check if the date's month is in the disabled months list
+                  final monthKey =
+                      '${date.year}-${date.month.toString().padLeft(2, '0')}';
+                  return !disabledMonths.contains(monthKey);
                 },
+              );
+
+              if (picked != null) {
+                setState(() {
+                  if (selectedMonths.length <= cityIndex) {
+                    while (selectedMonths.length < cityIndex) {
+                      selectedMonths.add('');
+                    }
+                    selectedMonths.add(picked.toIso8601String());
+                  } else {
+                    selectedMonths[cityIndex] = picked.toIso8601String();
+                  }
+                });
+              }
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: InputDecorator(
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                suffixIcon: Icon(Icons.calendar_today, color: Colors.blue),
               ),
-            ),
-            readOnly: true,
-            controller: TextEditingController(
-              text:
-                  selectedMonths.isNotEmpty && cityIndex < selectedMonths.length
-                      ? selectedMonths[cityIndex].isNotEmpty
-                          ? DateTime.parse(selectedMonths[cityIndex])
-                              .toString()
-                              .split(' ')[0]
-                          : ''
-                      : '',
+              child: Text(
+                displayDate.isNotEmpty ? displayDate : 'Select date',
+                style: TextStyle(
+                  color: displayDate.isNotEmpty
+                      ? Colors.black
+                      : Colors.grey.shade600,
+                ),
+              ),
             ),
           ),
         ],
@@ -974,7 +1015,7 @@ class _TravelJourneyState extends State<TravelJourney> {
             return _buildDateSelection(index);
           }),
 
-          // Info about 2-week gap rule
+          // Info about 2-month gap rule
           Container(
             margin: const EdgeInsets.only(top: 16),
             padding: const EdgeInsets.all(12),
@@ -988,7 +1029,7 @@ class _TravelJourneyState extends State<TravelJourney> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'To avoid travel fatigue, a 2-week gap is required between trips. Some dates may be disabled accordingly.',
+                    'To avoid travel fatigue, a 2-month gap is required between trips. Some dates may be disabled accordingly.',
                     style: TextStyle(
                       color: Colors.blue.shade700,
                       fontSize: 13,
@@ -1073,53 +1114,11 @@ class _TravelJourneyState extends State<TravelJourney> {
               color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                ElevatedButton.icon(
-                  onPressed: currentCityIndex > 0
-                      ? () {
-                          setState(() {
-                            // Save current dates before switching
-                            if (!weekDatesByCity
-                                .containsKey(currentCityIndex)) {
-                              weekDatesByCity[currentCityIndex] = {};
-                            }
-                            for (var entry in weekDates.entries) {
-                              weekDatesByCity[currentCityIndex]![entry.key] =
-                                  entry.value;
-                            }
-
-                            // Save current selections before switching
-                            _saveCurrentSelections();
-
-                            // Switch to previous city
-                            currentCityIndex--;
-
-                            // Restore selections for the new current city
-                            _restoreSelectionsForCurrentCity();
-                          });
-                        }
-                      : null,
-                  icon: const Icon(Icons.arrow_back, size: 16),
-                  label: const Text('Previous City'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.blue.shade700,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(50),
-                    ),
-                    textStyle: const TextStyle(fontWeight: FontWeight.w500),
-                    disabledBackgroundColor: Colors.white.withOpacity(0.5),
-                    disabledForegroundColor: Colors.blue.shade200,
-                  ),
-                ),
+                // City info - centered
                 Container(
+                  margin: const EdgeInsets.only(bottom: 8),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
@@ -1134,48 +1133,107 @@ class _TravelJourneyState extends State<TravelJourney> {
                     ),
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: currentCityIndex < selectedLocations.length - 1
-                      ? () {
-                          setState(() {
-                            // Save current dates before switching
-                            if (!weekDatesByCity
-                                .containsKey(currentCityIndex)) {
-                              weekDatesByCity[currentCityIndex] = {};
-                            }
-                            for (var entry in weekDates.entries) {
-                              weekDatesByCity[currentCityIndex]![entry.key] =
-                                  entry.value;
-                            }
+                // Navigation buttons - in a row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: currentCityIndex > 0
+                            ? () {
+                                setState(() {
+                                  // Save current dates before switching
+                                  if (!weekDatesByCity
+                                      .containsKey(currentCityIndex)) {
+                                    weekDatesByCity[currentCityIndex] = {};
+                                  }
+                                  for (var entry in weekDates.entries) {
+                                    weekDatesByCity[currentCityIndex]![
+                                        entry.key] = entry.value;
+                                  }
 
-                            // Save current selections before switching
-                            _saveCurrentSelections();
+                                  // Save current selections before switching
+                                  _saveCurrentSelections();
 
-                            // Switch to next city
-                            currentCityIndex++;
+                                  // Switch to previous city
+                                  currentCityIndex--;
 
-                            // Restore selections for the new current city
-                            _restoreSelectionsForCurrentCity();
-                          });
-                        }
-                      : null,
-                  label: const Text('Next City'),
-                  icon: const Icon(Icons.arrow_forward, size: 16),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.blue.shade700,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                                  // Restore selections for the new current city
+                                  _restoreSelectionsForCurrentCity();
+                                });
+                              }
+                            : null,
+                        icon: const Icon(Icons.arrow_back, size: 16),
+                        label: const Text('Previous'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.blue.shade700,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(50),
+                          ),
+                          textStyle:
+                              const TextStyle(fontWeight: FontWeight.w500),
+                          disabledBackgroundColor:
+                              Colors.white.withOpacity(0.5),
+                          disabledForegroundColor: Colors.blue.shade200,
+                        ),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(50),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed:
+                            currentCityIndex < selectedLocations.length - 1
+                                ? () {
+                                    setState(() {
+                                      // Save current dates before switching
+                                      if (!weekDatesByCity
+                                          .containsKey(currentCityIndex)) {
+                                        weekDatesByCity[currentCityIndex] = {};
+                                      }
+                                      for (var entry in weekDates.entries) {
+                                        weekDatesByCity[currentCityIndex]![
+                                            entry.key] = entry.value;
+                                      }
+
+                                      // Save current selections before switching
+                                      _saveCurrentSelections();
+
+                                      // Switch to next city
+                                      currentCityIndex++;
+
+                                      // Restore selections for the new current city
+                                      _restoreSelectionsForCurrentCity();
+                                    });
+                                  }
+                                : null,
+                        label: const Text('Next'),
+                        icon: const Icon(Icons.arrow_forward, size: 16),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.blue.shade700,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(50),
+                          ),
+                          textStyle:
+                              const TextStyle(fontWeight: FontWeight.w500),
+                          disabledBackgroundColor:
+                              Colors.white.withOpacity(0.5),
+                          disabledForegroundColor: Colors.blue.shade200,
+                        ),
+                      ),
                     ),
-                    textStyle: const TextStyle(fontWeight: FontWeight.w500),
-                    disabledBackgroundColor: Colors.white.withOpacity(0.5),
-                    disabledForegroundColor: Colors.blue.shade200,
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -1409,132 +1467,183 @@ class _TravelJourneyState extends State<TravelJourney> {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
+        child: Column(
           children: [
-            // Radio button instead of checkbox
-            Radio<bool>(
-              value: true,
-              groupValue: task.isSelected ? true : null,
-              onChanged: (value) {
-                setState(() {
-                  task.isSelected = !task.isSelected;
-
-                  // Add or remove from completedTasksByCity based on selection
-                  if (!completedTasksByCity.containsKey(cityName)) {
-                    completedTasksByCity[cityName] = [];
-                  }
-
-                  if (task.isSelected) {
-                    if (!completedTasksByCity[cityName]!.contains(task)) {
-                      completedTasksByCity[cityName]!.add(task);
-                    }
-                  } else {
-                    completedTasksByCity[cityName]!.remove(task);
-                  }
-                });
-              },
-              activeColor: Colors.blue.shade500,
-            ),
-
-            // Task content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    task.description,
-                    style: TextStyle(
-                      color: task.isSelected
-                          ? Colors.blue.shade700
-                          : Colors.grey.shade800,
-                      fontWeight:
-                          task.isSelected ? FontWeight.w500 : FontWeight.normal,
-                    ),
-                  ),
-
-                  // Notes and reminders
-                  if (hasNotes || hasReminder)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (hasNotes)
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 2),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.chat_bubble_outline,
-                                    size: 14,
-                                    color: Colors.blue.shade400,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      notesMap[taskId]!,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.blue.shade400,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          if (hasReminder)
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.notifications_none,
-                                  size: 14,
-                                  color: Colors.blue.shade400,
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    remindersMap[taskId]!,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.blue.shade400,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            // Action buttons
             Row(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.edit, size: 18),
-                  onPressed: () => _editTask(task, task.weekNumber, cityName),
-                  color: Colors.grey.shade600,
-                  tooltip: 'Edit task',
+                // Radio button instead of checkbox
+                Radio<bool>(
+                  value: true,
+                  groupValue: task.isSelected ? true : null,
+                  onChanged: (value) {
+                    setState(() {
+                      task.isSelected = !task.isSelected;
+
+                      // Add or remove from completedTasksByCity based on selection
+                      if (!completedTasksByCity.containsKey(cityName)) {
+                        completedTasksByCity[cityName] = [];
+                      }
+
+                      if (task.isSelected) {
+                        if (!completedTasksByCity[cityName]!.contains(task)) {
+                          completedTasksByCity[cityName]!.add(task);
+                        }
+                      } else {
+                        completedTasksByCity[cityName]!.remove(task);
+                      }
+                    });
+                  },
+                  activeColor: Colors.blue.shade500,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                  onPressed: () => _addNote(task, task.weekNumber, cityName),
-                  color: Colors.grey.shade600,
-                  tooltip: 'Add note',
+
+                // Task content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        task.description,
+                        style: TextStyle(
+                          color: task.isSelected
+                              ? Colors.blue.shade700
+                              : Colors.grey.shade800,
+                          fontWeight: task.isSelected
+                              ? FontWeight.w500
+                              : FontWeight.normal,
+                        ),
+                      ),
+
+                      // Notes and reminders
+                      if (hasNotes || hasReminder)
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (hasNotes)
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 2),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.chat_bubble_outline,
+                                        size: 14,
+                                        color: Colors.blue.shade400,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          notesMap[taskId]!,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.blue.shade400,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (hasReminder)
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.notifications_none,
+                                      size: 14,
+                                      color: Colors.blue.shade400,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        remindersMap[taskId]!,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.blue.shade400,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
+
+                // Action buttons - convert to small icon buttons to save space
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  onPressed: () => _deleteTask(task, task.weekNumber),
-                  color: Colors.red.shade400,
-                  tooltip: 'Delete task',
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  onPressed: () {
+                    _showTaskActions(task, task.weekNumber, cityName);
+                  },
+                  color: Colors.grey.shade600,
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints.tightFor(width: 28, height: 28),
+                  tooltip: 'Task options',
                 ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  // Add a new method to show task actions as a modal bottom sheet
+  void _showTaskActions(TravelTask task, int weekNumber, String cityName) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  task.description,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Edit Task'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _editTask(task, weekNumber, cityName);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.chat_bubble_outline),
+                title: const Text('Add Note'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _addNote(task, weekNumber, cityName);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: Colors.red.shade400),
+                title: Text(
+                  'Delete Task',
+                  style: TextStyle(color: Colors.red.shade400),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteTask(task, weekNumber);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -2184,6 +2293,10 @@ class _TravelJourneyState extends State<TravelJourney> {
       // Get SharedPreferences instance
       final prefs = await SharedPreferences.getInstance();
 
+      // Set a flag to indicate we're attempting to save
+      await prefs.setBool('travel_journey_saving', true);
+      debugPrint('Setting travel saving flag');
+
       // First, read existing data from SharedPreferences
       Map<String, dynamic> existingEvents = {};
       Map<String, dynamic> existingTheme = {};
@@ -2238,29 +2351,35 @@ class _TravelJourneyState extends State<TravelJourney> {
         // Get city name
         final cityName = selectedLocations[cityIndex].split(',').first;
 
-        // Get month
-        final selectedMonth =
-            selectedMonths.isNotEmpty && cityIndex < selectedMonths.length
-                ? selectedMonths[cityIndex]
-                : '';
+        // Get month from ISO date
+        String monthName = "";
+        int year = DateTime.now().year;
+        int monthIndex = 0;
 
-        if (selectedMonth.isEmpty) continue;
-
-        // Parse month to get a date
-        final parts = selectedMonth.split(' ');
-        if (parts.length != 2) continue;
-
-        final monthName = parts[0];
-        final year = parts[1];
-
-        // Convert month name to number
-        final monthIndex = months.indexOf(monthName);
-        if (monthIndex == -1) continue;
+        try {
+          if (selectedMonths.isNotEmpty &&
+              cityIndex < selectedMonths.length &&
+              selectedMonths[cityIndex].isNotEmpty) {
+            final DateTime selectedDate =
+                DateTime.parse(selectedMonths[cityIndex]);
+            monthName = months[
+                selectedDate.month - 1]; // Convert month number to month name
+            year = selectedDate.year;
+            monthIndex = selectedDate.month - 1;
+            debugPrint('Parsed month: $monthName, year: $year');
+          } else {
+            debugPrint('No selected month for city $cityIndex');
+            continue;
+          }
+        } catch (e) {
+          debugPrint('Error parsing selected month: $e');
+          continue;
+        }
 
         // Create dates for start, middle, end of trip
-        final startDate = DateTime(int.parse(year), monthIndex + 1, 10);
-        final middleDate = DateTime(int.parse(year), monthIndex + 1, 15);
-        final endDate = DateTime(int.parse(year), monthIndex + 1, 20);
+        final startDate = DateTime(year, monthIndex + 1, 10);
+        final middleDate = DateTime(year, monthIndex + 1, 15);
+        final endDate = DateTime(year, monthIndex + 1, 20);
 
         // Format dates in ISO8601 format
         final startDateStr = startDate.toIso8601String();
@@ -2371,7 +2490,13 @@ class _TravelJourneyState extends State<TravelJourney> {
         final monthName = entry.key;
         final tasks = entry.value;
 
+        if (tasks.isEmpty) {
+          debugPrint('No tasks to save for $monthName, skipping');
+          continue;
+        }
+
         // Save tasks for the month
+        debugPrint('Saving ${tasks.length} tasks for $monthName');
         await prefs.setString(
             'PostItTheme_todos_$monthName', json.encode(tasks));
 
@@ -2403,19 +2528,65 @@ class _TravelJourneyState extends State<TravelJourney> {
         }
       }
 
+      // Make sure we have tasks to save before saving
+      if (existingVisionBoardTasks.isEmpty) {
+        debugPrint('No vision board tasks to save, creating a default task');
+        existingVisionBoardTasks = [
+          {
+            "id": "${DateTime.now().millisecondsSinceEpoch}",
+            "text": "My Travel Plans for 2025",
+            "isDone": false
+          }
+        ];
+      }
+
       // Save the combined data
       await prefs.setString(
           'BoxThem_todos_Travel', json.encode(existingVisionBoardTasks));
 
-      // Save to SharedPreferences
+      // Save to SharedPreferences with explicit debugging
+      debugPrint('Saving calendar events...');
+      if (existingEvents.isNotEmpty) {
+        final eventsSaved = await prefs.setString(
+            'animal.calendar_events', json.encode(existingEvents));
+        debugPrint('Events saved successfully: $eventsSaved');
+      } else {
+        debugPrint('No events to save');
+      }
+
+      debugPrint('Saving calendar theme...');
+      if (existingTheme.isNotEmpty) {
+        final themeSaved = await prefs.setString(
+            'animal.calendar_theme_2025', json.encode(existingTheme));
+        debugPrint('Theme saved successfully: $themeSaved');
+      } else {
+        debugPrint('No theme data to save');
+      }
+
+      debugPrint('Saving calendar data...');
+      final dataSaved = await prefs.setString(
+          'animal.calendar_data', json.encode(existingTheme));
+      debugPrint('Data saved successfully: $dataSaved');
+
+      // For debugging - save a simple indicator that we ran the save function
       await prefs.setString(
-          'animal.calendar_events', json.encode(existingEvents));
-      await prefs.setString(
-          'animal.calendar_theme_2025', json.encode(existingTheme));
-      await prefs.setString('animal.calendar_data', json.encode(existingTheme));
+          'travel_journey_debug_timestamp', DateTime.now().toIso8601String());
+
+      // Save to BoxThem_todos_Travel with explicit verification
+      debugPrint('Saving vision board tasks...');
+      final visionBoardSaved = await prefs.setString(
+          'BoxThem_todos_Travel', json.encode(existingVisionBoardTasks));
+      debugPrint('Vision board tasks saved successfully: $visionBoardSaved');
+
+      // Verify the data was actually saved
+      final savedVisionBoardStr = prefs.getString('BoxThem_todos_Travel');
+      final savedEventsStr = prefs.getString('animal.calendar_events');
+      debugPrint('Verified vision board data: ${savedVisionBoardStr != null}');
+      debugPrint('Verified events data: ${savedEventsStr != null}');
 
       // Update home widgets
       try {
+        debugPrint('Updating home widgets...');
         await HomeWidget.updateWidget(
           androidName: 'VisionBoardWidget',
           iOSName: 'VisionBoardWidget',
@@ -2425,24 +2596,48 @@ class _TravelJourneyState extends State<TravelJourney> {
           androidName: 'AnnualPlannerWidget',
           iOSName: 'AnnualPlannerWidget',
         );
+        debugPrint('Widgets updated successfully');
       } catch (e) {
         debugPrint('Error updating widgets: $e');
       }
 
+      // Set a flag to indicate successful save
+      await prefs.setBool('travel_journey_saved', true);
+      await prefs.setBool('travel_journey_saving', false);
+      debugPrint('Travel journey saved successfully flag set');
+
       // Show success message
       if (mounted) {
+        debugPrint('Showing success message and navigating...');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Travel plan saved successfully!'),
             backgroundColor: Colors.green,
           ),
         );
+        // Navigate to Vision Board page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                VisionBoardDetailsPage(title: 'Box Theme Vision Board'),
+          ),
+        );
+      }
+    } catch (e) {
+      // Mark the save operation as failed
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('travel_journey_saving', false);
+        await prefs.setBool('travel_journey_save_failed', true);
+        await prefs.setString('travel_journey_error', e.toString());
+      } catch (error) {
+        // Ignore errors in error handling
       }
 
-      // Return to previous screen
-      Navigator.pop(context);
-    } catch (e) {
-      // Show error message
+      // Show error message with detailed logging
+      debugPrint('ERROR SAVING TRAVEL PLAN: $e');
+      debugPrint('Error stack trace: ${StackTrace.current}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
