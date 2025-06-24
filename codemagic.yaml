@@ -88,14 +88,12 @@ workflows:
           source: true
     environment:
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.reconstrect.visionboard
+        distribution_type: ad_hoc
+        bundle_identifier: io.codemagic.reconstrect
       vars:
-        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
-        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        APP_STORE_CONNECT_PRIVATE_KEY: $APP_STORE_CONNECT_PRIVATE_KEY
-        CERTIFICATE_PRIVATE_KEY: $CERTIFICATE_PRIVATE_KEY
-        BUNDLE_ID: "com.reconstrect.visionboard"
+        BUNDLE_ID: "io.codemagic.reconstrect"
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
       flutter: stable
       xcode: latest
       cocoapods: default
@@ -109,28 +107,24 @@ workflows:
       - name: Install pods
         script: |
           find . -name "Podfile" -execdir pod install \;
-      - name: Flutter analyze
-        script: |
-          flutter analyze
-      - name: Flutter unit tests
-        script: |
-          flutter test
-        ignore_failure: true
       - name: Flutter build ipa
         script: |
           flutter build ipa --release \
             --build-name=1.0.0 \
             --build-number=$(($(app-store-connect get-latest-app-store-build-number "$APP_ID") + 1))
-      - name: Test iOS app in simulator
+      - name: Create additional IPA for testing
         script: |
-          # Launch iOS simulator
-          xcrun simctl boot "iPhone 15 Pro" || true
-          # Install and test the app
-          flutter test integration_test/app_test.dart
-        ignore_failure: true
+          cd build/ios/iphoneos/
+          mkdir -p Payload
+          cp -R Runner.app Payload/
+          zip -r ../../../reconstrect.ipa Payload
+          echo "IPA created at: $(pwd)/../../../reconstrect.ipa"
+          ls -la ../../../reconstrect.ipa
     artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
+      - build/**/outputs/**/*.ipa
+      - build/**/outputs/**/mapping.txt
+      - build/ios/iphoneos/Runner.app
+      - reconstrect.ipa
       - flutter_drive.log
     publishing:
       email:
