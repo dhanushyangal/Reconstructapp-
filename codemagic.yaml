@@ -121,6 +121,13 @@ workflows:
           flutter build ipa --release \
             --build-name=1.0.0 \
             --build-number=$(($(app-store-connect get-latest-app-store-build-number "$APP_ID") + 1))
+      - name: Test iOS app in simulator
+        script: |
+          # Launch iOS simulator
+          xcrun simctl boot "iPhone 15 Pro" || true
+          # Install and test the app
+          flutter test integration_test/app_test.dart
+        ignore_failure: true
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
