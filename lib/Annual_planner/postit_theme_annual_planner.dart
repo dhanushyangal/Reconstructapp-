@@ -100,13 +100,13 @@ class _PostItThemeAnnualPlannerState extends State<PostItThemeAnnualPlanner> {
 
     // Load all data from local storage first (fast)
     _loadAllFromLocalStorage().then((_) {
-      // Then check database connectivity
+      // Then check Supabase connectivity
       _checkDatabaseConnectivity().then((hasConnectivity) {
         setState(() {
           _hasNetworkConnectivity = hasConnectivity;
         });
 
-        // If we have connectivity, sync with the database (background)
+        // If we have connectivity, sync with Supabase (background)
         if (hasConnectivity) {
           _syncWithDatabase();
         }
@@ -169,12 +169,12 @@ class _PostItThemeAnnualPlannerState extends State<PostItThemeAnnualPlanner> {
     }
   }
 
-  // Check database connectivity
+  // Check Supabase connectivity
   Future<bool> _checkDatabaseConnectivity() async {
     try {
       return await AnnualCalendarService.instance.testConnection();
     } catch (e) {
-      debugPrint('Database connectivity check failed: $e');
+      debugPrint('Supabase connectivity check failed: $e');
       return false;
     }
   }
@@ -192,7 +192,7 @@ class _PostItThemeAnnualPlannerState extends State<PostItThemeAnnualPlanner> {
     }
   }
 
-  // Sync all data with database at once
+  // Sync all data with Supabase at once
   Future<void> _syncWithDatabase() async {
     if (_isSyncing) return;
 
@@ -231,9 +231,9 @@ class _PostItThemeAnnualPlannerState extends State<PostItThemeAnnualPlanner> {
                     'postit_todo_text_$month', _formatDisplayText(month));
 
                 debugPrint(
-                    'Updated local storage for $month with database data');
+                    'Updated local storage for $month with Supabase data');
               } catch (e) {
-                debugPrint('Error processing database tasks for $month: $e');
+                debugPrint('Error processing Supabase tasks for $month: $e');
               }
             }
           }
@@ -269,7 +269,7 @@ class _PostItThemeAnnualPlannerState extends State<PostItThemeAnnualPlanner> {
         }
       }
     } catch (e) {
-      debugPrint('Error syncing with database: $e');
+      debugPrint('Error syncing with Supabase: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -331,7 +331,7 @@ class _PostItThemeAnnualPlannerState extends State<PostItThemeAnnualPlanner> {
         iOSName: 'AnnualPlannerWidget',
       );
 
-      // Try to save to database
+      // Try to save to Supabase
       try {
         final userInfo = await UserService.instance.getUserInfo();
         if (userInfo['userName']?.isNotEmpty == true &&
@@ -361,7 +361,7 @@ class _PostItThemeAnnualPlannerState extends State<PostItThemeAnnualPlanner> {
           }
         }
       } catch (e) {
-        debugPrint('Error saving to database: $e');
+        debugPrint('Error saving to Supabase: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

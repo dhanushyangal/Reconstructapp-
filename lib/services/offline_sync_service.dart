@@ -7,7 +7,7 @@ import 'auth_service.dart';
 
 class OfflineSyncService {
   static const String _mindToolsActivityKey = 'offline_mind_tools_activity';
-  final AuthService _authService = AuthService();
+  final AuthService _authService = AuthService.instance;
 
   // Cache mind tools activity for later syncing
   Future<bool> cacheMindToolsActivity({

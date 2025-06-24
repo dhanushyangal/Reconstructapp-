@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/subscription_manager.dart';
+import '../services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PaymentMethodsPage extends StatefulWidget {
@@ -33,78 +34,68 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
   }
 
   Future<void> _checkPremiumStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final authToken = prefs.getString('auth_token') ?? '';
-    bool isPremium = false;
-
-    // First check local storage for immediate decision
-    final isSubscribedLocally = prefs.getBool('is_subscribed') ?? false;
-    final hasCompletedPayment = prefs.getBool('has_completed_payment') ?? false;
-    final premiumFeaturesEnabled =
-        prefs.getBool('premium_features_enabled') ?? false;
-
-    // If any premium flag is true, consider user premium without server check
-    if (isSubscribedLocally || hasCompletedPayment || premiumFeaturesEnabled) {
-      debugPrint('User is premium according to local flags in payment page');
-      isPremium = true;
-    } else if (authToken.isNotEmpty) {
-      // Only check with server if not already premium locally
-      debugPrint('Checking premium status with server in payment page');
-      isPremium = await SubscriptionManager().checkPremiumStatus(authToken);
-
-      // If premium according to server, update all local flags
-      if (isPremium) {
-        debugPrint('Server confirms user is premium, updating local flags');
-        await prefs.setBool('is_subscribed', true);
-        await prefs.setBool('has_completed_payment', true);
-        await prefs.setBool('premium_features_enabled', true);
-      }
-    } else {
-      // No auth token, check if trial is active
+    try {
+      // Use the simplified subscription manager for consistent premium checks
       final subscriptionManager = SubscriptionManager();
-      final trialStarted = await subscriptionManager.isTrialStarted();
-      if (trialStarted) {
-        final trialEnded = await subscriptionManager.hasTrialEnded();
+      bool isPremium = await subscriptionManager.isPremium();
 
-        if (!trialEnded) {
-          debugPrint('Active trial detected in payment page');
-          isPremium = true;
+      debugPrint('Premium status check in payment page: $isPremium');
+
+      // If user is premium, preload features before showing UI
+      if (isPremium) {
+        await _preloadPremiumFeatures();
+
+        // For premium users, close the page immediately instead of showing it
+        if (widget.onClose != null && mounted) {
+          debugPrint('User is premium, closing payment page automatically');
+          Future.microtask(() => widget.onClose!());
+          return;
         }
       }
-    }
 
-    // If user is premium, preload features before showing UI
-    if (isPremium) {
-      await _preloadPremiumFeatures();
+      if (mounted) {
+        setState(() {
+          _isPremium = isPremium;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking premium status in payment page: $e');
 
-      // For premium users, close the page immediately instead of showing it
-      if (widget.onClose != null && mounted) {
-        debugPrint('User is premium, closing payment page automatically');
+      // Fallback to local check on error
+      final prefs = await SharedPreferences.getInstance();
+      final isSubscribedLocally = prefs.getBool('is_subscribed') ?? false;
+      final hasCompletedPayment =
+          prefs.getBool('has_completed_payment') ?? false;
+      final premiumFeaturesEnabled =
+          prefs.getBool('premium_features_enabled') ?? false;
+
+      final localIsPremium =
+          isSubscribedLocally || hasCompletedPayment || premiumFeaturesEnabled;
+
+      if (localIsPremium && widget.onClose != null && mounted) {
+        // For premium users, close the page automatically
+        debugPrint(
+            'User is premium (local check), closing payment page automatically');
         Future.microtask(() => widget.onClose!());
         return;
       }
-    }
 
-    if (mounted) {
-      setState(() {
-        _isPremium = isPremium;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isPremium = localIsPremium;
+          _isLoading = false;
+        });
+      }
     }
   }
 
   // Preload premium features to avoid delay after showing premium status
   Future<void> _preloadPremiumFeatures() async {
     try {
-      // Force SharedPreferences to update with premium status
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('has_completed_payment', true);
-      await prefs.setBool('is_subscribed', true);
-      await prefs.setBool('premium_features_enabled', true);
-
-      // Use the public method to refresh premium features across the app
+      // Use the simplified subscription manager to refresh premium status
       final subscriptionManager = SubscriptionManager();
-      await subscriptionManager.refreshPremiumFeatures();
+      await subscriptionManager.refreshPremiumStatus();
 
       debugPrint('Premium features preloaded before showing UI');
     } catch (e) {
@@ -121,18 +112,40 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     }
 
     try {
-      // Set premium flags in app before returning to ensure the UI updates quickly
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('has_completed_payment', true);
-      await prefs.setBool('is_subscribed', true);
-      await prefs.setBool('premium_features_enabled', true);
+      // Use the simplified subscription manager to handle the payment process
+      final subscriptionManager = SubscriptionManager();
+      final currentUser = AuthService.instance.currentUser;
 
-      // Force a premium features refresh to update UI components
-      await SubscriptionManager().refreshPremiumFeatures();
+      if (currentUser?.email != null) {
+        // Show processing message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Processing payment...'),
+            duration: Duration(seconds: 1),
+          ),
+        );
 
-      debugPrint('Premium features preloaded for free trial');
+        // This will handle both the database update and local state changes
+        await subscriptionManager.startUpgradeFlow(context,
+            email: currentUser!.email);
+
+        debugPrint('Payment process completed through SubscriptionManager');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('User not logged in'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (e) {
-      debugPrint('Error preparing free trial features: $e');
+      debugPrint('Error processing payment: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -140,7 +153,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         });
       }
 
-      // Call the parent callback to start the free trial
+      // Call the parent callback to complete the process
       if (widget.onStartFreeTrial != null) {
         widget.onStartFreeTrial!();
       }
@@ -453,23 +466,45 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
   Widget _buildButton() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: ElevatedButton(
-        onPressed: _handleStartFreeTrial,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+      child: Column(
+        children: [
+          ElevatedButton(
+            onPressed: _handleStartFreeTrial,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              elevation: 3,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.play_circle_fill, color: Colors.white),
+                SizedBox(width: 10),
+                Text(
+                  'Start Free Trial',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        child: const Text(
-          'Start Free Trial',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+          const SizedBox(height: 8),
+          Text(
+            'Your subscription will begin after the 7-day trial period',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              fontStyle: FontStyle.italic,
+            ),
+            textAlign: TextAlign.center,
           ),
-        ),
+        ],
       ),
     );
   }

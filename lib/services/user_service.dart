@@ -1,10 +1,10 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'auth_service.dart';
+import 'supabase_database_service.dart';
 import 'package:flutter/material.dart';
 
 class UserService {
   static UserService? _instance;
-  final AuthService _authService = AuthService();
+  final SupabaseDatabaseService _supabaseService = SupabaseDatabaseService();
   bool _isInitialized = false;
 
   // Cache for user info
@@ -26,7 +26,6 @@ class UserService {
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    await _authService.initialize();
     _isInitialized = true;
 
     // Get and cache user info on initialization
@@ -89,31 +88,38 @@ class UserService {
       return _cachedUserInfo!;
     }
 
-    // If no valid data, check AuthService
+    // If no valid data, check Supabase authentication
     if (!_manualUserInfoSet) {
       try {
-        // Check MySQL first
-        if (_authService.userData != null) {
-          userName = _authService.userData!['name'] ?? '';
-          email = _authService.userData!['email'] ?? '';
+        // Check Supabase authentication
+        if (_supabaseService.isAuthenticated &&
+            _supabaseService.currentUser != null) {
+          final currentUser = _supabaseService.currentUser!;
+          email = currentUser.email ?? '';
+          userName = currentUser.userMetadata?['name'] ??
+              currentUser.userMetadata?['username'] ??
+              email.split('@')[0];
+
           if (userName.isNotEmpty && email.isNotEmpty) {
             await saveUserInfo(userName: userName, email: email);
             return {'userName': userName, 'email': email};
           }
         }
 
-        // Check Firebase as fallback
-        final firebaseUser = _authService.getCurrentUser();
-        if (firebaseUser != null) {
-          email = firebaseUser.email ?? '';
-          userName = firebaseUser.displayName ?? email.split('@').first;
+        // Try to get user profile from Supabase service
+        final profileResult = await _supabaseService.getUserProfile();
+        if (profileResult['success'] == true && profileResult['user'] != null) {
+          final userData = profileResult['user'];
+          userName = userData['name'] ?? userData['username'] ?? '';
+          email = userData['email'] ?? '';
+
           if (userName.isNotEmpty && email.isNotEmpty) {
             await saveUserInfo(userName: userName, email: email);
             return {'userName': userName, 'email': email};
           }
         }
       } catch (e) {
-        debugPrint('UserService: Error getting user info from AuthService: $e');
+        debugPrint('UserService: Error getting user info from Supabase: $e');
       }
     }
 
@@ -136,17 +142,17 @@ class UserService {
       await initialize();
     }
 
-    // Check AuthService first as it's the source of truth
-    if (_authService.hasAuthenticatedUser()) {
-      // If AuthService says user is logged in, ensure we have the user info
+    // Check Supabase authentication first as it's the source of truth
+    if (_supabaseService.isAuthenticated) {
+      // If Supabase says user is logged in, ensure we have the user info
       final userInfo = await getUserInfo();
       if (userInfo['userName']!.isNotEmpty && userInfo['email']!.isNotEmpty) {
-        debugPrint('UserService: User is logged in (AuthService verified)');
+        debugPrint('UserService: User is logged in (Supabase verified)');
         return true;
       }
     }
 
-    // Check cache if AuthService check failed
+    // Check cache if Supabase check failed
     if (_cachedUserInfo != null && _lastCacheUpdate != null) {
       final cacheAge = DateTime.now().difference(_lastCacheUpdate!);
       if (cacheAge < _cacheDuration) {
@@ -163,5 +169,99 @@ class UserService {
         userInfo['userName']!.isNotEmpty && userInfo['email']!.isNotEmpty;
     debugPrint('UserService: Final check - User logged in: $isValid');
     return isValid;
+  }
+
+  // Method to sign in with email and password
+  Future<Map<String, dynamic>> signInWithEmailPassword({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final result = await _supabaseService.loginUser(
+        email: email,
+        password: password,
+      );
+
+      if (result['success'] == true && result['user'] != null) {
+        final userData = result['user'];
+        await saveUserInfo(
+          userName: userData['name'] ?? userData['username'] ?? '',
+          email: userData['email'] ?? '',
+        );
+      }
+
+      return result;
+    } catch (e) {
+      debugPrint('UserService: Error in email/password sign in: $e');
+      return {
+        'success': false,
+        'message': 'Sign in failed: $e',
+      };
+    }
+  }
+
+  // Method to sign in with Google
+  Future<Map<String, dynamic>> signInWithGoogle() async {
+    try {
+      final result = await _supabaseService.signInWithGoogle();
+
+      if (result['success'] == true && result['user'] != null) {
+        final userData = result['user'];
+        await saveUserInfo(
+          userName: userData['name'] ?? userData['username'] ?? '',
+          email: userData['email'] ?? '',
+        );
+      }
+
+      return result;
+    } catch (e) {
+      debugPrint('UserService: Error in Google sign in: $e');
+      return {
+        'success': false,
+        'message': 'Google sign in failed: $e',
+      };
+    }
+  }
+
+  // Method to register new user
+  Future<Map<String, dynamic>> registerUser({
+    required String username,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final result = await _supabaseService.registerUser(
+        username: username,
+        email: email,
+        password: password,
+      );
+
+      if (result['success'] == true && result['user'] != null) {
+        final userData = result['user'];
+        await saveUserInfo(
+          userName: userData['name'] ?? userData['username'] ?? '',
+          email: userData['email'] ?? '',
+        );
+      }
+
+      return result;
+    } catch (e) {
+      debugPrint('UserService: Error in user registration: $e');
+      return {
+        'success': false,
+        'message': 'Registration failed: $e',
+      };
+    }
+  }
+
+  // Method to sign out
+  Future<void> signOut() async {
+    try {
+      await _supabaseService.logout();
+      await clearUserInfo();
+      debugPrint('UserService: User signed out successfully');
+    } catch (e) {
+      debugPrint('UserService: Error signing out: $e');
+    }
   }
 }

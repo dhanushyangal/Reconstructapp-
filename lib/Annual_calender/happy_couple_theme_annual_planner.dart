@@ -266,14 +266,6 @@ class _HappyCoupleThemeCalendarAppState
           _userEmail!.isNotEmpty) {
         _calendarDatabaseService.setUserInfo(_userName!, _userEmail!);
 
-        // Load auth token if available
-        final prefs = await SharedPreferences.getInstance();
-        final authToken = prefs.getString('auth_token');
-        if (authToken != null) {
-          _calendarDatabaseService.authToken = authToken;
-          debugPrint('HappyCoupleThemeCalendar: Auth token loaded');
-        }
-
         debugPrint(
             'HappyCoupleThemeCalendar: User info set in database service');
       } else {

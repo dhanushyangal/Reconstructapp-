@@ -21,7 +21,7 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  final AuthService _authService = AuthService();
+  final AuthService _authService = AuthService.instance;
 
   Future<void> _handleLogin() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -144,9 +144,9 @@ class _LoginPageState extends State<LoginPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Google sign in cancelled or failed')),
         );
-      } else if (mounted) {
+      } else if (mounted && userCredential != null) {
         // Show confirmation page
-        final user = userCredential?.user;
+        final user = userCredential.user;
         if (user == null) return;
         final displayName = user.displayName ?? 'User';
         final initial = displayName[0].toUpperCase();
