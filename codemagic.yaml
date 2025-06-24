@@ -121,6 +121,13 @@ workflows:
           flutter build ipa --release \
             --build-name=1.0.0 \
             --build-number=$(($(app-store-connect get-latest-app-store-build-number "$APP_ID") + 1))
+      - name: Test iOS app in simulator
+        script: |
+          # Launch iOS simulator
+          xcrun simctl boot "iPhone 15 Pro" || true
+          # Install and test the app
+          flutter test integration_test/app_test.dart
+        ignore_failure: true
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
@@ -240,4 +247,49 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        submit_to_app_store: true 
+        submit_to_app_store: true
+
+  ios-testing-workflow:
+    name: iOS Testing Build (No Signing)
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: new-merge-request
+          include: true
+          source: true
+        - pattern: main
+          include: true
+          source: true
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Build iOS for testing (no signing)
+        script: |
+          flutter build ios --release --no-codesign
+      - name: Create IPA for testing
+        script: |
+          mkdir -p build/ios/ipa
+          cd build/ios/Release-iphoneos
+          zip -r ../ipa/reconstrect_testing.ipa Runner.app
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients:
+          - user@example.com
+        notify:
+          success: true
+          failure: false 
