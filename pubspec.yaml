@@ -260,13 +260,13 @@ flutter:
     - assets/Mind_tools/make-me-smile.png
     - assets/Mind_tools/bubble-popper.png
     - assets/Mind_tools/thought-shredder.png
-    - assets/Activity_Tools/coloring-sheet.png
-    - assets/Activity_Tools/memory-game.png
-    - assets/Activity_Tools/riddles.png
-    - assets/Activity_Tools/sliding-puzzle.png
-    - assets/Activity_Tools/sliding-dog.png
-    - assets/Activity_Tools/notes.png
-    - assets/Activity_Tools/daily-note.png
+    - assets/activity_tools/coloring-sheet.png
+    - assets/activity_tools/memory-game.png
+    - assets/activity_tools/riddles.png
+    - assets/activity_tools/sliding-puzzle.png
+    - assets/activity_tools/sliding-dog.png
+    - assets/activity_tools/notes.png
+    - assets/activity_tools/daily-note.png
     - assets/journey.png
 
 
