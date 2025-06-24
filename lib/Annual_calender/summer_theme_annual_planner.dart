@@ -435,13 +435,7 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
           _userEmail!.isNotEmpty) {
         _calendarDatabaseService.setUserInfo(_userName!, _userEmail!);
 
-        // Load auth token if available
-        final prefs = await SharedPreferences.getInstance();
-        final authToken = prefs.getString('auth_token');
-        if (authToken != null) {
-          _calendarDatabaseService.authToken = authToken;
-          debugPrint('AnimalThemeCalendar: Auth token loaded');
-        }
+
 
         debugPrint('AnimalThemeCalendar: User info set in database service');
       } else {

@@ -1,29 +1,24 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config/api_config.dart';
+import '../config/supabase_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 class CalendarDatabaseService {
-  final String baseUrl;
-  String? _authToken;
+  // Supabase client instance
+  late final supabase.SupabaseClient _client;
 
   // User information cache
   String? _userName;
   String? _userEmail;
 
   // Constructor
-  CalendarDatabaseService({required this.baseUrl});
+  CalendarDatabaseService({String? baseUrl}) {
+    _client = SupabaseConfig.client;
+  }
 
   // Getters
-  String? get authToken => _authToken;
   String? get userName => _userName;
   String? get userEmail => _userEmail;
-
-  // Setters
-  set authToken(String? value) {
-    _authToken = value;
-  }
 
   // Set user information
   void setUserInfo(String userName, String email) {
@@ -37,104 +32,12 @@ class CalendarDatabaseService {
       final prefs = await SharedPreferences.getInstance();
       _userName = prefs.getString('user_name');
       _userEmail = prefs.getString('user_email');
-      _authToken = prefs.getString('auth_token');
 
       return _userName != null && _userEmail != null;
     } catch (e) {
       debugPrint('Error loading user info: $e');
       return false;
     }
-  }
-
-  // Helper method to perform HTTP requests with retry logic
-  Future<http.Response> _performRequest({
-    required String method,
-    required String endpoint,
-    Map<String, dynamic>? body,
-    Map<String, String>? headers,
-    int? retryCount,
-  }) async {
-    final url = Uri.parse('$baseUrl$endpoint');
-    final requestHeaders = {
-      'Content-Type': 'application/json',
-      ...?headers,
-    };
-
-    // Add auth using username:email format
-    if (_userName != null && _userEmail != null) {
-      requestHeaders['Authorization'] = 'Bearer $_userName:$_userEmail';
-      debugPrint('Using authentication: Bearer username:email format');
-    } else if (_authToken != null) {
-      // Fallback to token auth if available
-      requestHeaders['Authorization'] = 'Bearer $_authToken';
-      debugPrint('Using legacy authentication: Bearer token format');
-    }
-
-    debugPrint('Calendar API Request: $method $url');
-    if (body != null) {
-      debugPrint('Request body: ${jsonEncode(body)}');
-    }
-
-    final retries = retryCount ?? ApiConfig.retryAttempts;
-    final timeout = Duration(seconds: ApiConfig.connectionTimeout);
-
-    http.Response? response;
-    int attempts = 0;
-    bool success = false;
-
-    while (!success && attempts <= retries) {
-      attempts++;
-      try {
-        if (method == 'GET') {
-          response =
-              await http.get(url, headers: requestHeaders).timeout(timeout);
-        } else if (method == 'POST') {
-          response = await http
-              .post(
-                url,
-                headers: requestHeaders,
-                body: body != null ? jsonEncode(body) : null,
-              )
-              .timeout(timeout);
-        } else if (method == 'PUT') {
-          response = await http
-              .put(
-                url,
-                headers: requestHeaders,
-                body: body != null ? jsonEncode(body) : null,
-              )
-              .timeout(timeout);
-        } else if (method == 'DELETE') {
-          response =
-              await http.delete(url, headers: requestHeaders).timeout(timeout);
-        }
-
-        success = true; // Request completed without exceptions
-      } catch (e) {
-        if (attempts > retries) {
-          rethrow; // Re-throw the last exception if all retries failed
-        }
-        debugPrint(
-            'Calendar API Request failed (attempt $attempts/$retries): $e');
-        await Future.delayed(
-            Duration(seconds: 1 * attempts)); // Exponential backoff
-      }
-    }
-
-    if (response != null) {
-      debugPrint('Calendar API Response: ${response.statusCode}');
-      if (response.body.isNotEmpty) {
-        try {
-          final jsonResponse = jsonDecode(response.body);
-          debugPrint('Response data: ${jsonEncode(jsonResponse)}');
-        } catch (e) {
-          debugPrint(
-              'Response is not valid JSON: ${response.body.substring(0, min(100, response.body.length))}...');
-        }
-      }
-    }
-
-    return response!;
   }
 
   // Method to fetch calendar tasks for a specific user and theme
@@ -156,70 +59,28 @@ class CalendarDatabaseService {
         }
       }
 
-      // Use the new API endpoint
-      String endpoint = '/api/calendar/load';
+      var query = _client
+          .from('calendar_2025_tasks')
+          .select()
+          .eq('user_name', _userName!)
+          .eq('email', _userEmail!)
+          .eq('theme', theme);
 
-      // Add required query parameter
-      endpoint += '?theme=${Uri.encodeComponent(theme)}';
-
-      // Add optional date range if provided
+      // Add optional date range filters
       if (startDate != null) {
-        endpoint += '&start_date=${Uri.encodeComponent(startDate)}';
+        query = query.gte('task_date', startDate);
       }
       if (endDate != null) {
-        endpoint += '&end_date=${Uri.encodeComponent(endDate)}';
+        query = query.lte('task_date', endDate);
       }
 
-      debugPrint('Requesting calendar tasks from: $endpoint');
-      final response = await _performRequest(
-        method: 'GET',
-        endpoint: endpoint,
-      );
+      final response = await query.order('task_date');
 
-      if (response.statusCode == 200) {
-        final dynamic decodedData = jsonDecode(response.body);
-
-        // Check if response is a list (direct array of tasks)
-        if (decodedData is List) {
-          debugPrint('Received direct list of ${decodedData.length} tasks');
-          return {
-            'success': true,
-            'tasks': decodedData,
-          };
-        }
-        // Check if response is a map with 'tasks' field
-        else if (decodedData is Map && decodedData.containsKey('tasks')) {
-          debugPrint(
-              'Received wrapped response with ${(decodedData['tasks'] as List?)?.length ?? 0} tasks');
-          return {
-            'success': decodedData['success'] ?? true,
-            'tasks': decodedData['tasks'] ?? [],
-          };
-        }
-        // Fallback to empty response
-        else {
-          debugPrint('Received unknown response format');
-          return {
-            'success': false,
-            'message': 'Invalid response format',
-            'tasks': [],
-          };
-        }
-      } else {
-        String errorMessage = 'Failed to get calendar tasks';
-        try {
-          final errorData = jsonDecode(response.body);
-          errorMessage = errorData['message'] ?? errorMessage;
-        } catch (e) {
-          // If response is not valid JSON
-        }
-
-        return {
-          'success': false,
-          'message': errorMessage,
-          'tasks': [],
-        };
-      }
+      debugPrint('Loaded ${response.length} calendar tasks from Supabase');
+      return {
+        'success': true,
+        'tasks': response,
+      };
     } catch (e) {
       debugPrint('Error in getCalendarTasks: $e');
       return {
@@ -251,39 +112,32 @@ class CalendarDatabaseService {
       }
 
       // Format date as YYYY-MM-DD
-      final formattedDate =
-          '${taskDate.year}-${taskDate.month.toString().padLeft(2, '0')}-${taskDate.day.toString().padLeft(2, '0')}';
+      final formattedDate = taskDate.toIso8601String().split('T')[0];
 
-      // Use the updated API endpoint
-      final response = await _performRequest(
-        method: 'POST',
-        endpoint: '/api/calendar/save',
-        body: {
-          'user_name': _userName,
-          'email': _userEmail,
-          'task_date': formattedDate,
-          'task_type': taskType,
-          'task_description': description,
-          'color_code': colorCode,
-          'theme': theme,
-        },
-      );
+      debugPrint(
+          'Saving calendar task for user: $_userName, date: $formattedDate');
 
-      debugPrint('Save response status: ${response.statusCode}');
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'message': data['message'] ?? 'Task saved successfully',
-          'task': data['task'],
-        };
-      } else {
-        final Map<String, dynamic> errorData = jsonDecode(response.body);
-        return {
-          'success': false,
-          'message': errorData['message'] ?? 'Failed to save task',
-        };
-      }
+      // Insert new record (Supabase will handle conflicts with upsert if needed)
+      final response = await _client
+          .from('calendar_2025_tasks')
+          .insert({
+            'user_name': _userName,
+            'email': _userEmail,
+            'task_date': formattedDate,
+            'task_type': taskType,
+            'task_description': description,
+            'color_code': colorCode,
+            'theme': theme,
+          })
+          .select()
+          .single();
+
+      debugPrint('Calendar task saved successfully');
+      return {
+        'success': true,
+        'message': 'Task saved successfully',
+        'task': response,
+      };
     } catch (e) {
       debugPrint('Error in saveCalendarTask: $e');
       return {
@@ -314,45 +168,41 @@ class CalendarDatabaseService {
       }
 
       // Prepare update data
-      Map<String, dynamic> updateData = {
-        'user_name': _userName,
-        'email': _userEmail,
-      };
+      Map<String, dynamic> updateData = {};
 
       // Add optional fields if provided
       if (taskDate != null) {
-        final formattedDate =
-            '${taskDate.year}-${taskDate.month.toString().padLeft(2, '0')}-${taskDate.day.toString().padLeft(2, '0')}';
+        final formattedDate = taskDate.toIso8601String().split('T')[0];
         updateData['task_date'] = formattedDate;
       }
       if (taskType != null) updateData['task_type'] = taskType;
       if (description != null) updateData['task_description'] = description;
       if (colorCode != null) updateData['color_code'] = colorCode;
 
-      // Include the ID in the request body
-      updateData['id'] = taskId;
-
-      // Use the updated API endpoint with ID in the body instead of URL
-      final response = await _performRequest(
-        method: 'POST',
-        endpoint: '/api/calendar/save',
-        body: updateData,
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'message': data['message'] ?? 'Task updated successfully',
-          'task': data['task'],
-        };
-      } else {
-        final Map<String, dynamic> errorData = jsonDecode(response.body);
+      // Only update if there's data to update
+      if (updateData.isEmpty) {
         return {
           'success': false,
-          'message': errorData['message'] ?? 'Failed to update task',
+          'message': 'No data to update',
         };
       }
+
+      debugPrint('Updating calendar task with ID: $taskId');
+
+      final response = await _client
+          .from('calendar_2025_tasks')
+          .update(updateData)
+          .eq('id', taskId)
+          .eq('user_name', _userName!)
+          .eq('email', _userEmail!)
+          .select()
+          .single();
+
+      return {
+        'success': true,
+        'message': 'Task updated successfully',
+        'task': response,
+      };
     } catch (e) {
       debugPrint('Error in updateCalendarTask: $e');
       return {
@@ -378,31 +228,19 @@ class CalendarDatabaseService {
         }
       }
 
-      // Use the new API endpoint with delete flag
-      final response = await _performRequest(
-        method: 'POST',
-        endpoint: '/api/calendar/save',
-        body: {
-          'user_name': _userName,
-          'email': _userEmail,
-          'id': taskId,
-          'delete': true,
-        },
-      );
+      debugPrint('Deleting calendar task with ID: $taskId');
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'message': data['message'] ?? 'Task deleted successfully',
-        };
-      } else {
-        final Map<String, dynamic> errorData = jsonDecode(response.body);
-        return {
-          'success': false,
-          'message': errorData['message'] ?? 'Failed to delete task',
-        };
-      }
+      await _client
+          .from('calendar_2025_tasks')
+          .delete()
+          .eq('id', taskId)
+          .eq('user_name', _userName!)
+          .eq('email', _userEmail!);
+
+      return {
+        'success': true,
+        'message': 'Task deleted successfully',
+      };
     } catch (e) {
       debugPrint('Error in deleteCalendarTask: $e');
       return {
@@ -430,28 +268,22 @@ class CalendarDatabaseService {
       }
 
       // Format date as YYYY-MM-DD
-      final formattedDate =
-          '${taskDate.year}-${taskDate.month.toString().padLeft(2, '0')}-${taskDate.day.toString().padLeft(2, '0')}';
+      final formattedDate = taskDate.toIso8601String().split('T')[0];
 
-      final response = await _performRequest(
-        method: 'DELETE',
-        endpoint:
-            '/calendar2025/tasks/by-date?date=$formattedDate&user_name=${Uri.encodeComponent(_userName!)}&theme=${Uri.encodeComponent(theme)}',
-      );
+      debugPrint('Deleting all calendar tasks for date: $formattedDate');
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'message': data['message'] ?? 'Tasks deleted successfully',
-        };
-      } else {
-        final Map<String, dynamic> errorData = jsonDecode(response.body);
-        return {
-          'success': false,
-          'message': errorData['message'] ?? 'Failed to delete tasks',
-        };
-      }
+      await _client
+          .from('calendar_2025_tasks')
+          .delete()
+          .eq('user_name', _userName!)
+          .eq('email', _userEmail!)
+          .eq('task_date', formattedDate)
+          .eq('theme', theme);
+
+      return {
+        'success': true,
+        'message': 'Tasks deleted successfully',
+      };
     } catch (e) {
       debugPrint('Error in deleteCalendarTasksByDate: $e');
       return {
@@ -460,6 +292,29 @@ class CalendarDatabaseService {
       };
     }
   }
+
+  // Test Supabase connection
+  Future<bool> testConnection() async {
+    try {
+      await _client.from('calendar_2025_tasks').select('id').limit(1);
+      return true;
+    } catch (e) {
+      debugPrint('Error testing Supabase connection: $e');
+      return false;
+    }
+  }
+
+  // Check if user is currently authenticated with Supabase
+  bool get isAuthenticated => _client.auth.currentUser != null;
+
+  // Get current user
+  supabase.User? get currentUser => _client.auth.currentUser;
+
+  // Get auth token from Supabase
+  String? get authToken => _client.auth.currentSession?.accessToken;
+
+  // Legacy getter for compatibility
+  String? get baseUrl => 'supabase'; // Just for compatibility
 
   // Helper function for min calculation
   int min(int a, int b) => a < b ? a : b;

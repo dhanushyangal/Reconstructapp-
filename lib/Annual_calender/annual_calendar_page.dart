@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
@@ -95,7 +94,7 @@ class _AnnualCalenderPageState extends State<AnnualCalenderPage> {
   Future<void> _showPaymentPage() async {
     final email =
         Provider.of<AuthService>(context, listen: false).userData?['email'] ??
-            FirebaseAuth.instance.currentUser?.email ??
+            AuthService.instance.currentUser?.email ??
             'user@example.com';
 
     // Use SubscriptionManager to handle the complete payment flow

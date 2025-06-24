@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
@@ -354,13 +353,10 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
   }
 
   Future<void> _loadUserInfo() async {
-    final firebaseUser = FirebaseAuth.instance.currentUser;
     final mysqlUserData = _authService.userData;
 
     if (mysqlUserData != null) {
       _userId = mysqlUserData['id']?.toString() ?? 'mysql_user';
-    } else if (firebaseUser != null) {
-      _userId = firebaseUser.uid;
     }
   }
 

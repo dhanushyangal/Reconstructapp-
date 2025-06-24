@@ -79,7 +79,7 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       // Add a timeout to prevent hanging indefinitely
       final result = await _authService
-          .registerWithEmailAndPassword(
+          .registerUser(
         username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,

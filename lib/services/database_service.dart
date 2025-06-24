@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+
 import 'user_service.dart';
+import 'supabase_database_service.dart';
+import 'auth_service.dart';
+import '../config/supabase_config.dart';
 
 class DatabaseService {
   static DatabaseService? _instance;
-  final String apiBaseUrl = 'https://reconstrect-api.onrender.com';
+  late final SupabaseDatabaseService _supabaseService;
+  late final AuthService _authService;
   bool _isConnected = false;
-
-  // Track if the server has task-related tables
-  bool _hasTaskTables = false;
 
   // Singleton pattern
   static DatabaseService get instance {
@@ -18,9 +18,12 @@ class DatabaseService {
     return _instance!;
   }
 
-  DatabaseService._();
+  DatabaseService._() {
+    _supabaseService = SupabaseDatabaseService();
+    _authService = AuthService();
+  }
 
-  // Check if we're connected to the API
+  // Check if we're connected to Supabase
   bool get isConnected => _isConnected;
 
   // Check if user is logged in
@@ -28,259 +31,191 @@ class DatabaseService {
     return await UserService.instance.isUserLoggedIn();
   }
 
-  Future<bool> _checkConnection() async {
+  // Helper method to ensure Supabase service has valid auth token
+  Future<bool> _ensureAuthToken() async {
     try {
-      final response = await http.get(Uri.parse('$apiBaseUrl/health'));
-      print('Connection check response: ${response.body}');
-
-      // If health check passes, check if tables exist
-      if (response.statusCode == 200) {
-        _checkTablesExist();
+      final token = await _authService.getToken();
+      if (token != null && token.isNotEmpty) {
+        // The SupabaseDatabaseService manages its own auth token
+        // so we don't need to set it manually
+        debugPrint(
+            'DatabaseService: Auth token available for Supabase service');
+        return true;
+      } else {
+        debugPrint('DatabaseService: No auth token available from AuthService');
+        return false;
       }
-
-      return response.statusCode == 200;
     } catch (e) {
-      print('Connection check failed: $e');
+      debugPrint('DatabaseService: Error getting auth token: $e');
       return false;
     }
   }
 
-  // Check if task tables exist in the database
-  Future<void> _checkTablesExist() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$apiBaseUrl/test/tables'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['tables'] != null &&
-            (data['tables']['vision_board_tasks'] != null ||
-                data['tables']['weekly_planner_tasks'] != null)) {
-          _hasTaskTables = true;
-          print(
-              'Database has task tables: vision_board_tasks or weekly_planner_tasks');
-        } else {
-          _hasTaskTables = false;
-          print('Task tables not found in database');
-        }
-      }
-    } catch (e) {
-      print('Table check failed: $e');
-    }
-  }
-
-  // New method to try fetching tasks using the test/tables endpoint
-  Future<List<Map<String, dynamic>>> fetchTasksFromTestEndpoint(
-      Map<String, dynamic> userInfo, String theme) async {
-    if (!await _checkConnection()) {
-      print('Failed to load tasks: No connection to API');
-      return [];
-    }
-
-    if (!_hasTaskTables) {
-      print('Failed to load tasks: Task tables not found in database');
-      return [];
-    }
-
-    try {
-      // We only have the /test/tables endpoint that works, but it doesn't
-      // let us query specific data. In a real app, we would need a proper API endpoint.
-      // For now, we'll just inform that we can see the tables but can't query them.
-      print(
-          'Task tables exist but no API endpoint is available to query them.');
-
-      // Return an empty list since we can't actually query the data
-      return [];
-    } catch (e) {
-      print('Failed to fetch tasks from test endpoint: $e');
-      return [];
-    }
-  }
-
-  // Check if API endpoints exist (cached check to avoid repeated failures)
-  bool _apiEndpointsExist = false;
-  DateTime? _lastApiCheckTime;
-
-  Future<bool> _checkApiEndpoints() async {
-    // Use cached result if checked within the last hour
-    if (_lastApiCheckTime != null) {
-      final timeSinceLastCheck = DateTime.now().difference(_lastApiCheckTime!);
-      if (timeSinceLastCheck.inMinutes < 60) {
-        return _apiEndpointsExist;
-      }
-    }
-
-    try {
-      // Try a lightweight call to the task endpoints
-      final response = await http.head(
-        Uri.parse('$apiBaseUrl/api/tasks/load'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 1));
-
-      _lastApiCheckTime = DateTime.now();
-      _apiEndpointsExist = response.statusCode != 404;
-      return _apiEndpointsExist;
-    } catch (e) {
-      _lastApiCheckTime = DateTime.now();
-      _apiEndpointsExist = false;
-      print('API endpoints check failed: $e');
-      return false;
-    }
-  }
-
+  // Save todo item to Supabase vision_board_tasks table
   Future<bool> saveTodoItem(Map<String, dynamic> userInfo, String cardId,
       String tasks, String theme) async {
-    // First check if the API is online
-    if (!await _checkConnection()) {
-      print('Failed to save task: No connection to API');
-      return false;
-    }
-
-    // Then check if user is logged in
-    if (!await isUserLoggedIn()) {
-      print('Failed to save task: User not logged in');
-      return false;
-    }
-
-    // Check if the endpoints exist before trying to use them
-    if (!await _checkApiEndpoints()) {
-      print('Failed to save task: API endpoints not available');
-      return false;
-    }
-
     try {
-      final response = await http.post(
-        Uri.parse('$apiBaseUrl/api/tasks/save'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${userInfo['userName']}:${userInfo['email']}'
-        },
-        body: jsonEncode({
-          'user_name': userInfo['userName'],
-          'email': userInfo['email'],
-          'card_id': cardId,
-          'tasks': tasks,
-          'theme': theme,
-          'table': 'vision_board_tasks'
-        }),
+      debugPrint('Saving todo item to Supabase: $cardId, theme: $theme');
+      debugPrint('Tasks data length: ${tasks.length} characters');
+
+      // Ensure we have user info
+      if (userInfo['userName']?.isEmpty == true ||
+          userInfo['email']?.isEmpty == true) {
+        debugPrint('Failed to save task: User info is incomplete');
+        return false;
+      }
+
+      // Ensure we have auth token
+      if (!await _ensureAuthToken()) {
+        debugPrint('Failed to save task: No valid auth token');
+        return false;
+      }
+
+      // Use upsert to handle both insert and update cases
+      // This will replace the existing record completely with the new task list
+      final result = await _supabaseService.saveVisionBoardTask(
+        userName: userInfo['userName'],
+        email: userInfo['email'],
+        cardId: cardId,
+        tasks: tasks,
+        theme: theme,
       );
 
-      print('Save task response: ${response.statusCode} - ${response.body}');
-      return response.statusCode == 200 || response.statusCode == 201;
+      debugPrint(
+          'Save task result: ${result['success']} - ${result['message']}');
+      return result['success'] == true;
     } catch (e) {
-      print('Failed to save task: $e');
+      debugPrint('Failed to save task to Supabase: $e');
       return false;
     }
   }
 
+  // Load user tasks from Supabase vision_board_tasks table
   Future<List<Map<String, dynamic>>> loadUserTasks(
       Map<String, dynamic> userInfo, String theme) async {
-    // First check if the API is online
-    if (!await _checkConnection()) {
-      print('Failed to load tasks: No connection to API');
-      return [];
-    }
-
-    // Then check if user is logged in
-    if (!await isUserLoggedIn()) {
-      print('Failed to load tasks: User not logged in');
-      return [];
-    }
-
-    // First try the regular API endpoint
     try {
-      final queryParams = {
-        'theme': theme,
-        'user_name': userInfo['userName'],
-        'email': userInfo['email']
-      };
+      debugPrint('Loading user tasks from Supabase for theme: $theme');
 
-      final uri = Uri.parse('$apiBaseUrl/api/tasks/load')
-          .replace(queryParameters: queryParams);
-
-      final response = await http.get(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${userInfo['userName']}:${userInfo['email']}'
-        },
-      ).timeout(const Duration(seconds: 10));
-
-      print('Load tasks response: ${response.statusCode} - ${response.body}');
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.cast<Map<String, dynamic>>();
-      } else if (response.statusCode == 400) {
-        final data = jsonDecode(response.body);
-        print('API error: ${data['message']}');
+      // Ensure we have user info
+      if (userInfo['userName']?.isEmpty == true ||
+          userInfo['email']?.isEmpty == true) {
+        debugPrint('Failed to load tasks: User info is incomplete');
         return [];
       }
 
-      // If the API endpoint fails with 404, try the test endpoint
-      if (response.statusCode == 404) {
-        print('Regular API endpoint not found, trying test endpoint');
-        return await fetchTasksFromTestEndpoint(userInfo, theme);
+      // Ensure we have auth token
+      if (!await _ensureAuthToken()) {
+        debugPrint('Failed to load tasks: No valid auth token');
+        return [];
       }
 
-      return [];
+      final result = await _supabaseService.getVisionBoardTasks(
+        userName: userInfo['userName'],
+        email: userInfo['email'],
+        theme: theme,
+      );
+
+      if (result['success'] == true) {
+        final List<dynamic> data = result['data'] ?? [];
+        debugPrint('Loaded ${data.length} tasks from Supabase');
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        debugPrint('Failed to load tasks: ${result['message']}');
+        return [];
+      }
     } catch (e) {
-      print('Failed to load tasks from API: $e');
+      debugPrint('Failed to load tasks from Supabase: $e');
       return [];
     }
   }
 
-  // Method to test the API connection
+  // Clear all cached data for user switch
+  Future<void> clearUserData() async {
+    debugPrint(
+        'DatabaseService: Clearing cached user data for logout/user switch');
+    _isConnected = false;
+
+    // You could add any other cleanup here if needed
+    // For now, just reset connection status
+  }
+
+  // Test the Supabase connection
   Future<Map<String, dynamic>> testConnection() async {
     try {
-      debugPrint('Testing API connection...');
+      debugPrint('Testing Supabase connection...');
 
       final isLoggedIn = await isUserLoggedIn();
       final userInfo =
           isLoggedIn ? await UserService.instance.getUserInfo() : null;
 
-      // Use the health endpoint since we know it exists
-      final response = await http.get(
-        Uri.parse('$apiBaseUrl/health'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (isLoggedIn)
-            'Authorization':
-                'Bearer ${userInfo?['userName']}:${userInfo?['email']}',
-        },
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        _isConnected = true;
-
-        // Also check if the tables exist
-        await _checkTablesExist();
-
-        String message = 'API connection successful' +
-            (isLoggedIn
-                ? ' (User is logged in as: ${userInfo?['userName']})'
-                : ' (User is not logged in)');
-
-        if (_hasTaskTables) {
-          message +=
-              '\nTask tables found but API endpoints for tasks are missing.';
+      // First ensure we have auth token if user is logged in
+      if (isLoggedIn) {
+        if (!await _ensureAuthToken()) {
+          return {
+            'success': false,
+            'message': 'User is logged in but no valid auth token available',
+            'hasTaskTables': false
+          };
         }
+      }
 
-        return {
-          'success': true,
-          'message': message,
-          'hasTaskTables': _hasTaskTables
-        };
+      // Test basic connection by trying to access Supabase
+      // Since we're using a custom token approach, we'll test with actual user data
+      if (isLoggedIn && userInfo != null) {
+        // Test if we can query vision_board_tasks table directly
+        try {
+          final tasksResult = await _supabaseService.getVisionBoardTasks(
+            userName: userInfo['userName']!,
+            email: userInfo['email']!,
+          );
+
+          if (tasksResult['success'] == true) {
+            _isConnected = true;
+            final List<dynamic> tasks = tasksResult['data'] ?? [];
+            String message =
+                'Supabase connection successful (User: ${userInfo['userName']})';
+            message += '\nFound ${tasks.length} existing tasks in database';
+
+            return {'success': true, 'message': message, 'hasTaskTables': true};
+          } else {
+            _isConnected = false;
+            return {
+              'success': false,
+              'message':
+                  'Failed to access vision_board_tasks table: ${tasksResult['message']}',
+              'hasTaskTables': false
+            };
+          }
+        } catch (e) {
+          _isConnected = false;
+          return {
+            'success': false,
+            'message': 'Error accessing vision_board_tasks table: $e',
+            'hasTaskTables': false
+          };
+        }
       } else {
-        _isConnected = false;
-        return {
-          'success': false,
-          'message':
-              'API connection failed: Status ${response.statusCode} - ${response.body}',
-          'hasTaskTables': false
-        };
+        // Test basic Supabase connection without user-specific data
+        try {
+          // Just check if we can connect to Supabase
+          final client = SupabaseConfig.client;
+          // Make a simple query to test connection
+          await client.from('user').select('count').limit(1);
+
+          _isConnected = true;
+          return {
+            'success': true,
+            'message': 'Supabase connection successful (User not logged in)',
+            'hasTaskTables': true
+          };
+        } catch (e) {
+          _isConnected = false;
+          return {
+            'success': false,
+            'message': 'Supabase connection failed: $e',
+            'hasTaskTables': false
+          };
+        }
       }
     } catch (e) {
       _isConnected = false;
@@ -288,15 +223,16 @@ class DatabaseService {
       String errorMessage = e.toString();
       if (errorMessage.contains('SocketException')) {
         errorMessage =
-            'Unable to connect to API. Please check your internet connection.';
+            'Unable to connect to Supabase. Please check your internet connection.';
       } else if (errorMessage.contains('TimeoutException')) {
-        errorMessage =
-            'API request timed out. The server might be overloaded or down.';
+        errorMessage = 'Supabase request timed out. Please try again.';
+      } else if (errorMessage.contains('AuthException')) {
+        errorMessage = 'Authentication failed. Please log in again.';
       }
 
       return {
         'success': false,
-        'message': 'API connection failed: $errorMessage',
+        'message': 'Supabase connection failed: $errorMessage',
         'hasTaskTables': false
       };
     }

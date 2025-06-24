@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 
 class GoogleConfirmationPage extends StatelessWidget {
   final String email;
@@ -15,7 +15,15 @@ class GoogleConfirmationPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AuthService.instance.currentUser;
+
+    // Get profile image URL from Supabase user metadata
+    String? profileImageUrl;
+    if (user?.userMetadata != null) {
+      profileImageUrl = user!.userMetadata!['avatar_url'] ??
+          user.userMetadata!['picture'] ??
+          user.userMetadata!['profile_image_url'];
+    }
 
     return Scaffold(
       body: SafeArea(
@@ -43,10 +51,10 @@ class GoogleConfirmationPage extends StatelessWidget {
                 radius: 40,
                 backgroundColor:
                     Theme.of(context).primaryColor.withOpacity(0.1),
-                backgroundImage: user?.photoURL != null
-                    ? NetworkImage(user!.photoURL!)
+                backgroundImage: profileImageUrl != null
+                    ? NetworkImage(profileImageUrl)
                     : null,
-                child: user?.photoURL == null
+                child: profileImageUrl == null
                     ? Text(
                         initial,
                         style: TextStyle(

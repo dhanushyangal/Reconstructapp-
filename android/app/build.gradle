@@ -3,7 +3,7 @@ plugins {
     id "kotlin-android"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
-    id 'com.google.gms.google-services'
+    id "com.google.gms.google-services"
 }
 
 def keystoreProperties = new Properties()
@@ -34,10 +34,10 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk 23 // This supports Android 5.0 and above (about 98% of active devices)
         targetSdk = 35
-        versionCode = 39
-        versionName = "1.2.20"
+        versionCode = 47
+        versionName = "1.2.26"
         multiDexEnabled true
-        resValue "string", "server_client_id", "YOUR_SERVER_CLIENT_ID"
+        resValue "string", "server_client_id", "633982729642-4lotqibb3rnglifn79rt0ibjorg40oib.apps.googleusercontent.com"
     }
 
     signingConfigs {
@@ -106,18 +106,9 @@ dependencies {
     implementation 'com.google.android.play:app-update:2.1.0'
     implementation 'com.google.android.play:review:2.0.1'
     implementation 'com.google.android.play:core-common:2.0.3'
-    implementation platform('com.google.firebase:firebase-bom:32.7.0')
-    implementation 'com.google.firebase:firebase-analytics'
-    implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.android.gms:play-services-auth:20.7.0'
-    implementation 'com.google.firebase:firebase-firestore'
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'androidx.work:work-runtime-ktx:2.9.0'
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
 }
-
-apply plugin: 'com.google.gms.google-services'
-
-
-apply plugin: 'com.google.gms.google-services'
 

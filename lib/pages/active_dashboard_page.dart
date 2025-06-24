@@ -250,7 +250,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
                   DropdownMenuItem(
                       value: 'mind', child: Text('Reset my emotions')),
                   DropdownMenuItem(
-                      value: 'activity', child: Text('Start Guided Journey')),
+                      value: 'activity', child: Text('distract my mind')),
                 ],
                 onChanged: (value) {
                   setState(() {
