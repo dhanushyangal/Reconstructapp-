@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:home_widget/home_widget.dart';
 import '../pages/box_them_vision_board.dart';
+import '../services/journey_database_service.dart';
+import '../services/user_service.dart';
 
 class TravelJourney extends StatefulWidget {
   const TravelJourney({Key? key}) : super(key: key);
@@ -37,6 +39,9 @@ class _TravelJourneyState extends State<TravelJourney> {
 
   // Add a map to store week dates for each city
   final Map<int, Map<int, DateTime>> weekDatesByCity = {};
+
+  // Database service
+  late final JourneyDatabaseService _journeyDatabaseService;
 
   // List of months for date formatting
   final List<String> months = [
@@ -77,6 +82,7 @@ class _TravelJourneyState extends State<TravelJourney> {
   @override
   void initState() {
     super.initState();
+    _journeyDatabaseService = JourneyDatabaseService.instance;
     _initializeDefaultTasks();
     _initializeDefaultDates();
     // Load any previously saved travel plans
@@ -2287,357 +2293,75 @@ class _TravelJourneyState extends State<TravelJourney> {
     }
   }
 
-  // Method to save travel plan to SharedPreferences
+  // Method to save travel plan to database
   Future<void> _saveTravelPlan() async {
     try {
-      // Get SharedPreferences instance
-      final prefs = await SharedPreferences.getInstance();
+      debugPrint('Saving travel plan to database...');
 
-      // Set a flag to indicate we're attempting to save
-      await prefs.setBool('travel_journey_saving', true);
-      debugPrint('Setting travel saving flag');
-
-      // First, read existing data from SharedPreferences
-      Map<String, dynamic> existingEvents = {};
-      Map<String, dynamic> existingTheme = {};
-      List<Map<String, dynamic>> existingVisionBoardTasks = [];
-
-      // Read existing animal calendar events
-      final existingEventsStr = prefs.getString('animal.calendar_events');
-      if (existingEventsStr != null && existingEventsStr.isNotEmpty) {
-        try {
-          existingEvents = json.decode(existingEventsStr);
-        } catch (e) {
-          debugPrint('Error parsing existing calendar events: $e');
+      // Check if user is logged in
+      final isLoggedIn = await UserService.instance.isUserLoggedIn();
+      if (!isLoggedIn) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please log in to save your travel plan'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
+        return;
       }
 
-      // Read existing animal calendar theme
-      final existingThemeStr = prefs.getString('animal.calendar_theme_2025');
-      if (existingThemeStr != null && existingThemeStr.isNotEmpty) {
-        try {
-          existingTheme = json.decode(existingThemeStr);
-        } catch (e) {
-          debugPrint('Error parsing existing calendar theme: $e');
-        }
-      }
+      // Save current selections before saving to database
+      _saveCurrentSelections();
 
-      // Read existing vision board tasks
-      final existingVisionBoardStr = prefs.getString('BoxThem_todos_Travel');
-      if (existingVisionBoardStr != null && existingVisionBoardStr.isNotEmpty) {
-        try {
-          final List<dynamic> decoded = json.decode(existingVisionBoardStr);
-          existingVisionBoardTasks =
-              decoded.map((item) => Map<String, dynamic>.from(item)).toList();
-        } catch (e) {
-          debugPrint('Error parsing existing vision board tasks: $e');
-        }
-      }
+      // Prepare data for database saving
+      final Map<String, List<dynamic>> tasksForDatabase = {};
 
-      // Create the format for new event details
-      final Map<String, dynamic> travelEvents = {};
-      final Map<String, dynamic> travelTheme = {};
-
-      // Create a single list for all travel tasks to store in BoxThem_todos_Travel
-      List<Map<String, dynamic>> allVisionBoardTasks = [];
-
-      // Map to store tasks for each month in PostIt theme format
-      Map<String, List<Map<String, dynamic>>> monthlyTasks = {};
-
-      // Loop through each city and save their tasks
-      for (int cityIndex = 0;
-          cityIndex < selectedLocations.length;
-          cityIndex++) {
-        // Get city name
-        final cityName = selectedLocations[cityIndex].split(',').first;
-
-        // Get month from ISO date
-        String monthName = "";
-        int year = DateTime.now().year;
-        int monthIndex = 0;
-
-        try {
-          if (selectedMonths.isNotEmpty &&
-              cityIndex < selectedMonths.length &&
-              selectedMonths[cityIndex].isNotEmpty) {
-            final DateTime selectedDate =
-                DateTime.parse(selectedMonths[cityIndex]);
-            monthName = months[
-                selectedDate.month - 1]; // Convert month number to month name
-            year = selectedDate.year;
-            monthIndex = selectedDate.month - 1;
-            debugPrint('Parsed month: $monthName, year: $year');
-          } else {
-            debugPrint('No selected month for city $cityIndex');
-            continue;
-          }
-        } catch (e) {
-          debugPrint('Error parsing selected month: $e');
-          continue;
-        }
-
-        // Create dates for start, middle, end of trip
-        final startDate = DateTime(year, monthIndex + 1, 10);
-        final middleDate = DateTime(year, monthIndex + 1, 15);
-        final endDate = DateTime(year, monthIndex + 1, 20);
-
-        // Format dates in ISO8601 format
-        final startDateStr = startDate.toIso8601String();
-        final middleDateStr = middleDate.toIso8601String();
-        final endDateStr = endDate.toIso8601String();
-
-        // Format dates for theme (YYYY-MM-DD)
-        final startThemeDate =
-            "${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}";
-        final middleThemeDate =
-            "${middleDate.year}-${middleDate.month.toString().padLeft(2, '0')}-${middleDate.day.toString().padLeft(2, '0')}";
-        final endThemeDate =
-            "${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}";
-
-        // Get category based on city index (just to vary the categories)
-        final categories = ['Personal', 'Professional', 'Finance', 'Health'];
-        final category = categories[cityIndex % categories.length];
-
-        // Define standard travel tasks with city name
-        final List<Map<String, String>> cityTasks = [
-          {
-            'category': category,
-            'title': category,
-            'type': 'Start preparing for $cityName trip',
-            'is_all_day': 'true',
-            'event_hour': '9',
-            'event_minute': '0',
-            'has_custom_notification': 'false',
-            'notification_hour': '9',
-            'notification_minute': '0',
-            'reminder_minutes': '0',
-            'notification_day_offset': '0',
-            'task_id': '${DateTime.now().millisecondsSinceEpoch}',
-          },
-          {
-            'category': category,
-            'title': category,
-            'type': 'Travel to $cityName',
-            'is_all_day': 'true',
-            'event_hour': '9',
-            'event_minute': '0',
-            'has_custom_notification': 'false',
-            'notification_hour': '9',
-            'notification_minute': '0',
-            'reminder_minutes': '0',
-            'notification_day_offset': '0',
-            'task_id': '${DateTime.now().millisecondsSinceEpoch + 1}',
-          },
-          {
-            'category': category,
-            'title': category,
-            'type': 'Return from $cityName',
-            'is_all_day': 'true',
-            'event_hour': '9',
-            'event_minute': '0',
-            'has_custom_notification': 'false',
-            'notification_hour': '9',
-            'notification_minute': '0',
-            'reminder_minutes': '0',
-            'notification_day_offset': '0',
-            'task_id': '${DateTime.now().millisecondsSinceEpoch + 2}',
-          }
-        ];
-
-        // Add to event data
-        travelEvents[startDateStr] = [cityTasks[0]];
-        travelEvents[middleDateStr] = [cityTasks[1]];
-        travelEvents[endDateStr] = [cityTasks[2]];
-
-        // Add to theme data
-        travelTheme[startThemeDate] = category;
-        travelTheme[middleThemeDate] = category;
-        travelTheme[endThemeDate] = category;
-
-        // Add to vision board tasks - format "Travel to city in month"
-        allVisionBoardTasks.add({
-          "id": "${DateTime.now().millisecondsSinceEpoch + cityIndex}",
-          "text": "Travel to $cityName in $monthName",
-          "isDone": false
-        });
-
-        // ------------------------------------------------------
-        // SAVE DATA IN POSTIT THEME ANNUAL PLANNER FORMAT
-        // ------------------------------------------------------
-
-        // Initialize the month's task list if it doesn't exist
-        if (!monthlyTasks.containsKey(monthName)) {
-          monthlyTasks[monthName] = [];
-        }
-
-        // Add tasks for this city to the month's list
-        for (var task in cityTasks) {
-          monthlyTasks[monthName]!
-              .add({"text": task['type'], "completed": false});
-        }
-
-        // Add selected tasks from weekly planner to the month's list
-        if (completedTasksByCity.containsKey(cityName)) {
-          for (var task in completedTasksByCity[cityName]!) {
-            monthlyTasks[monthName]!
-                .add({"text": task.description, "completed": task.isSelected});
-          }
-        }
-      }
-
-      // Save tasks for each month in PostIt theme format
-      for (var entry in monthlyTasks.entries) {
-        final monthName = entry.key;
+      // Convert completedTasksByCity to the format expected by the database service
+      for (var entry in completedTasksByCity.entries) {
+        final cityName = entry.key;
         final tasks = entry.value;
+        tasksForDatabase[cityName] = tasks.cast<dynamic>();
+      }
 
-        if (tasks.isEmpty) {
-          debugPrint('No tasks to save for $monthName, skipping');
-          continue;
+      // Save to database using the journey database service
+      final result = await _journeyDatabaseService.saveTravelJourney(
+        selectedLocations: selectedLocations,
+        selectedMonths: selectedMonths,
+        completedTasksByCity: tasksForDatabase,
+        weekDatesByCity: weekDatesByCity,
+      );
+
+      if (result['success'] == true) {
+        // Also save to local storage for widget support
+        await _saveToLocalStorage();
+
+        // Update home widgets
+        await _updateWidgets();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Travel plan saved successfully to database!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Navigate to Vision Board page
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  VisionBoardDetailsPage(title: 'Box Theme Vision Board'),
+            ),
+          );
         }
-
-        // Save tasks for the month
-        debugPrint('Saving ${tasks.length} tasks for $monthName');
-        await prefs.setString(
-            'PostItTheme_todos_$monthName', json.encode(tasks));
-
-        // Save display text for widget
-        final String displayText = tasks
-            .map((task) => "${task['completed'] ? '✓ ' : '• '}${task['text']}")
-            .join("\n");
-        await prefs.setString('postit_todo_text_$monthName', displayText);
-      }
-
-      // Merge with existing data
-      // For events, add new events to existing ones
-      existingEvents.addAll(travelEvents);
-
-      // For theme, add new theme entries to existing ones
-      existingTheme.addAll(travelTheme);
-
-      // For vision board tasks, add new tasks to existing ones
-      // First create a set of existing task IDs to avoid duplicates
-      final Set<String> existingTaskIds = existingVisionBoardTasks
-          .map((task) => task['id']?.toString() ?? '')
-          .toSet();
-
-      // Add only new tasks
-      for (var task in allVisionBoardTasks) {
-        final taskId = task['id']?.toString() ?? '';
-        if (taskId.isNotEmpty && !existingTaskIds.contains(taskId)) {
-          existingVisionBoardTasks.add(task);
-        }
-      }
-
-      // Make sure we have tasks to save before saving
-      if (existingVisionBoardTasks.isEmpty) {
-        debugPrint('No vision board tasks to save, creating a default task');
-        existingVisionBoardTasks = [
-          {
-            "id": "${DateTime.now().millisecondsSinceEpoch}",
-            "text": "My Travel Plans for 2025",
-            "isDone": false
-          }
-        ];
-      }
-
-      // Save the combined data
-      await prefs.setString(
-          'BoxThem_todos_Travel', json.encode(existingVisionBoardTasks));
-
-      // Save to SharedPreferences with explicit debugging
-      debugPrint('Saving calendar events...');
-      if (existingEvents.isNotEmpty) {
-        final eventsSaved = await prefs.setString(
-            'animal.calendar_events', json.encode(existingEvents));
-        debugPrint('Events saved successfully: $eventsSaved');
       } else {
-        debugPrint('No events to save');
-      }
-
-      debugPrint('Saving calendar theme...');
-      if (existingTheme.isNotEmpty) {
-        final themeSaved = await prefs.setString(
-            'animal.calendar_theme_2025', json.encode(existingTheme));
-        debugPrint('Theme saved successfully: $themeSaved');
-      } else {
-        debugPrint('No theme data to save');
-      }
-
-      debugPrint('Saving calendar data...');
-      final dataSaved = await prefs.setString(
-          'animal.calendar_data', json.encode(existingTheme));
-      debugPrint('Data saved successfully: $dataSaved');
-
-      // For debugging - save a simple indicator that we ran the save function
-      await prefs.setString(
-          'travel_journey_debug_timestamp', DateTime.now().toIso8601String());
-
-      // Save to BoxThem_todos_Travel with explicit verification
-      debugPrint('Saving vision board tasks...');
-      final visionBoardSaved = await prefs.setString(
-          'BoxThem_todos_Travel', json.encode(existingVisionBoardTasks));
-      debugPrint('Vision board tasks saved successfully: $visionBoardSaved');
-
-      // Verify the data was actually saved
-      final savedVisionBoardStr = prefs.getString('BoxThem_todos_Travel');
-      final savedEventsStr = prefs.getString('animal.calendar_events');
-      debugPrint('Verified vision board data: ${savedVisionBoardStr != null}');
-      debugPrint('Verified events data: ${savedEventsStr != null}');
-
-      // Update home widgets
-      try {
-        debugPrint('Updating home widgets...');
-        await HomeWidget.updateWidget(
-          androidName: 'VisionBoardWidget',
-          iOSName: 'VisionBoardWidget',
-        );
-
-        await HomeWidget.updateWidget(
-          androidName: 'AnnualPlannerWidget',
-          iOSName: 'AnnualPlannerWidget',
-        );
-        debugPrint('Widgets updated successfully');
-      } catch (e) {
-        debugPrint('Error updating widgets: $e');
-      }
-
-      // Set a flag to indicate successful save
-      await prefs.setBool('travel_journey_saved', true);
-      await prefs.setBool('travel_journey_saving', false);
-      debugPrint('Travel journey saved successfully flag set');
-
-      // Show success message
-      if (mounted) {
-        debugPrint('Showing success message and navigating...');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Travel plan saved successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Navigate to Vision Board page
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                VisionBoardDetailsPage(title: 'Box Theme Vision Board'),
-          ),
-        );
+        throw Exception(result['message'] ?? 'Unknown database error');
       }
     } catch (e) {
-      // Mark the save operation as failed
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('travel_journey_saving', false);
-        await prefs.setBool('travel_journey_save_failed', true);
-        await prefs.setString('travel_journey_error', e.toString());
-      } catch (error) {
-        // Ignore errors in error handling
-      }
-
-      // Show error message with detailed logging
       debugPrint('ERROR SAVING TRAVEL PLAN: $e');
-      debugPrint('Error stack trace: ${StackTrace.current}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -2646,6 +2370,67 @@ class _TravelJourneyState extends State<TravelJourney> {
           ),
         );
       }
+    }
+  }
+
+  // Helper method to save to local storage for widget support
+  Future<void> _saveToLocalStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Create vision board tasks for widgets
+      List<Map<String, dynamic>> allVisionBoardTasks = [];
+
+      for (int i = 0; i < selectedLocations.length; i++) {
+        final cityName = selectedLocations[i].split(',').first;
+        final monthName = selectedMonths.isNotEmpty && i < selectedMonths.length
+            ? _getMonthName(selectedMonths[i])
+            : 'Month ${i + 1}';
+
+        allVisionBoardTasks.add({
+          "id": "${DateTime.now().millisecondsSinceEpoch + i}",
+          "text": "Travel to $cityName in $monthName",
+          "isDone": false
+        });
+      }
+
+      // Save to local storage for widgets
+      await prefs.setString(
+          'BoxThem_todos_Travel', jsonEncode(allVisionBoardTasks));
+
+      debugPrint('Travel data saved to local storage for widgets');
+    } catch (e) {
+      debugPrint('Error saving travel data to local storage: $e');
+    }
+  }
+
+  // Helper method to update widgets
+  Future<void> _updateWidgets() async {
+    try {
+      await HomeWidget.updateWidget(
+        androidName: 'VisionBoardWidget',
+        iOSName: 'VisionBoardWidget',
+      );
+
+      await HomeWidget.updateWidget(
+        androidName: 'AnnualPlannerWidget',
+        iOSName: 'AnnualPlannerWidget',
+      );
+
+      debugPrint('Widgets updated successfully');
+    } catch (e) {
+      debugPrint('Error updating widgets: $e');
+    }
+  }
+
+  // Helper method to extract month name from date string
+  String _getMonthName(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      return months[date.month - 1];
+    } catch (e) {
+      debugPrint('Error parsing date: $e');
+      return 'Unknown Month';
     }
   }
 

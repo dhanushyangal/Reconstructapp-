@@ -11,6 +11,8 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
+import '../services/notes_service.dart';
+import '../services/user_service.dart';
 
 class DailyNotesPage extends StatefulWidget {
   static const routeName = '/daily-notes';
@@ -25,15 +27,16 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
   List<NoteData> _notes = [];
   List<NoteData> _filteredNotes = [];
   bool _isLoading = true;
-  final String _saveKey = 'daily_notes_data';
   bool _isGridView = true;
   TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
+  final NotesService _notesService = NotesService.instance;
+  Map<String, String>? _userInfo;
 
   @override
   void initState() {
     super.initState();
-    _loadNotes();
+    _initializeAndLoadNotes();
 
     // Initialize HomeWidget
     HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
@@ -52,7 +55,7 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
     super.dispose();
   }
 
-  void _filterNotes() {
+  void _filterNotes() async {
     if (_searchController.text.isEmpty) {
       setState(() {
         _filteredNotes = List.from(_notes);
@@ -61,20 +64,76 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
       return;
     }
 
-    setState(() {
-      _isSearching = true;
-      _filteredNotes = _notes.where((note) {
-        return note.title
-                .toLowerCase()
-                .contains(_searchController.text.toLowerCase()) ||
-            note.content
-                .toLowerCase()
-                .contains(_searchController.text.toLowerCase()) ||
-            note.checklistItems.any((item) => item.text
-                .toLowerCase()
-                .contains(_searchController.text.toLowerCase()));
-      }).toList();
-    });
+    if (_userInfo != null &&
+        _userInfo!['userName']!.isNotEmpty &&
+        _userInfo!['email']!.isNotEmpty) {
+      try {
+        final result = await _notesService.searchNotes(
+          userName: _userInfo!['userName']!,
+          email: _userInfo!['email']!,
+          query: _searchController.text,
+        );
+
+        if (result['success'] == true) {
+          final List<dynamic> dbNotes = result['data'] ?? [];
+          setState(() {
+            _isSearching = true;
+            _filteredNotes = dbNotes.map((dbNote) {
+              final noteData = _notesService.convertDbNoteToNoteData(dbNote);
+              return NoteData(
+                id: noteData['id'],
+                title: noteData['title'],
+                content: noteData['content'],
+                color: Colors.white,
+                lastEdited: noteData['lastEdited'],
+                isPinned: noteData['isPinned'],
+                checklistItems:
+                    (noteData['checklistItems'] as List<Map<String, dynamic>>)
+                        .map((item) => ChecklistItem(
+                              id: item['id'],
+                              text: item['text'],
+                              isChecked: item['isChecked'],
+                            ))
+                        .toList(),
+              );
+            }).toList();
+          });
+        }
+      } catch (e) {
+        debugPrint('Error searching notes: $e');
+        // Fallback to local search
+        setState(() {
+          _isSearching = true;
+          _filteredNotes = _notes.where((note) {
+            return note.title
+                    .toLowerCase()
+                    .contains(_searchController.text.toLowerCase()) ||
+                note.content
+                    .toLowerCase()
+                    .contains(_searchController.text.toLowerCase()) ||
+                note.checklistItems.any((item) => item.text
+                    .toLowerCase()
+                    .contains(_searchController.text.toLowerCase()));
+          }).toList();
+        });
+      }
+    } else {
+      // Local search if user not logged in
+      setState(() {
+        _isSearching = true;
+        _filteredNotes = _notes.where((note) {
+          return note.title
+                  .toLowerCase()
+                  .contains(_searchController.text.toLowerCase()) ||
+              note.content
+                  .toLowerCase()
+                  .contains(_searchController.text.toLowerCase()) ||
+              note.checklistItems.any((item) => item.text
+                  .toLowerCase()
+                  .contains(_searchController.text.toLowerCase()));
+        }).toList();
+      });
+    }
   }
 
   // Background callback for widget updates
@@ -82,7 +141,7 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
     if (uri?.host == 'updatewidget') {
       // Get data from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-      final String? data = prefs.getString('daily_notes_data');
+      final String? data = prefs.getString('daily_notes_data_legacy');
 
       if (data != null) {
         // Save data to widget
@@ -96,60 +155,26 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
     }
   }
 
-  Future<void> _loadNotes() async {
+  Future<void> _initializeAndLoadNotes() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final notesJson = prefs.getString(_saveKey);
+      // Get user info first
+      _userInfo = await UserService.instance.getUserInfo();
 
-      if (notesJson != null) {
-        final List<dynamic> decodedList = json.decode(notesJson);
-        setState(() {
-          _notes = decodedList.map((item) => NoteData.fromJson(item)).toList();
-          // Sort notes - pinned first, then by last edited date
-          _notes.sort((a, b) {
-            if (a.isPinned && !b.isPinned) return -1;
-            if (!a.isPinned && b.isPinned) return 1;
-            return b.lastEdited.compareTo(a.lastEdited);
-          });
-          _filteredNotes = List.from(_notes);
-        });
-
-        // Update widget with latest data
-        await _updateWidget();
+      if (_userInfo != null &&
+          _userInfo!['userName']!.isNotEmpty &&
+          _userInfo!['email']!.isNotEmpty) {
+        await _loadNotesFromDatabase();
       } else {
-        // Add a default note if none exist
-        setState(() {
-          _notes = [
-            NoteData(
-              id: const Uuid().v4(),
-              title: 'Welcome to Notes!',
-              content: 'Tap to edit this note or create a new one.',
-              color: Colors.white,
-              lastEdited: DateTime.now(),
-            )
-          ];
-          _filteredNotes = List.from(_notes);
-        });
+        debugPrint('User not logged in, showing welcome note');
+        _showWelcomeNote();
       }
     } catch (e) {
-      debugPrint('Error loading notes: $e');
-      // Reset to a default note if there's an error
-      setState(() {
-        _notes = [
-          NoteData(
-            id: const Uuid().v4(),
-            title: 'Welcome to Notes!',
-            content: 'Tap to edit this note or create a new one.',
-            color: Colors.white,
-            lastEdited: DateTime.now(),
-          )
-        ];
-        _filteredNotes = List.from(_notes);
-      });
+      debugPrint('Error initializing notes: $e');
+      _showWelcomeNote();
     } finally {
       setState(() {
         _isLoading = false;
@@ -157,20 +182,151 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
     }
   }
 
-  Future<void> _saveNotes() async {
+  Future<void> _loadNotesFromDatabase() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final notesJson =
-          json.encode(_notes.map((note) => note.toJson()).toList());
-      await prefs.setString(_saveKey, notesJson);
-
-      // Update widget when notes are saved
-      await _updateWidget();
-    } catch (e) {
-      debugPrint('Error saving notes: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save notes: $e')),
+      final result = await _notesService.loadUserNotes(
+        userName: _userInfo!['userName']!,
+        email: _userInfo!['email']!,
       );
+
+      if (result['success'] == true) {
+        final List<dynamic> dbNotes = result['data'] ?? [];
+        setState(() {
+          _notes = dbNotes.map((dbNote) {
+            final noteData = _notesService.convertDbNoteToNoteData(dbNote);
+            return NoteData(
+              id: noteData['id'],
+              title: noteData['title'],
+              content: noteData['content'],
+              color: Colors.white,
+              lastEdited: noteData['lastEdited'],
+              isPinned: noteData['isPinned'],
+              checklistItems:
+                  (noteData['checklistItems'] as List<Map<String, dynamic>>)
+                      .map((item) => ChecklistItem(
+                            id: item['id'],
+                            text: item['text'],
+                            isChecked: item['isChecked'],
+                          ))
+                      .toList(),
+            );
+          }).toList();
+          _filteredNotes = List.from(_notes);
+        });
+
+        // Update widget with latest data
+        await _updateWidget();
+        debugPrint('Loaded ${_notes.length} notes from database');
+      } else {
+        debugPrint('Failed to load notes: ${result['message']}');
+        _showWelcomeNote();
+      }
+    } catch (e) {
+      debugPrint('Error loading notes from database: $e');
+      _showWelcomeNote();
+    }
+  }
+
+  void _showWelcomeNote() {
+    setState(() {
+      _notes = [
+        NoteData(
+          id: const Uuid().v4(),
+          title: 'Welcome to Notes!',
+          content: 'Tap to edit this note or create a new one.',
+          color: Colors.white,
+          lastEdited: DateTime.now(),
+        )
+      ];
+      _filteredNotes = List.from(_notes);
+    });
+  }
+
+  Future<void> _saveNoteToDatabase(NoteData note, {bool isNew = false}) async {
+    try {
+      if (_userInfo == null ||
+          _userInfo!['userName']!.isEmpty ||
+          _userInfo!['email']!.isEmpty) {
+        debugPrint('Cannot save note: User not logged in');
+        return;
+      }
+
+      String noteType = 'text';
+      if (note.checklistItems.isNotEmpty) {
+        noteType = 'checklist';
+      }
+
+      // Convert checklist items to database format
+      final checklistItems = note.checklistItems
+          .map((item) => {
+                'text': item.text,
+                'isChecked': item.isChecked,
+              })
+          .toList();
+
+      // Check if this is truly a new note (UUID format) or existing (numeric ID)
+      bool isActuallyNew = isNew || !RegExp(r'^\d+$').hasMatch(note.id);
+
+      Map<String, dynamic> result;
+      if (isActuallyNew) {
+        // Only create new note if title or content is not empty
+        if (note.title.trim().isEmpty &&
+            note.content.trim().isEmpty &&
+            note.checklistItems.isEmpty) {
+          debugPrint('Skipping save: Note is empty');
+          return;
+        }
+
+        result = await _notesService.saveNote(
+          userName: _userInfo!['userName']!,
+          email: _userInfo!['email']!,
+          title: note.title,
+          content: note.content,
+          noteType: noteType,
+          isPinned: note.isPinned,
+          checklistItems: checklistItems,
+          imagePath: note.imagePath,
+        );
+      } else {
+        result = await _notesService.updateNote(
+          noteId: int.parse(note.id),
+          userName: _userInfo!['userName']!,
+          email: _userInfo!['email']!,
+          title: note.title,
+          content: note.content,
+          noteType: noteType,
+          isPinned: note.isPinned,
+          checklistItems: checklistItems,
+          imagePath: note.imagePath,
+        );
+      }
+
+      if (result['success'] == true) {
+        if (isActuallyNew && result['data'] != null) {
+          // Update the note ID with the database-generated ID
+          final newId = result['data']['id'].toString();
+          debugPrint('Note ID updated from ${note.id} to $newId');
+          note.id = newId;
+        }
+        // Update widget when notes are saved
+        await _updateWidget();
+        debugPrint('Note saved successfully to database');
+      } else {
+        debugPrint('Failed to save note: ${result['message']}');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('Failed to save note: ${result['message']}')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error saving note to database: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save note: $e')),
+        );
+      }
     }
   }
 
@@ -212,10 +368,17 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
       // Save the display text to the widget
       await HomeWidget.saveWidgetData('daily_notes_display_text', displayText);
 
-      // Save full notes data for when the widget opens the app
-      final notesJson =
-          json.encode(_notes.map((note) => note.toJson()).toList());
-      await HomeWidget.saveWidgetData('daily_notes_data', notesJson);
+      // Save simplified notes data for widget (just IDs and titles)
+      final widgetData = _notes
+          .take(5)
+          .map((note) => {
+                'id': note.id,
+                'title': note.title.isNotEmpty ? note.title : 'Untitled',
+                'isPinned': note.isPinned,
+              })
+          .toList();
+      await HomeWidget.saveWidgetData(
+          'daily_notes_data', json.encode(widgetData));
 
       // Update widget
       await HomeWidget.updateWidget(
@@ -375,16 +538,29 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
 
               _filterNotes();
             });
-            _saveNotes();
+            _saveNoteToDatabase(updatedNote);
           },
           onDelete: isNew
               ? null
-              : (noteId) {
-                  setState(() {
-                    _notes.removeWhere((n) => n.id == noteId);
-                    _filterNotes();
-                  });
-                  _saveNotes();
+              : (noteId) async {
+                  try {
+                    if (_userInfo != null) {
+                      final result = await _notesService.deleteNote(
+                        noteId: int.parse(noteId),
+                        userName: _userInfo!['userName']!,
+                        email: _userInfo!['email']!,
+                      );
+
+                      if (result['success'] == true) {
+                        setState(() {
+                          _notes.removeWhere((n) => n.id == noteId);
+                          _filterNotes();
+                        });
+                      }
+                    }
+                  } catch (e) {
+                    debugPrint('Error deleting note: $e');
+                  }
                   Navigator.of(context).pop();
                 },
         ),
@@ -701,7 +877,7 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                         });
                         _filterNotes();
                       });
-                      _saveNotes();
+                      _saveNoteToDatabase(note);
                     },
                     tooltip: note.isPinned ? 'Unpin' : 'Pin',
                     padding: const EdgeInsets.all(4),
@@ -736,7 +912,14 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                                   _notes.removeWhere((n) => n.id == note.id);
                                   _filterNotes();
                                 });
-                                _saveNotes();
+                                // Delete from database
+                                if (_userInfo != null) {
+                                  _notesService.deleteNote(
+                                    noteId: int.parse(note.id),
+                                    userName: _userInfo!['userName']!,
+                                    email: _userInfo!['email']!,
+                                  );
+                                }
                               },
                               child: const Text('DELETE'),
                             ),
@@ -839,7 +1022,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     if (_isSaving) return; // Don't schedule if already saving
 
     _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer(const Duration(milliseconds: 500), _autoSave);
+    _autoSaveTimer = Timer(const Duration(seconds: 2), _autoSave);
   }
 
   void _autoSave() {
@@ -880,7 +1063,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         setState(() {
           _editedNote.imagePath = savedImagePath;
         });
-        _autoSave(); // Save after adding image
+        _scheduleAutoSave(); // Schedule save after adding image
       }
     } catch (e) {
       debugPrint('Error picking image: $e');
@@ -898,7 +1081,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         isChecked: false,
       ));
     });
-    _autoSave(); // Save after adding checklist item
+    _scheduleAutoSave(); // Schedule save after adding checklist item
   }
 
   void _updateChecklistItem(String id, {String? text, bool? isChecked}) {
@@ -915,7 +1098,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
       }
     });
     if (isChecked != null) {
-      _autoSave(); // Save immediately when checkbox is toggled
+      _scheduleAutoSave(); // Schedule save when checkbox is toggled
     }
     // Text changes will trigger auto-save via the timer
   }
@@ -924,7 +1107,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     setState(() {
       _editedNote.checklistItems.removeWhere((item) => item.id == id);
     });
-    _autoSave(); // Save after removing checklist item
+    _scheduleAutoSave(); // Schedule save after removing checklist item
   }
 
   void _convertToChecklist() {
@@ -1258,7 +1441,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
 }
 
 class NoteData {
-  final String id;
+  String id;
   String title;
   String content;
   String? imagePath;
