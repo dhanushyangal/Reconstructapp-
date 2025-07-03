@@ -23,7 +23,6 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'onboarding/onboarding_screen.dart';
 import 'services/auth_service.dart';
-import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'services/subscription_manager.dart';
 import 'pages/active_tasks_page.dart';
 import 'pages/active_dashboard_page.dart';
@@ -138,10 +137,7 @@ Future<void> _initializeApp() async {
     // Initialize connectivity monitoring
     await initConnectivity();
 
-    // Set up in-app purchases for Android
-    if (Platform.isAndroid) {
-      InAppPurchaseAndroidPlatformAddition.enablePendingPurchases();
-    }
+    // In-app purchases are automatically configured for Android in newer versions
 
     // Set up home widget communication
     HomeWidget.setAppGroupId('group.com.reconstrect.app');

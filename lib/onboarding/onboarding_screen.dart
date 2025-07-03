@@ -18,9 +18,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   bool _showReconstructLogo = false;
 
   final List<String> _onboardingImages = [
-    'assets/onboarding1.jpg',
-    'assets/onboarding2.jpg',
-    'assets/onboarding3.jpg',
+    'assets/front_images/onboarding1.png',
+    'assets/front_images/onboarding2.png',
+    'assets/front_images/onboarding3.png',
+    'assets/front_images/onboarding4.png',
   ];
 
   @override
@@ -105,11 +106,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       itemCount: _onboardingImages.length,
                       itemBuilder: (context, index) {
                         return Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             Container(
-                              height: MediaQuery.of(context).size.height * 0.7,
-                              width: MediaQuery.of(context).size.width * 0.9,
+                              height: MediaQuery.of(context).size.height * 0.8,
+                              width: MediaQuery.of(context).size.width * 1,
                               margin:
                                   const EdgeInsets.symmetric(horizontal: 20),
                               decoration: BoxDecoration(
