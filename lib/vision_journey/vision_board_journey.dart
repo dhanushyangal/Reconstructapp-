@@ -4,7 +4,7 @@ import 'selfcare_journey.dart';
 import 'finance_journey.dart';
 
 class VisionBoardJourney extends StatelessWidget {
-  const VisionBoardJourney({Key? key}) : super(key: key);
+  const VisionBoardJourney({super.key});
 
   @override
   Widget build(BuildContext context) {

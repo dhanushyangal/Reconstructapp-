@@ -11,6 +11,7 @@ import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
 
 class TodoItem {
   String id;
@@ -140,7 +141,8 @@ class PostItThemeVisionBoard extends StatefulWidget {
   State<PostItThemeVisionBoard> createState() => _PostItThemeVisionBoardState();
 }
 
-class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard> {
+class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
+    with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, List<TodoItem>> _todoLists = {};
@@ -194,6 +196,9 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard> {
     Color.fromARGB(255, 255, 255, 255), // Inspiration (default to blue if null)
     Color.fromARGB(255, 34, 0, 201) // Help
   ];
+
+  @override
+  String get pageName => 'Post-It Vision Board';
 
   @override
   void initState() {

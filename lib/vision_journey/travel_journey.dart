@@ -7,7 +7,7 @@ import '../services/journey_database_service.dart';
 import '../services/user_service.dart';
 
 class TravelJourney extends StatefulWidget {
-  const TravelJourney({Key? key}) : super(key: key);
+  const TravelJourney({super.key});
 
   @override
   State<TravelJourney> createState() => _TravelJourneyState();

@@ -7,11 +7,12 @@ import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
-import '../pages/active_dashboard_page.dart'; // Import for activity tracking
+// Import for activity tracking
 
 import '../services/annual_calendar_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
+import '../utils/activity_tracker_mixin.dart';
 
 class TodoItem {
   String text;
@@ -53,7 +54,8 @@ class FloralThemeAnnualPlanner extends StatefulWidget {
       _FloralThemeAnnualPlannerState();
 }
 
-class _FloralThemeAnnualPlannerState extends State<FloralThemeAnnualPlanner> {
+class _FloralThemeAnnualPlannerState extends State<FloralThemeAnnualPlanner>
+    with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, List<TodoItem>> _todoLists = {};
@@ -112,23 +114,7 @@ class _FloralThemeAnnualPlannerState extends State<FloralThemeAnnualPlanner> {
     HomeWidget.registerBackgroundCallback(backgroundCallback);
 
     // Track this page visit in recent activities
-    _trackActivity();
-  }
-
-  // Method to track activity in recent activities
-  Future<void> _trackActivity() async {
-    try {
-      final activity = RecentActivityItem(
-        name: 'Floral Theme Annual Planner',
-        imagePath: 'assets/floral_weekly/floral_1.png',
-        timestamp: DateTime.now(),
-        routeName: FloralThemeAnnualPlanner.routeName,
-      );
-
-      await ActivityTracker().trackActivity(activity);
-    } catch (e) {
-      print('Error tracking activity: $e');
-    }
+    trackUserInteraction('click', details: 'View Floral Theme Annual Planner');
   }
 
   // Load all data from local storage (fast operation)
@@ -474,6 +460,7 @@ class _FloralThemeAnnualPlannerState extends State<FloralThemeAnnualPlanner> {
   }
 
   void _showTodoDialog(String month) {
+    trackClick('Open $month tasks');
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -640,7 +627,8 @@ class TodoListDialog extends StatefulWidget {
   TodoListDialogState createState() => TodoListDialogState();
 }
 
-class TodoListDialogState extends State<TodoListDialog> {
+class TodoListDialogState extends State<TodoListDialog>
+    with ActivityTrackerMixin {
   late List<TodoItem> _items;
   final _textController = TextEditingController();
 
@@ -652,6 +640,7 @@ class TodoListDialogState extends State<TodoListDialog> {
 
   void _addItem() {
     if (_textController.text.isNotEmpty) {
+      trackButtonTap('Add Task', additionalDetails: widget.month);
       setState(() {
         _items.add(TodoItem(
           text: _textController.text,
@@ -662,12 +651,14 @@ class TodoListDialogState extends State<TodoListDialog> {
   }
 
   void _toggleItem(TodoItem item) {
+    trackClick(item.completed ? 'Uncheck task' : 'Complete task');
     setState(() {
       item.completed = !item.completed;
     });
   }
 
   void _removeItem(TodoItem item) {
+    trackClick('Delete task');
     setState(() {
       _items.remove(item);
     });
@@ -694,6 +685,11 @@ class TodoListDialogState extends State<TodoListDialog> {
                 onPressed: _addItem,
               ),
             ),
+            onChanged: (value) {
+              if (value.isNotEmpty && value.length % 10 == 0) {
+                trackTextInput('Task text', value: value);
+              }
+            },
             onSubmitted: (_) => _addItem(),
           ),
           const SizedBox(height: 8),

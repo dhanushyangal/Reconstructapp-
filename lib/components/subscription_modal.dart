@@ -10,10 +10,10 @@ class SubscriptionModal extends StatefulWidget {
   final VoidCallback? onStartFreeTrial;
 
   const SubscriptionModal({
-    Key? key,
+    super.key,
     this.onClose,
     this.onStartFreeTrial,
-  }) : super(key: key);
+  });
 
   @override
   State<SubscriptionModal> createState() => _SubscriptionModalState();

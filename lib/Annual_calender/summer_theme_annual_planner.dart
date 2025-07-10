@@ -20,6 +20,7 @@ import 'dart:async';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'dart:math';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
 
 class SummerThemeCalendarApp extends StatefulWidget {
   final int monthIndex;
@@ -41,7 +42,7 @@ class SummerThemeCalendarApp extends StatefulWidget {
 }
 
 class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final List<String> months = [
     'January',
@@ -435,8 +436,6 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
           _userEmail!.isNotEmpty) {
         _calendarDatabaseService.setUserInfo(_userName!, _userEmail!);
 
-
-
         debugPrint('AnimalThemeCalendar: User info set in database service');
       } else {
         // If no user info found, show a snackbar message
@@ -827,11 +826,11 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
                       _showEventDialog();
                     });
                   });
-                },
-                child: const Icon(Icons.add, size: 14), // Even smaller icon
+                }, // Even smaller icon
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black87,
-                elevation: 4, // Optional: reduced elevation for better fit
+                elevation: 4,
+                child: const Icon(Icons.add, size: 14), // Optional: reduced elevation for better fit
               ),
             ),
           ),
@@ -2036,7 +2035,7 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
             }
 
             // Append our new task to the existing one
-            finalDescription = cleanedDescription + '::' + taskDescription;
+            finalDescription = '$cleanedDescription::$taskDescription';
             existingTaskId = taskId;
             existingTaskFound = true;
 
@@ -2165,6 +2164,7 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
 
   // Modified method to handle event deletion
   Future<void> _deleteEvent(DateTime date, int index) async {
+    trackClick('summer_calendar_event_deleted');
     // Normalize the date to remove time components
     final normalizedDate = normalizeDate(date);
 
@@ -2399,7 +2399,7 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Day indicator
-                          Container(
+                          SizedBox(
                             width: 50,
                             child: Column(
                               children: [
@@ -3307,6 +3307,8 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
   // New simplified method to add event with proper reminder
   // ignore: unused_element
   void _addEventWithImprovedReminder(DateTime date, Map<String, String> event) {
+    trackClick(
+        'summer_calendar_event_added - ${event['category'] ?? 'Personal'}');
     // Normalize the date for storage
     final normalizedDate = normalizeDate(date);
 
@@ -3383,6 +3385,8 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
   // Method to add event with exact notification time specified by user
   void _addEventWithExactNotification(DateTime date, Map<String, String> event,
       {bool scheduleNotification = true}) {
+    trackClick(
+        'summer_calendar_event_added_exact - ${event['category'] ?? 'Personal'}');
     // Normalize the date for storage
     final normalizedDate = normalizeDate(date);
 

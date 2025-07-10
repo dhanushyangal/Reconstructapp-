@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
@@ -18,7 +19,8 @@ class AnnualPlannerPage extends StatefulWidget {
   State<AnnualPlannerPage> createState() => _AnnualPlannerPageState();
 }
 
-class _AnnualPlannerPageState extends State<AnnualPlannerPage> {
+class _AnnualPlannerPageState extends State<AnnualPlannerPage>
+    with ActivityTrackerMixin {
   bool _isPremium = false;
   bool _isLoading = true;
 
@@ -155,6 +157,7 @@ class _AnnualPlannerPageState extends State<AnnualPlannerPage> {
         }
 
         if (title == 'PostIt theme 2025 Planner') {
+          trackClick('$title content');
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -166,6 +169,7 @@ class _AnnualPlannerPageState extends State<AnnualPlannerPage> {
             ),
           );
         } else if (title == 'Watercolor them 2025 Planner') {
+          trackClick('$title content');
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -177,6 +181,7 @@ class _AnnualPlannerPageState extends State<AnnualPlannerPage> {
             ),
           );
         } else if (title == 'Floral theme 2025 Planner') {
+          trackClick('$title content');
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -188,6 +193,7 @@ class _AnnualPlannerPageState extends State<AnnualPlannerPage> {
             ),
           );
         } else if (title == 'Premium theme 2025 Planner') {
+          trackClick('$title content');
           Navigator.push(
             context,
             MaterialPageRoute(

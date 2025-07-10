@@ -3,6 +3,9 @@ import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import 'dashboard_traker.dart'; // Import the dashboard tracker
+import '../utils/activity_tracker_mixin.dart';
+import '../services/supabase_database_service.dart';
+import '../services/auth_service.dart';
 
 class BubbleWrapPopperPage extends StatefulWidget {
   const BubbleWrapPopperPage({super.key});
@@ -14,7 +17,8 @@ class BubbleWrapPopperPage extends StatefulWidget {
   _BubbleWrapPopperPageState createState() => _BubbleWrapPopperPageState();
 }
 
-class _BubbleWrapPopperPageState extends State<BubbleWrapPopperPage> {
+class _BubbleWrapPopperPageState extends State<BubbleWrapPopperPage>
+    with ActivityTrackerMixin {
   final int rows = 10;
   final int cols = 9;
   late List<List<BubbleState>> bubbleStates;
@@ -71,46 +75,57 @@ class _BubbleWrapPopperPageState extends State<BubbleWrapPopperPage> {
     }
   }
 
-  // Updated function to log activity for tracking using the centralized method
+  // Updated function to log activity for tracking using Supabase
   Future<void> _logActivity() async {
     try {
-      // Call the static method from DashboardTrackerPage
-      // This ensures data is saved locally first, then synced to server when online
-      await DashboardTrackerPage.recordToolActivity('bubble_wrap_popper');
+      final user = AuthService.instance.currentUser;
+      final email = user?.email;
+      final userName = user?.userMetadata?['name'] ??
+          user?.userMetadata?['username'] ??
+          user?.email?.split('@')[0];
+      if (email == null) {
+        debugPrint(
+            'No authenticated user found for Bubble Wrap Popper activity');
+        return;
+      }
+      final service = SupabaseDatabaseService();
+      final today = DateTime.now();
+      final result = await service.upsertMindToolActivity(
+        email: email,
+        userName: userName,
+        date: today,
+        toolType: 'bubble_wrap_popper',
+      );
       debugPrint(
-          'Bubble Wrap Popper activity logged - saved locally and will sync when online');
+          'Bubble Wrap Popper activity upsert result: \\${result['message']}');
     } catch (e) {
       debugPrint('Error logging Bubble Wrap Popper activity: $e');
     }
   }
 
-  void _onBubbleTap(int row, int col) async {
+  Future<void> _onBubbleTap(int row, int col) async {
     try {
-      // Play bubble pop sound whether popping or unpopping
       await _audioPlayer.play(AssetSource('sounds/pop.mp3'));
     } catch (e) {
       debugPrint('Error playing sound: $e');
     }
-
-    setState(() {
-      // Toggle the bubble state
-      if (bubbleStates[row][col].isPopped) {
-        // If already popped, revert to unpopped
+    if (bubbleStates[row][col].isPopped) {
+      setState(() {
         bubbleStates[row][col].isPopped = false;
         bubbleStates[row][col].color = Colors.grey[300]!;
-        poppedCount--; // Decrement the count
-      } else {
-        // If unpopped, pop it
+        poppedCount--;
+      });
+    } else {
+      setState(() {
         bubbleStates[row][col].isPopped = true;
-        // Select a random color for the popped bubble
         bubbleStates[row][col].color =
             popColors[math.Random().nextInt(popColors.length)];
-        poppedCount++; // Increment the count
-
-        // Log activity when popping a bubble
-        _logActivity();
-      }
-    });
+        poppedCount++;
+        // Track bubble pop action
+        trackButtonTap('Bubble Pop', additionalDetails: 'row:$row col:$col');
+      });
+      await _logActivity();
+    }
   }
 
   @override
@@ -192,7 +207,7 @@ class _BubbleWrapPopperPageState extends State<BubbleWrapPopperPage> {
                       return BubbleWidget(
                         isPopped: bubbleStates[row][col].isPopped,
                         color: bubbleStates[row][col].color,
-                        onTap: () => _onBubbleTap(row, col),
+                        onTap: () async => _onBubbleTap(row, col),
                       );
                     },
                   ),
@@ -255,7 +270,7 @@ class BubbleState {
 class BubbleWidget extends StatelessWidget {
   final bool isPopped;
   final Color color;
-  final VoidCallback onTap;
+  final Future<void> Function() onTap;
 
   const BubbleWidget({
     super.key,
@@ -267,7 +282,7 @@ class BubbleWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () async => await onTap(),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(

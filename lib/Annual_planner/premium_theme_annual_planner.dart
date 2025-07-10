@@ -12,6 +12,7 @@ import '../pages/active_dashboard_page.dart';
 import '../services/annual_calendar_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
+import '../utils/activity_tracker_mixin.dart';
 
 class TodoItem {
   String text;
@@ -53,7 +54,8 @@ class PremiumThemeAnnualPlanner extends StatefulWidget {
       _PremiumThemeAnnualPlannerState();
 }
 
-class _PremiumThemeAnnualPlannerState extends State<PremiumThemeAnnualPlanner> {
+class _PremiumThemeAnnualPlannerState extends State<PremiumThemeAnnualPlanner>
+    with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, List<TodoItem>> _todoLists = {};
@@ -127,7 +129,7 @@ class _PremiumThemeAnnualPlannerState extends State<PremiumThemeAnnualPlanner> {
     HomeWidget.registerBackgroundCallback(backgroundCallback);
 
     // Track this page visit in recent activities
-    _trackActivity();
+    trackUserInteraction('click', details: 'View Annual Planner');
   }
 
   // Method to track activity in recent activities
@@ -429,7 +431,7 @@ class _PremiumThemeAnnualPlannerState extends State<PremiumThemeAnnualPlanner> {
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 17,
-                  color: const Color.fromARGB(255, 255, 255, 255),
+                  color: Color.fromARGB(255, 255, 255, 255),
                 ),
               ),
             ),
@@ -474,6 +476,7 @@ class _PremiumThemeAnnualPlannerState extends State<PremiumThemeAnnualPlanner> {
   }
 
   void _showTodoDialog(String month) {
+    trackClick('Open $month tasks');
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -622,6 +625,11 @@ class _PremiumThemeAnnualPlannerState extends State<PremiumThemeAnnualPlanner> {
       ),
     );
   }
+
+  void _addTask(String month, String task) {
+    // ... existing logic ...
+    trackButtonTap('Add Task', additionalDetails: 'month:$month task:$task');
+  }
 }
 
 class TodoListDialog extends StatefulWidget {
@@ -640,7 +648,8 @@ class TodoListDialog extends StatefulWidget {
   TodoListDialogState createState() => TodoListDialogState();
 }
 
-class TodoListDialogState extends State<TodoListDialog> {
+class TodoListDialogState extends State<TodoListDialog>
+    with ActivityTrackerMixin {
   late List<TodoItem> _items;
   final _textController = TextEditingController();
 
@@ -652,6 +661,7 @@ class TodoListDialogState extends State<TodoListDialog> {
 
   void _addItem() {
     if (_textController.text.isNotEmpty) {
+      trackButtonTap('Add Task', additionalDetails: widget.month);
       setState(() {
         _items.add(TodoItem(
           text: _textController.text,
@@ -662,12 +672,14 @@ class TodoListDialogState extends State<TodoListDialog> {
   }
 
   void _toggleItem(TodoItem item) {
+    trackClick(item.completed ? 'Uncheck task' : 'Complete task');
     setState(() {
       item.completed = !item.completed;
     });
   }
 
   void _removeItem(TodoItem item) {
+    trackClick('Delete task');
     setState(() {
       _items.remove(item);
     });
@@ -694,6 +706,11 @@ class TodoListDialogState extends State<TodoListDialog> {
                 onPressed: _addItem,
               ),
             ),
+            onChanged: (value) {
+              if (value.isNotEmpty && value.length % 10 == 0) {
+                trackTextInput('Task text', value: value);
+              }
+            },
             onSubmitted: (_) => _addItem(),
           ),
           const SizedBox(height: 8),

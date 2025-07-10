@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 class JumbleWords extends StatefulWidget {
   final VoidCallback onComplete;
 
   const JumbleWords({
-    Key? key,
+    super.key,
     required this.onComplete,
-  }) : super(key: key);
+  });
 
   @override
   State<JumbleWords> createState() => _JumbleWordsState();
 }
 
-class _JumbleWordsState extends State<JumbleWords> {
+class _JumbleWordsState extends State<JumbleWords> with ActivityTrackerMixin {
   final List<Map<String, String>> wordList = [
     {
       "word": "PUZZLE",
@@ -86,7 +87,10 @@ class _JumbleWordsState extends State<JumbleWords> {
       return;
     }
 
+    trackClick('jumble_words_answer_submitted - $userAnswer');
+
     if (userAnswer == currentWord) {
+      trackClick('jumble_words_correct_answer - $currentWord');
       setState(() {
         feedback = "Correct! Great job! 🎉";
         score++;
@@ -105,6 +109,7 @@ class _JumbleWordsState extends State<JumbleWords> {
         }
       });
     } else {
+      trackClick('jumble_words_incorrect_answer - $userAnswer');
       setState(() {
         feedback = "Incorrect. Try rearranging the letters.";
       });
@@ -130,6 +135,7 @@ class _JumbleWordsState extends State<JumbleWords> {
   }
 
   void toggleHint() {
+    trackClick('jumble_words_hint_toggled');
     setState(() {
       showHint = !showHint;
     });

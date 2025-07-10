@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
@@ -20,9 +21,13 @@ class VisionBoardPage extends StatefulWidget {
   State<VisionBoardPage> createState() => _VisionBoardPageState();
 }
 
-class _VisionBoardPageState extends State<VisionBoardPage> {
+class _VisionBoardPageState extends State<VisionBoardPage>
+    with ActivityTrackerMixin {
   bool _isPremium = false;
   bool _isLoading = true;
+
+  @override
+  String get pageName => 'Vision Board';
 
   @override
   void initState() {
@@ -155,7 +160,7 @@ class _VisionBoardPageState extends State<VisionBoardPage> {
           _showPremiumDialog(context);
           return;
         }
-
+        trackClick('$title content');
         if (title == 'Premium theme Vision Board') {
           Navigator.push(
             context,

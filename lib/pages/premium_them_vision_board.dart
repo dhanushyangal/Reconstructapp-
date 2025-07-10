@@ -11,6 +11,7 @@ import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart'; // Import activity tracking mixin
 
 class TodoItem {
   String id;
@@ -141,7 +142,8 @@ class PremiumThemeVisionBoard extends StatefulWidget {
       _PremiumThemeVisionBoardState();
 }
 
-class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
+class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
+    with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, List<TodoItem>> _todoLists = {};
@@ -171,6 +173,10 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
     'Inspiration',
     'Help'
   ];
+
+  // Custom page name for activity tracking
+  @override
+  String get pageName => 'Premium Vision Board';
 
   @override
   void initState() {
@@ -415,7 +421,11 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
 
   Widget _buildVisionCard(String title) {
     return GestureDetector(
-      onTap: () => _showTodoDialog(title),
+      onTap: () {
+        // Track user interaction with vision card
+        trackButtonTap('Vision Card', additionalDetails: title);
+        _showTodoDialog(title);
+      },
       child: Container(
         decoration: BoxDecoration(
           color: Colors.black,
@@ -564,6 +574,9 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
                   const Spacer(),
                   TextButton(
                     onPressed: () async {
+                      // Track user interaction
+                      trackButtonTap('Check Connectivity');
+
                       final result = await _checkDatabaseConnectivity();
                       setState(() {
                         _hasNetworkConnectivity = result;
@@ -608,6 +621,10 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
               children: [
                 ElevatedButton.icon(
                   onPressed: () async {
+                    // Track user interaction
+                    trackButtonTap('Add Widgets',
+                        additionalDetails: 'YouTube tutorial');
+
                     final url =
                         'https://youtube.com/shorts/IAeczaEygUM?feature=share';
                     final uri = Uri.parse(url);
@@ -635,7 +652,11 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard> {
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: _takeScreenshotAndShare,
+                  onPressed: () {
+                    // Track user interaction
+                    trackButtonTap('Share Vision Board');
+                    _takeScreenshotAndShare();
+                  },
                   icon: const Icon(Icons.share, color: Colors.blue),
                   label: const Text(
                     'Share Vision Board',

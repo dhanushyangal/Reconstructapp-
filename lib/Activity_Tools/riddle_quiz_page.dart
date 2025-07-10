@@ -150,7 +150,7 @@ class RiddleQuizPageState extends State<RiddleQuizPage> {
     try {
       final activity = RecentActivityItem(
         name: 'Mind-bending Riddles',
-        imagePath: 'assets/Activity_Tools/riddles.png',
+        imagePath: 'assets/activity_tools/riddles.png',
         timestamp: DateTime.now(),
         routeName: RiddleQuizPage.routeName,
       );

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
+import '../services/supabase_database_service.dart';
+import '../services/auth_service.dart';
 
 import 'dashboard_traker.dart'; // Import the dashboard tracker
 
@@ -16,7 +19,7 @@ class BreakThingsPage extends StatefulWidget {
 }
 
 class _BreakThingsPageState extends State<BreakThingsPage>
-    with TickerProviderStateMixin {
+    with ActivityTrackerMixin, TickerProviderStateMixin {
   final AudioPlayer _audioPlayer = AudioPlayer();
   int brokenCount = 0;
 
@@ -97,16 +100,38 @@ class _BreakThingsPageState extends State<BreakThingsPage>
     }
   }
 
-  // Updated function to log activity for tracking using the centralized method
+  // Updated function to log activity for tracking using Supabase
   Future<void> _logActivity() async {
     try {
-      // Call the static method from DashboardTrackerPage
-      // This ensures data is saved locally first, then synced to server when online
-      await DashboardTrackerPage.recordToolActivity('break_things');
+      debugPrint('🔥 Break Things: Starting activity logging...');
+      final user = AuthService.instance.currentUser;
+      final email = user?.email;
+      final userName = user?.userMetadata?['name'] ??
+          user?.userMetadata?['username'] ??
+          user?.email?.split('@')[0];
+
+      debugPrint('👤 Break Things: User email: $email, userName: $userName');
+      if (email == null) {
+        debugPrint('❌ Break Things: No authenticated user found');
+        return;
+      }
+
+      final service = SupabaseDatabaseService();
+      final today = DateTime.now();
       debugPrint(
-          'Break Things activity logged - saved locally and will sync when online');
+          '📅 Break Things: Logging activity for date: ${today.toIso8601String().split('T')[0]}');
+
+      final result = await service.upsertMindToolActivity(
+        email: email,
+        userName: userName,
+        date: today,
+        toolType: 'break_things',
+      );
+
+      debugPrint('✅ Break Things activity upsert result: ${result['message']}');
+      debugPrint('🎯 Break Things activity logged successfully!');
     } catch (e) {
-      debugPrint('Error logging Break Things activity: $e');
+      debugPrint('❌ Error logging Break Things activity: $e');
     }
   }
 
@@ -127,27 +152,22 @@ class _BreakThingsPageState extends State<BreakThingsPage>
   }
 
   void _breakItem(int index) async {
-    if (breakableItems[index].isBroken) return; // Already broken
-
-    // Play breaking sound
+    if (breakableItems[index].isBroken) return;
     try {
       await _audioPlayer.play(AssetSource(breakableItems[index].soundPath));
     } catch (e) {
       debugPrint('Error playing sound: $e');
     }
-
-    // Start animation
     animationControllers[index]?.forward().then((_) {
       animationControllers[index]?.reset();
     });
-
     setState(() {
       breakableItems[index].isBroken = true;
       brokenCount++;
     });
-
-    // Log activity when breaking an item
-    _logActivity();
+    // Track break action
+    trackButtonTap('Break Item', additionalDetails: breakableItems[index].type);
+    await _logActivity();
   }
 
   Future<void> _resetAllItems() async {

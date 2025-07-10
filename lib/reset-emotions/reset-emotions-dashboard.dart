@@ -6,7 +6,7 @@ import 'overwhelmed.dart';
 import 'restless.dart';
 
 class ResetEmotionsDashboard extends StatelessWidget {
-  const ResetEmotionsDashboard({Key? key}) : super(key: key);
+  const ResetEmotionsDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 class Game2048 extends StatefulWidget {
   final VoidCallback onComplete;
 
-  const Game2048({Key? key, required this.onComplete}) : super(key: key);
+  const Game2048({super.key, required this.onComplete});
 
   @override
   State<Game2048> createState() => _Game2048State();
 }
 
-class _Game2048State extends State<Game2048> {
+class _Game2048State extends State<Game2048> with ActivityTrackerMixin {
   List<List<int>> board = List.generate(5, (_) => List.filled(5, 0));
   bool gameOver = false;
   bool reached128 = false;
@@ -61,7 +62,9 @@ class _Game2048State extends State<Game2048> {
         }
       }
       arr = arr.where((x) => x != 0).toList();
-      while (arr.length < 5) arr.add(0);
+      while (arr.length < 5) {
+        arr.add(0);
+      }
       for (int c = 0; c < 5; c++) {
         if (board[row][c] != arr[c]) {
           moved = true;
@@ -81,7 +84,9 @@ class _Game2048State extends State<Game2048> {
         }
       }
       arr = arr.where((x) => x != 0).toList();
-      while (arr.length < 5) arr.add(0);
+      while (arr.length < 5) {
+        arr.add(0);
+      }
       for (int r = 0; r < 5; r++) {
         if (board[r][col] != arr[r]) {
           moved = true;
@@ -92,7 +97,9 @@ class _Game2048State extends State<Game2048> {
 
     switch (direction) {
       case 'left':
-        for (int r = 0; r < 5; r++) slideRow(r);
+        for (int r = 0; r < 5; r++) {
+          slideRow(r);
+        }
         break;
       case 'right':
         for (int r = 0; r < 5; r++) {
@@ -102,21 +109,28 @@ class _Game2048State extends State<Game2048> {
         }
         break;
       case 'up':
-        for (int c = 0; c < 5; c++) slideCol(c);
+        for (int c = 0; c < 5; c++) {
+          slideCol(c);
+        }
         break;
       case 'down':
         for (int c = 0; c < 5; c++) {
           List<int> col =
               List.generate(5, (i) => board[i][c]).reversed.toList();
-          for (int r = 0; r < 5; r++) board[r][c] = col[r];
+          for (int r = 0; r < 5; r++) {
+            board[r][c] = col[r];
+          }
           slideCol(c);
           col = List.generate(5, (i) => board[i][c]).reversed.toList();
-          for (int r = 0; r < 5; r++) board[r][c] = col[r];
+          for (int r = 0; r < 5; r++) {
+            board[r][c] = col[r];
+          }
         }
         break;
     }
 
     if (moved) {
+      trackClick('2048_game_move - $direction');
       _addRandomTile();
       setState(() {});
     }
@@ -301,7 +315,7 @@ class _Game2048State extends State<Game2048> {
             elevation: 4,
             shadowColor: Color(0xFF2196F3).withOpacity(0.4),
           ),
-          child: Container(
+          child: SizedBox(
             width: 200,
             child: Text(
               'Next',

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'dart:ui';
 
 class FigureColorPage extends StatefulWidget {
   const FigureColorPage({super.key});

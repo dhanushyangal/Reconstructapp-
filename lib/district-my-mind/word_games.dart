@@ -3,15 +3,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'jumble_words.dart';
 import 'crossword_puzzle.dart';
 import 'activity_progress.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 class WordGames extends StatefulWidget {
-  const WordGames({Key? key}) : super(key: key);
+  const WordGames({super.key});
 
   @override
   State<WordGames> createState() => _WordGamesState();
 }
 
-class _WordGamesState extends State<WordGames> {
+class _WordGamesState extends State<WordGames> with ActivityTrackerMixin {
   int currentStep = 1;
   final int totalSteps = 3;
   int _progress = 0;
@@ -41,6 +42,7 @@ class _WordGamesState extends State<WordGames> {
 
   void _showActivityProgress() {
     if (!mounted) return;
+    trackClick('word_games_progress_viewed');
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -227,9 +229,9 @@ class RiddlesGame extends StatefulWidget {
   final VoidCallback onComplete;
 
   const RiddlesGame({
-    Key? key,
+    super.key,
     required this.onComplete,
-  }) : super(key: key);
+  });
 
   @override
   State<RiddlesGame> createState() => _RiddlesGameState();

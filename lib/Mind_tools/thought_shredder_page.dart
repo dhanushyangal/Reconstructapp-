@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
+import '../services/supabase_database_service.dart';
+import '../services/auth_service.dart';
 
 import 'dashboard_traker.dart'; // Import the dashboard tracker
 
@@ -16,7 +19,7 @@ class ThoughtShredderPage extends StatefulWidget {
 }
 
 class _ThoughtShredderPageState extends State<ThoughtShredderPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, ActivityTrackerMixin {
   final TextEditingController _thoughtController = TextEditingController();
   bool _isShredding = false;
   late AnimationController _animationController;
@@ -85,13 +88,26 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
     _trackActivity();
   }
 
-  // Updated method to record activity using the static method from DashboardTrackerPage
+  // Updated method to record activity using Supabase
   Future<void> _recordActivity() async {
-    // Call the static method from DashboardTrackerPage to record the activity
-    // This ensures data is saved locally first, then synced to server when online
-    await DashboardTrackerPage.recordToolActivity('thought_shredder');
+    final user = AuthService.instance.currentUser;
+    final email = user?.email;
+    final userName = user?.userMetadata?['name'] ??
+        user?.userMetadata?['username'] ??
+        user?.email?.split('@')[0];
+    if (email == null) {
+      debugPrint('No authenticated user found for Thought Shredder activity');
+      return;
+    }
+    final service = SupabaseDatabaseService();
+    final today = DateTime.now();
+    final result = await service.upsertThoughtShredderActivity(
+      email: email,
+      userName: userName,
+      date: today,
+    );
     debugPrint(
-        'Recorded thought shredder activity - saved locally and will sync when online');
+        'Thought Shredder activity upsert result: \\${result['message']}');
   }
 
   // Method to track activity
@@ -121,19 +137,15 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
 
   void _startShredding() async {
     if (_thoughtController.text.trim().isNotEmpty) {
-      // Start playing the shredding sound
       try {
         await _audioPlayer.play(AssetSource('sounds/shredder-sound.mp3'));
       } catch (e) {
         debugPrint('Error playing sound: $e');
       }
-
       setState(() {
         _currentText = _thoughtController.text;
         _isShredding = true;
       });
-
-      // Start with a shake animation
       _shakeController.forward();
       _shakeController.addStatusListener((status) {
         if (status == AnimationStatus.completed) {
@@ -142,15 +154,12 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
           _shakeController.forward();
         }
       });
-
-      // Wait a bit before starting the shredding
       await Future.delayed(const Duration(milliseconds: 300));
-
-      // Stop the shaking once shredding really starts
       _shakeController.stop();
-
-      // Start main animation
       _animationController.forward(from: 0.0);
+      // Track shredding action
+      trackButtonTap('Shred Thought',
+          additionalDetails: _thoughtController.text);
     }
   }
 

@@ -82,7 +82,7 @@ class _MemoryGamePageState extends State<MemoryGamePage>
     try {
       final activity = RecentActivityItem(
         name: 'Memory Game',
-        imagePath: 'assets/Activity_Tools/memory-game.png',
+        imagePath: 'assets/activity_tools/memory-game.png',
         timestamp: DateTime.now(),
         routeName: MemoryGamePage.routeName,
       );

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
+import '../services/supabase_database_service.dart';
+import '../services/auth_service.dart';
 
 class DashboardTrackerPage extends StatefulWidget {
   const DashboardTrackerPage({super.key});
@@ -105,6 +107,7 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
   };
   bool _isLoading = true;
   bool _isOffline = false;
+  bool _isBackgroundLoading = false;
   String? _authToken;
   // Add scroll controllers for each tracker
   final Map<String, ScrollController> _scrollControllers = {};
@@ -145,101 +148,253 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
     return _authToken;
   }
 
-  // Load activity data from API or fall back to local storage if offline
+  // Hybrid sync: local + Supabase
   Future<void> _loadActivityData() async {
     setState(() {
       _isLoading = true;
+      _isBackgroundLoading = false;
     });
 
-    // Always load from local storage first to ensure we have data even offline
-    await _loadFromLocalStorage();
+    debugPrint('🔄 Starting activity data load...');
+    bool loadedFromSupabase = false;
 
     try {
-      // Then try to load from API to get the latest data
+      debugPrint('🔄 Syncing pending local activities to Supabase...');
+      await _syncPendingLocalToSupabase(); // Try to sync any pending local activity first
+
+      debugPrint('🌐 Loading data from Supabase...');
       await _loadActivityFromApi();
-
-      // If loading from API was successful, sync any locally stored offline data
-      await _syncOfflineData();
-
+      loadedFromSupabase = true;
       setState(() {
         _isOffline = false;
       });
+      debugPrint('✅ Successfully loaded data from Supabase');
     } catch (e) {
-      debugPrint('Failed to load from API: $e');
-      // We've already loaded from local storage above
+      debugPrint('❌ Failed to load from Supabase: $e');
       setState(() {
         _isOffline = true;
       });
     }
 
+    if (!loadedFromSupabase) {
+      debugPrint('📱 Falling back to local storage...');
+      await _loadFromLocalStorage();
+    } else {
+      // Even if we loaded from Supabase, merge any local data that wasn't synced
+      debugPrint('🔄 Merging local data with Supabase data...');
+      await _mergeLocalDataWithSupabase();
+    }
+
+    // Debug final state
+    for (final tracker in _trackerNames.keys) {
+      final data = _activityData[tracker] ?? {};
+      final count = data.length;
+      debugPrint('📊 Final $tracker activity days: $count');
+
+      // Debug each day's data
+      data.forEach((date, activityCount) {
+        debugPrint('📅 Final $tracker: $date -> $activityCount activities');
+      });
+
+      if (count == 0) {
+        debugPrint('⚠️ $tracker has NO activity data loaded!');
+      }
+    }
+
     setState(() {
       _isLoading = false;
     });
-
-    // Center the calendars after the build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _centerAllCalendars();
     });
   }
 
+  // Load activity data from API for all trackers
   Future<void> _loadActivityFromApi() async {
-    final token = await _getAuthToken();
-
-    if (token == null) {
-      throw Exception('No auth token available');
+    final user = AuthService.instance.currentUser;
+    final email = user?.email;
+    final userName = user?.userMetadata?['name'] ??
+        user?.userMetadata?['username'] ??
+        user?.email?.split('@')[0];
+    if (email == null) {
+      throw Exception('No authenticated user available');
     }
 
-    final response = await http.get(
-      Uri.parse('https://reconstrect-api.onrender.com/api/mind-tools/activity'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
+    // Still try to get token for external API calls (optional)
+    final token = await _getAuthToken();
 
-    if (response.statusCode == 200) {
-      final responseData = json.decode(response.body);
+    final service = SupabaseDatabaseService();
+    final currentYear = DateTime.now().year;
 
-      if (responseData['success'] == true && responseData['data'] != null) {
-        // Clear existing data
-        for (final tracker in _activityData.keys) {
-          _activityData[tracker] = {};
-        }
-
-        // Parse the data from API format to our app format
-        final apiData = responseData['data'] as Map<String, dynamic>;
-
-        for (final tracker in apiData.keys) {
-          final trackerData = apiData[tracker] as Map<String, dynamic>;
-
-          for (final dateStr in trackerData.keys) {
-            try {
-              final date = DateTime.parse(dateStr);
-              final dateKey = DateTime(date.year, date.month, date.day);
-              _activityData[tracker]?[dateKey] = trackerData[dateStr];
-            } catch (e) {
-              debugPrint('Error parsing date: $dateStr');
-            }
+    // 1. Load Thought Shredder from Supabase
+    try {
+      debugPrint(
+          '🔍 Loading thought_shredder data from Supabase for user: $email');
+      final tsResult = await service.fetchThoughtShredderActivity(
+          email: email, year: currentYear);
+      if (tsResult['success'] == true && tsResult['data'] != null) {
+        final List<dynamic> rows = tsResult['data'];
+        Map<DateTime, int> tsData = {};
+        for (final row in rows) {
+          try {
+            final date = DateTime.parse(row['shred_date']);
+            final dateKey = DateTime(date.year, date.month, date.day);
+            tsData[dateKey] = (row['shred_count'] ?? 1);
+          } catch (e) {
+            debugPrint(
+                'Error parsing Thought Shredder date: ${row['shred_date']}');
           }
         }
+        _activityData['thought_shredder'] = tsData;
+        debugPrint('✅ thought_shredder: loaded ${tsData.length} activity days');
       } else {
-        throw Exception('Invalid API response format');
+        debugPrint(
+            '⚠️ Failed to load Thought Shredder data from Supabase: ${tsResult['message'] ?? 'Unknown error'}');
+        _activityData['thought_shredder'] = {};
       }
-    } else {
-      throw Exception('Failed to load activity data: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('❌ Error loading thought_shredder: $e');
+      _activityData['thought_shredder'] = {};
+    }
+
+    // 2. Load break_things, bubble_wrap_popper, and make_me_smile from Supabase
+    for (final tool in [
+      'break_things',
+      'bubble_wrap_popper',
+      'make_me_smile'
+    ]) {
+      try {
+        debugPrint('🔍 Loading $tool data from Supabase for user: $email');
+        final result = await service.fetchMindToolActivity(
+            email: email, toolType: tool, year: currentYear);
+        debugPrint(
+            '📊 $tool result: ${result['success']}, data count: ${result['data']?.length ?? 0}');
+
+        if (result['success'] == true && result['data'] != null) {
+          final List<dynamic> rows = result['data'];
+          Map<DateTime, int> toolData = {};
+          for (final row in rows) {
+            try {
+              final date = DateTime.parse(row['activity_date']);
+              final dateKey = DateTime(date.year, date.month, date.day);
+              final activityCount = (row['activity_count'] ?? 1) as int;
+
+              // Aggregate multiple rows for the same date (in case upsert created duplicates)
+              toolData[dateKey] = (toolData[dateKey] ?? 0) + activityCount;
+              debugPrint(
+                  '✅ $tool: $dateKey -> ${toolData[dateKey]} total activities (added $activityCount)');
+            } catch (e) {
+              debugPrint(
+                  '❌ Error parsing $tool date: ${row['activity_date']}, error: $e');
+            }
+          }
+          _activityData[tool] = toolData;
+          debugPrint('📈 $tool total activity days loaded: ${toolData.length}');
+
+          // Debug final aggregated data
+          toolData.forEach((date, count) {
+            debugPrint('📊 $tool final: $date -> $count activities');
+          });
+        } else {
+          debugPrint(
+              '⚠️ Failed to load $tool data from Supabase: ${result['message'] ?? 'Unknown error'}');
+          _activityData[tool] = {};
+        }
+      } catch (e) {
+        debugPrint('❌ Error loading $tool: $e');
+        _activityData[tool] = {};
+      }
+    }
+
+    // 3. Load other trackers from API (existing logic) - OPTIONAL
+    try {
+      final response = await http.get(
+        Uri.parse(
+            'https://reconstrect-api.onrender.com/api/mind-tools/activity'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+
+        if (responseData['success'] == true && responseData['data'] != null) {
+          // Parse the data from API format to our app format
+          final apiData = responseData['data'] as Map<String, dynamic>;
+
+          for (final tracker in apiData.keys) {
+            if (tracker == 'thought_shredder' ||
+                tracker == 'break_things' ||
+                tracker == 'bubble_wrap_popper' ||
+                tracker == 'make_me_smile') continue; // Already loaded
+            final trackerData = apiData[tracker] as Map<String, dynamic>;
+
+            Map<DateTime, int> trackerMap = {};
+            for (final dateStr in trackerData.keys) {
+              try {
+                final date = DateTime.parse(dateStr);
+                final dateKey = DateTime(date.year, date.month, date.day);
+                trackerMap[dateKey] = trackerData[dateStr];
+              } catch (e) {
+                debugPrint('Error parsing date: $dateStr');
+              }
+            }
+            _activityData[tracker] = trackerMap;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ External API failed (non-critical): $e');
+      // Don't throw - this is optional for other trackers that might exist
     }
   }
 
-  // Load data from SharedPreferences as fallback when offline
-  Future<void> _loadFromLocalStorage() async {
+  // Merge any local data that wasn't synced with the Supabase data
+  Future<void> _mergeLocalDataWithSupabase() async {
     final prefs = await SharedPreferences.getInstance();
-    debugPrint('Loading activity data from local storage');
+    debugPrint('🔄 Merging local data with Supabase data...');
 
-    // Load data for all trackers
     for (final tracker in _trackerNames.keys) {
       final activityDates = prefs.getStringList('${tracker}_activity') ?? [];
-      debugPrint('Found ${activityDates.length} local activities for $tracker');
+      if (activityDates.isEmpty) continue;
 
+      Map<DateTime, int> localData = {};
+      for (var dateStr in activityDates) {
+        try {
+          final date = DateTime.parse(dateStr);
+          final dateKey = DateTime(date.year, date.month, date.day);
+          localData[dateKey] = (localData[dateKey] ?? 0) + 1;
+        } catch (e) {
+          debugPrint('❌ Error parsing local date: $dateStr, error: $e');
+        }
+      }
+
+      // Merge local data with existing Supabase data
+      final existingData = _activityData[tracker] ?? {};
+      for (final entry in localData.entries) {
+        final dateKey = entry.key;
+        final localCount = entry.value;
+        final existingCount = existingData[dateKey] ?? 0;
+        // Take the maximum to avoid duplicates
+        existingData[dateKey] = math.max(existingCount, localCount);
+      }
+
+      _activityData[tracker] = existingData;
+      debugPrint(
+          '🔗 $tracker: merged ${localData.length} local days with Supabase data');
+    }
+  }
+
+  // Load from local storage for all 4 tools
+  Future<void> _loadFromLocalStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    debugPrint('📱 Loading activity data from local storage (offline mode)');
+    for (final tracker in _trackerNames.keys) {
+      final activityDates = prefs.getStringList('${tracker}_activity') ?? [];
+      debugPrint(
+          '📊 Found ${activityDates.length} local activities for $tracker');
       Map<DateTime, int> data = {};
       for (var dateStr in activityDates) {
         try {
@@ -247,158 +402,42 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
           final dateKey = DateTime(date.year, date.month, date.day);
           data[dateKey] = (data[dateKey] ?? 0) + 1;
         } catch (e) {
-          debugPrint('Error parsing date: $dateStr');
+          debugPrint('❌ Error parsing local date: $dateStr, error: $e');
         }
       }
-
       _activityData[tracker] = data;
+      debugPrint(
+          '✅ $tracker: loaded ${data.length} unique days from local storage');
     }
   }
 
-  // Record a new activity - will be called directly by this page if needed
-  Future<void> recordActivity(String trackerId) async {
-    final DateTime now = DateTime.now();
-    final DateTime today = DateTime(now.year, now.month, now.day);
-
-    // Update local state
-    setState(() {
-      _activityData[trackerId]?[today] =
-          (_activityData[trackerId]?[today] ?? 0) + 1;
-    });
-
-    // Save to local storage for offline capability
-    await _saveActivityToLocalStorage(trackerId, today);
-
-    // Try to send to API
-    if (!_isOffline) {
-      try {
-        await _sendActivityToApi(trackerId, today);
-      } catch (e) {
-        debugPrint('Failed to send activity to API: $e');
-        setState(() {
-          _isOffline = true;
-        });
-        // Already saved to local storage above
-      }
-    }
-  }
-
-  // Save activity to local storage
-  Future<void> _saveActivityToLocalStorage(
-      String trackerId, DateTime date) async {
+  // Sync any pending local activity to Supabase for all 4 tools
+  Future<void> _syncPendingLocalToSupabase() async {
     final prefs = await SharedPreferences.getInstance();
-
-    // Use the static method to avoid code duplication
-    await DashboardTrackerPage._saveActivityToLocalStorage(
-        trackerId, date, prefs);
-  }
-
-  // Send activity to API
-  Future<void> _sendActivityToApi(String trackerId, DateTime date) async {
-    final token = await _getAuthToken();
-
-    if (token == null) {
-      throw Exception('No auth token available');
-    }
-
-    await DashboardTrackerPage._sendActivityToApi(trackerId, date, token);
-  }
-
-  // Sync offline data with server when back online
-  Future<void> _syncOfflineData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final pendingSyncs = prefs.getStringList('pending_activity_syncs') ?? [];
-
-    if (pendingSyncs.isEmpty) {
-      debugPrint('No pending activities to sync');
-      return;
-    }
-
-    debugPrint('Syncing ${pendingSyncs.length} pending activities to server');
-
-    final token = await _getAuthToken();
-    if (token == null) {
-      debugPrint('No auth token available for syncing');
-      return;
-    }
-
-    try {
-      // Prepare activities array
-      final activities = pendingSyncs.map((syncData) {
-        return json.decode(syncData);
-      }).toList();
-
-      // Send batch sync request
-      final response = await http.post(
-        Uri.parse('https://reconstrect-api.onrender.com/api/mind-tools/sync'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'activities': activities,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        // Clear pending syncs if successful
-        await prefs.setStringList('pending_activity_syncs', []);
-        debugPrint(
-            'Successfully synced ${activities.length} activities with server');
-
-        // Show snackbar notification if context is available
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Synced ${activities.length} activities'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+    final user = AuthService.instance.currentUser;
+    final email = user?.email;
+    final userName = user?.userMetadata?['name'] ??
+        user?.userMetadata?['username'] ??
+        user?.email?.split('@')[0];
+    if (email == null) return;
+    final service = SupabaseDatabaseService();
+    // For each tool, check pending syncs
+    for (final tracker in _trackerNames.keys) {
+      final pendingKey = '${tracker}_pending_syncs';
+      final pendingSyncs = prefs.getStringList(pendingKey) ?? [];
+      if (pendingSyncs.isEmpty) continue;
+      debugPrint('Syncing ${pendingSyncs.length} pending for $tracker');
+      for (final dateStr in pendingSyncs) {
+        final date = DateTime.parse(dateStr);
+        if (tracker == 'thought_shredder') {
+          await service.upsertThoughtShredderActivity(
+              email: email, userName: userName, date: date);
+        } else {
+          await service.upsertMindToolActivity(
+              email: email, userName: userName, date: date, toolType: tracker);
         }
-      } else {
-        debugPrint('Failed to sync activities: ${response.statusCode}');
-        throw Exception('Failed to sync activities: ${response.statusCode}');
       }
-    } catch (e) {
-      debugPrint('Failed to sync offline data: $e');
-      // Keep pending syncs for next attempt
-
-      // Show error snackbar if context is available
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Failed to sync activities: ${e.toString().substring(0, math.min(50, e.toString().length))}...'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
-
-  // Method to manually trigger a sync
-  Future<void> _manualSync() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await _syncOfflineData();
-      await _loadActivityFromApi();
-      setState(() {
-        _isOffline = false;
-      });
-    } catch (e) {
-      debugPrint('Manual sync failed: $e');
-      setState(() {
-        _isOffline = true;
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      await prefs.setStringList(pendingKey, []); // Clear after sync
     }
   }
 
@@ -420,6 +459,29 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
     }
   }
 
+  // Manual sync button for offline mode
+  Future<void> _manualSync() async {
+    setState(() {
+      _isBackgroundLoading = true;
+    });
+    try {
+      await _syncPendingLocalToSupabase();
+      await _loadActivityFromApi();
+      setState(() {
+        _isOffline = false;
+      });
+    } catch (e) {
+      debugPrint('Manual sync failed: $e');
+      setState(() {
+        _isOffline = true;
+      });
+      await _loadFromLocalStorage();
+    }
+    setState(() {
+      _isBackgroundLoading = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -427,35 +489,19 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
         title: const Text('Activity Dashboard'),
         elevation: 0,
         actions: [
-          if (_isOffline)
+          if (_isBackgroundLoading)
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
-              child: Tooltip(
-                message:
-                    'Offline Mode - Activities are saved locally and will sync when back online',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.cloud_off,
-                      color: Colors.orangeAccent,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Offline',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.orangeAccent,
-                      ),
-                    ),
-                  ],
-                ),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
-          // Manual sync button
           if (_isOffline)
             IconButton(
               icon: const Icon(Icons.sync),
-              tooltip: 'Try to sync offline data',
+              tooltip: 'Sync with database',
               onPressed: _manualSync,
             ),
           IconButton(
@@ -473,7 +519,6 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Info banner when offline
                     if (_isOffline)
                       Container(
                         margin: const EdgeInsets.only(bottom: 16),
@@ -492,7 +537,7 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'You\'re offline. Activities are being saved locally and will sync when you\'re back online.',
+                                'You\'re offline. Tap the sync button to try again when you\'re back online.',
                                 style: TextStyle(
                                   color: Colors.orange.shade800,
                                 ),
@@ -504,7 +549,7 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
                     // Tracker cards
                     ..._trackerNames.keys.map((trackerId) {
                       return _buildTrackerCard(trackerId);
-                    }).toList(),
+                    }),
                   ],
                 ),
               ),
@@ -616,8 +661,7 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
                               color: Colors.grey[600],
                             ),
                           ),
-                        ))
-                    .toList(),
+                        )),
               ],
             ),
           ),
@@ -843,14 +887,10 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    // Check if today has activity
-    int streak = data.containsKey(today) ? 1 : 0;
+    int streak = 0;
+    DateTime checkDate = today;
 
-    // If no activity today, start checking from yesterday
-    DateTime checkDate = data.containsKey(today)
-        ? today.subtract(const Duration(days: 1))
-        : today;
-
+    // Start from today and work backwards
     while (data.containsKey(checkDate)) {
       streak++;
       checkDate = checkDate.subtract(const Duration(days: 1));

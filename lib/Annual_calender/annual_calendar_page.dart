@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
@@ -18,7 +19,8 @@ class AnnualCalenderPage extends StatefulWidget {
   State<AnnualCalenderPage> createState() => _AnnualCalenderPageState();
 }
 
-class _AnnualCalenderPageState extends State<AnnualCalenderPage> {
+class _AnnualCalenderPageState extends State<AnnualCalenderPage>
+    with ActivityTrackerMixin {
   bool _isPremium = false;
   bool _isLoading = true;
 
@@ -92,6 +94,8 @@ class _AnnualCalenderPageState extends State<AnnualCalenderPage> {
 
   // Method to show payment page directly like profile page
   Future<void> _showPaymentPage() async {
+    trackClick('annual_calendar_payment_page_opened');
+
     final email =
         Provider.of<AuthService>(context, listen: false).userData?['email'] ??
             AuthService.instance.currentUser?.email ??
@@ -104,6 +108,7 @@ class _AnnualCalenderPageState extends State<AnnualCalenderPage> {
     // Update premium status based on subscription status
     final isPremium = await subscriptionManager.isSubscribed();
     if (isPremium) {
+      trackClick('annual_calendar_premium_upgraded');
       setState(() {
         _isPremium = true;
         _isLoading = false;
@@ -150,10 +155,11 @@ class _AnnualCalenderPageState extends State<AnnualCalenderPage> {
     return GestureDetector(
       onTap: () {
         if (isLocked) {
+          trackClick('annual_calendar_premium_template_clicked - $title');
           _showPremiumDialog(context);
           return;
         }
-
+        trackClick('$title content');
         if (title == 'Animal theme 2025 Calendar') {
           Navigator.push(
             context,

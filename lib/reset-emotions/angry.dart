@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AngryScreen extends StatefulWidget {
-  const AngryScreen({Key? key}) : super(key: key);
+  const AngryScreen({super.key});
 
   @override
   State<AngryScreen> createState() => _AngryScreenState();

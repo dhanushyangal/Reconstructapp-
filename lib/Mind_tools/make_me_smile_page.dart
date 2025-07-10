@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
+import '../services/supabase_database_service.dart';
+import '../services/auth_service.dart';
 
 import 'dashboard_traker.dart'; // Import the dashboard tracker
 
@@ -16,7 +19,7 @@ class MakeMeSmilePage extends StatefulWidget {
 }
 
 class _MakeMeSmilePageState extends State<MakeMeSmilePage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, ActivityTrackerMixin {
   int currentSmiley = 1;
   final int maxSmileyChanges = 12;
   bool isSoundOn = false;
@@ -102,16 +105,39 @@ class _MakeMeSmilePageState extends State<MakeMeSmilePage>
     super.dispose();
   }
 
-  // Updated function to log activity for tracking using the centralized method
+  // Updated function to log activity for tracking using Supabase
   Future<void> _logActivity() async {
     try {
-      // Call the static method from DashboardTrackerPage
-      // This ensures data is saved locally first, then synced to server when online
-      await DashboardTrackerPage.recordToolActivity('make_me_smile');
+      debugPrint('😊 Make Me Smile: Starting activity logging...');
+      final user = AuthService.instance.currentUser;
+      final email = user?.email;
+      final userName = user?.userMetadata?['name'] ??
+          user?.userMetadata?['username'] ??
+          user?.email?.split('@')[0];
+
+      debugPrint('👤 Make Me Smile: User email: $email, userName: $userName');
+      if (email == null) {
+        debugPrint('❌ Make Me Smile: No authenticated user found');
+        return;
+      }
+
+      final service = SupabaseDatabaseService();
+      final today = DateTime.now();
       debugPrint(
-          'Make Me Smile activity logged - saved locally and will sync when online');
+          '📅 Make Me Smile: Logging activity for date: ${today.toIso8601String().split('T')[0]}');
+
+      final result = await service.upsertMindToolActivity(
+        email: email,
+        userName: userName,
+        date: today,
+        toolType: 'make_me_smile',
+      );
+
+      debugPrint(
+          '✅ Make Me Smile activity upsert result: ${result['message']}');
+      debugPrint('🎯 Make Me Smile activity logged successfully!');
     } catch (e) {
-      debugPrint('Error logging Make Me Smile activity: $e');
+      debugPrint('❌ Error logging Make Me Smile activity: $e');
     }
   }
 
@@ -135,18 +161,14 @@ class _MakeMeSmilePageState extends State<MakeMeSmilePage>
   void changeSmiley() async {
     if (currentSmiley <= maxSmileyChanges) {
       setState(() {
-        // Increase smiley number (will change the emoji)
         currentSmiley++;
-
-        // Update the mood message
         currentMoodMessage =
             moodMessages[math.Random().nextInt(moodMessages.length)];
       });
-
-      // Log activity for tracking
-      _logActivity();
-
-      // Play sound effect if sound is on
+      // Track smiley change action
+      trackButtonTap('Change Smiley',
+          additionalDetails: 'smiley:$currentSmiley');
+      await _logActivity();
       if (isSoundOn) {
         try {
           await _effectPlayer.play(AssetSource('sounds/make-me-smile.mp3'));
@@ -154,8 +176,6 @@ class _MakeMeSmilePageState extends State<MakeMeSmilePage>
           debugPrint('Error playing sound effect: $e');
         }
       }
-
-      // If we've reached the max changes, play a cheering sound and animate
       if (currentSmiley > maxSmileyChanges) {
         if (isSoundOn) {
           try {
@@ -164,8 +184,6 @@ class _MakeMeSmilePageState extends State<MakeMeSmilePage>
             debugPrint('Error playing cheering sound: $e');
           }
         }
-
-        // Play the cheer animation
         _cheerAnimationController.forward();
       }
     }
@@ -393,10 +411,10 @@ class EmojiDisplay extends StatelessWidget {
   final double size;
 
   const EmojiDisplay({
-    Key? key,
+    super.key,
     required this.emoji,
     this.size = 32.0,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -13,6 +13,7 @@ import '../config/api_config.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../services/user_service.dart';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
 
 class HappyCoupleThemeCalendarApp extends StatefulWidget {
   final int monthIndex;
@@ -35,7 +36,7 @@ class HappyCoupleThemeCalendarApp extends StatefulWidget {
 }
 
 class _HappyCoupleThemeCalendarAppState
-    extends State<HappyCoupleThemeCalendarApp> {
+    extends State<HappyCoupleThemeCalendarApp> with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final List<String> months = [
     'January',
@@ -517,11 +518,11 @@ class _HappyCoupleThemeCalendarAppState
                       _showEventDialog();
                     });
                   });
-                },
-                child: const Icon(Icons.add, size: 14), // Even smaller icon
+                }, // Even smaller icon
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black87,
-                elevation: 4, // Optional: reduced elevation for better fit
+                elevation: 4,
+                child: const Icon(Icons.add, size: 14), // Optional: reduced elevation for better fit
               ),
             ),
           ),
@@ -615,6 +616,8 @@ class _HappyCoupleThemeCalendarAppState
 
   // Modified _addEvent method
   void _addEvent(DateTime date, Map<String, String> event) {
+    trackClick(
+        'happy_couple_calendar_event_added - ${event['category'] ?? 'Personal'}');
     // Normalize the date to remove time components
     final normalizedDate = normalizeDate(date);
 
@@ -708,6 +711,7 @@ class _HappyCoupleThemeCalendarAppState
 
   // Modified method to handle event deletion
   Future<void> _deleteEvent(DateTime date, int index) async {
+    trackClick('happy_couple_calendar_event_deleted');
     // Normalize the date to remove time components
     final normalizedDate = normalizeDate(date);
 
@@ -915,7 +919,7 @@ class _HappyCoupleThemeCalendarAppState
                                 ],
                               ),
                             );
-                          }).toList(),
+                          }),
                           if (dateIndex < currentMonthEvents.length - 1)
                             Divider(
                               color: Colors.grey[200],

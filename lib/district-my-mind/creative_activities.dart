@@ -4,18 +4,19 @@ import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import 'activity_progress.dart';
 import 'dart:ui';
+import '../utils/activity_tracker_mixin.dart';
 
 class CreativeActivitiesPage extends StatefulWidget {
   final VoidCallback? onComplete;
 
-  const CreativeActivitiesPage({Key? key, this.onComplete}) : super(key: key);
+  const CreativeActivitiesPage({super.key, this.onComplete});
 
   @override
   _CreativeActivitiesPageState createState() => _CreativeActivitiesPageState();
 }
 
 class _CreativeActivitiesPageState extends State<CreativeActivitiesPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, ActivityTrackerMixin {
   int creativeStep = 1;
   List<String> completedGames = [];
   String? selectedFeeling;
@@ -168,11 +169,11 @@ class _CreativeActivitiesPageState extends State<CreativeActivitiesPage>
   void _movePuzzleTile(int index) {
     if (!_canMoveTile(index)) return;
 
+    trackClick('sliding_puzzle_move - tile $index');
+
     setState(() {
       moveCount++;
-      if (puzzleStartTime == null) {
-        puzzleStartTime = DateTime.now();
-      }
+      puzzleStartTime ??= DateTime.now();
 
       if (index == emptyIndex - 1 && emptyIndex % 4 != 0) {
         // Left
@@ -244,6 +245,8 @@ class _CreativeActivitiesPageState extends State<CreativeActivitiesPage>
       return;
     }
 
+    trackClick('memory_card_flip - card $index');
+
     setState(() {
       flippedCards[index] = true;
       currentFlipped.add(index);
@@ -278,6 +281,8 @@ class _CreativeActivitiesPageState extends State<CreativeActivitiesPage>
   }
 
   void _markComplete(String game) {
+    trackClick('creative_activity_completed - $game');
+
     setState(() {
       if (!completedGames.contains(game)) {
         completedGames.add(game);
@@ -407,7 +412,7 @@ class _CreativeActivitiesPageState extends State<CreativeActivitiesPage>
 
   Widget _buildStepCircle(int step, String label) {
     bool isActive = creativeStep == step;
-    return Container(
+    return SizedBox(
       width: 80,
       child: Column(
         children: [
@@ -772,7 +777,7 @@ class _CreativeActivitiesPageState extends State<CreativeActivitiesPage>
             style: TextStyle(fontSize: 16, color: Colors.grey[700]),
           ),
           SizedBox(height: 16),
-          Container(
+          SizedBox(
             height: 450, // Increased size
             child: SlidingPuzzleWidget(),
           ),
@@ -865,11 +870,11 @@ class _CreativeActivitiesPageState extends State<CreativeActivitiesPage>
                 _initializeMemoryGame();
               });
             },
-            child: Text('Reset Game'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue[600],
               foregroundColor: Colors.white,
             ),
+            child: Text('Reset Game'),
           ),
           _buildActivityFooter('matching'),
         ],
@@ -913,23 +918,23 @@ class _CreativeActivitiesPageState extends State<CreativeActivitiesPage>
           SizedBox(height: 30),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Return to Activities'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue[600],
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
+            child: Text('Return to Activities'),
           ),
           SizedBox(height: 20),
           // Add a button to go to progress page
           ElevatedButton(
             onPressed: _navigateToProgress,
-            child: Text('View Your Progress'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green[600],
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
+            child: Text('View Your Progress'),
           ),
         ],
       ),
@@ -999,12 +1004,12 @@ class _CreativeActivitiesPageState extends State<CreativeActivitiesPage>
                 }
               });
             },
-            child: Text('Next'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green[600],
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
             ),
+            child: Text('Next'),
           ),
         ],
       ],
@@ -1452,6 +1457,8 @@ class ColoringPainter extends CustomPainter {
 
 // Move this widget outside of the _CreativeActivitiesPageState class
 class SlidingPuzzleWidget extends StatefulWidget {
+  const SlidingPuzzleWidget({super.key});
+
   @override
   _SlidingPuzzleWidgetState createState() => _SlidingPuzzleWidgetState();
 }
@@ -1466,12 +1473,12 @@ class _SlidingPuzzleWidgetState extends State<SlidingPuzzleWidget>
   bool showReference = true; // Show reference image by default
 
   // Animation properties
-  Map<int, AnimationController> _animationControllers = {};
-  Map<int, Animation<Offset>> _animations = {};
-  Map<int, Offset> _tileOffsets = {};
+  final Map<int, AnimationController> _animationControllers = {};
+  final Map<int, Animation<Offset>> _animations = {};
+  final Map<int, Offset> _tileOffsets = {};
 
   // Use a single image for the puzzle
-  final String puzzleImagePath = 'assets/Activity_Tools/sliding-dog.png';
+  final String puzzleImagePath = 'assets/activity_tools/sliding-dog.png';
 
   @override
   void initState() {

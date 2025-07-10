@@ -32,6 +32,7 @@ import '../weekly_planners/japanese_theme_weekly_planner.dart';
 import '../weekly_planners/floral_theme_weekly_planner.dart';
 import '../weekly_planners/watercolor_theme_weekly_planner.dart';
 import '../config/api_config.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 class ActiveTasksPage extends StatefulWidget {
   const ActiveTasksPage({super.key});
@@ -40,7 +41,8 @@ class ActiveTasksPage extends StatefulWidget {
   State<ActiveTasksPage> createState() => _ActiveTasksPageState();
 }
 
-class _ActiveTasksPageState extends State<ActiveTasksPage> {
+class _ActiveTasksPageState extends State<ActiveTasksPage>
+    with ActivityTrackerMixin {
   final AuthService _authService = AuthService();
   final OfflineSyncService _syncService = OfflineSyncService();
   String? _userId;
@@ -51,6 +53,9 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
   List<Map<String, dynamic>> _activeBoards = [];
   Timer? _connectivityCheckTimer;
   int _consecutiveFailedChecks = 0;
+
+  @override
+  String get pageName => 'Active Tasks';
 
   @override
   void initState() {
@@ -1460,23 +1465,13 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
         return;
     }
 
-    if (destinationPage != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => destinationPage!),
-      ).then((_) {
-        _loadActiveTasks();
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Could not open this board directly. Please navigate from the main menu.'),
-          duration: Duration(seconds: 3),
-        ),
-      );
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => destinationPage!),
+    ).then((_) {
+      _loadActiveTasks();
+    });
     }
-  }
 
   Future<void> _showDynamicBoardInfoDialog(Map<String, dynamic> board) async {
     return showDialog(
@@ -2038,7 +2033,7 @@ class _ActiveTasksPageState extends State<ActiveTasksPage> {
 
       if (duplicatesToRemove.isNotEmpty) {
         debugPrint(
-            "Removed ${duplicatesToRemove.length} duplicate ${type} entries");
+            "Removed ${duplicatesToRemove.length} duplicate $type entries");
       }
     }
   }

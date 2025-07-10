@@ -7,7 +7,7 @@ import '../services/journey_database_service.dart';
 import '../services/user_service.dart';
 
 class SelfCareJourney extends StatefulWidget {
-  const SelfCareJourney({Key? key}) : super(key: key);
+  const SelfCareJourney({super.key});
 
   @override
   State<SelfCareJourney> createState() => _SelfCareJourneyState();
@@ -2084,8 +2084,7 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
 
       // Format tasks for vision board
       for (var task in selectedTasks) {
-        final taskId = DateTime.now().millisecondsSinceEpoch.toString() +
-            '_${task.description.hashCode}';
+        final taskId = '${DateTime.now().millisecondsSinceEpoch}_${task.description.hashCode}';
         selfCareTasks.add({
           "id": taskId,
           "text": "${task.description} for $selectedHabit in $selectedMonth",
@@ -2102,8 +2101,7 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
         ];
 
         for (var taskText in defaultTasks) {
-          final taskId = DateTime.now().millisecondsSinceEpoch.toString() +
-              '_${taskText.hashCode}';
+          final taskId = '${DateTime.now().millisecondsSinceEpoch}_${taskText.hashCode}';
           selfCareTasks.add({"id": taskId, "text": taskText, "isDone": false});
         }
       }

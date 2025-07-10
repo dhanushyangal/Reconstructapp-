@@ -6,7 +6,7 @@ import 'dart:async';
 class CelebrateSustainPage extends StatefulWidget {
   final String? emotion;
 
-  const CelebrateSustainPage({Key? key, this.emotion}) : super(key: key);
+  const CelebrateSustainPage({super.key, this.emotion});
 
   @override
   _CelebrateSustainPageState createState() => _CelebrateSustainPageState();

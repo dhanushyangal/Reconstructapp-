@@ -4,7 +4,7 @@ import 'dart:math';
 class SlidingPuzzlePage extends StatefulWidget {
   static const routeName = '/sliding-puzzle';
 
-  const SlidingPuzzlePage({Key? key}) : super(key: key);
+  const SlidingPuzzlePage({super.key});
 
   @override
   State<SlidingPuzzlePage> createState() => _SlidingPuzzlePageState();
@@ -19,14 +19,14 @@ class _SlidingPuzzlePageState extends State<SlidingPuzzlePage>
   bool showReference = true; // Toggle for showing/hiding reference
 
   // Animation properties
-  Map<int, AnimationController> _animationControllers = {};
-  Map<int, Animation<Offset>> _animations = {};
+  final Map<int, AnimationController> _animationControllers = {};
+  final Map<int, Animation<Offset>> _animations = {};
   Map<int, Offset> _tileOffsets = {};
   int? _draggingTileIndex;
   Offset _dragOffset = Offset.zero;
 
   // Use a single image that will be split into tiles
-  final String puzzleImagePath = 'assets/Activity_Tools/sliding-dog.png';
+  final String puzzleImagePath = 'assets/activity_tools/sliding-dog.png';
 
   @override
   void initState() {
@@ -209,8 +209,9 @@ class _SlidingPuzzlePageState extends State<SlidingPuzzlePage>
 
   // Handle drag update
   void _onDragUpdate(int index, DragUpdateDetails details, double tileSize) {
-    if (_draggingTileIndex != index || !isValidMove(index) || gameComplete)
+    if (_draggingTileIndex != index || !isValidMove(index) || gameComplete) {
       return;
+    }
 
     final emptyIndex = puzzleTiles.indexOf(9);
     final row = index ~/ 3;
@@ -255,8 +256,9 @@ class _SlidingPuzzlePageState extends State<SlidingPuzzlePage>
 
   // Handle the end of a drag gesture
   void _onDragEnd(int index, DragEndDetails details) {
-    if (_draggingTileIndex != index || !isValidMove(index) || gameComplete)
+    if (_draggingTileIndex != index || !isValidMove(index) || gameComplete) {
       return;
+    }
 
     final emptyIndex = puzzleTiles.indexOf(9);
     final row = index ~/ 3;

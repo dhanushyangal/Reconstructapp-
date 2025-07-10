@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
 
 import '../services/weekly_planner_service.dart';
 import '../services/user_service.dart';
@@ -60,7 +61,8 @@ class FloralThemeWeeklyPlanner extends StatefulWidget {
       _FloralThemeWeeklyPlannerState();
 }
 
-class _FloralThemeWeeklyPlannerState extends State<FloralThemeWeeklyPlanner> {
+class _FloralThemeWeeklyPlannerState extends State<FloralThemeWeeklyPlanner>
+    with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, List<TodoItem>> _todoLists = {};
@@ -238,8 +240,9 @@ class _FloralThemeWeeklyPlannerState extends State<FloralThemeWeeklyPlanner> {
 
           // Process only tasks that belong to the floral theme
           for (var dbTask in allTasksFromDb) {
-            if (dbTask['theme'] != 'floral')
+            if (dbTask['theme'] != 'floral') {
               continue; // Skip tasks from other themes
+            }
 
             final cardId = dbTask['card_id'] as String;
             String day;
@@ -658,6 +661,7 @@ class _FloralThemeWeeklyPlannerState extends State<FloralThemeWeeklyPlanner> {
   }
 
   void _showTodoDialog(String day) {
+    trackClick('Open $day tasks');
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -758,7 +762,8 @@ class TodoListDialog extends StatefulWidget {
   TodoListDialogState createState() => TodoListDialogState();
 }
 
-class TodoListDialogState extends State<TodoListDialog> {
+class TodoListDialogState extends State<TodoListDialog>
+    with ActivityTrackerMixin {
   late List<TodoItem> _items;
   final _textController = TextEditingController();
 
@@ -770,6 +775,7 @@ class TodoListDialogState extends State<TodoListDialog> {
 
   void _addItem() {
     if (_textController.text.isNotEmpty) {
+      trackButtonTap('Add Task', additionalDetails: widget.day);
       setState(() {
         _items.add(TodoItem(
           text: _textController.text,
@@ -780,12 +786,14 @@ class TodoListDialogState extends State<TodoListDialog> {
   }
 
   void _toggleItem(TodoItem item) {
+    trackClick(item.completed ? 'Uncheck task' : 'Complete task');
     setState(() {
       item.completed = !item.completed;
     });
   }
 
   void _removeItem(TodoItem item) {
+    trackClick('Delete task');
     setState(() {
       _items.remove(item);
     });
@@ -813,6 +821,11 @@ class TodoListDialogState extends State<TodoListDialog> {
               ),
             ),
             onSubmitted: (_) => _addItem(),
+            onChanged: (value) {
+              if (value.isNotEmpty && value.length % 10 == 0) {
+                trackTextInput('Task text', value: value);
+              }
+            },
           ),
           const SizedBox(height: 8),
           Flexible(

@@ -281,7 +281,7 @@ class _MyAppState extends State<MyApp> {
 }
 
 class AuthWrapper extends StatefulWidget {
-  const AuthWrapper({Key? key}) : super(key: key);
+  const AuthWrapper({super.key});
 
   @override
   State<AuthWrapper> createState() => _AuthWrapperState();
@@ -445,6 +445,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     _initializeHomePage();
     _setupTrialTimer();
+    _setupMethodChannel();
+  }
+
+  void _setupMethodChannel() {
+    const platform = MethodChannel('com.reconstrct.visionboard/widget');
+    platform.setMethodCallHandler(_handleMethodCall);
+  }
+
+  Future<void> _handleMethodCall(MethodCall call) async {
+    switch (call.method) {
+      case 'openDailyNotes':
+        final args = call.arguments as Map<dynamic, dynamic>? ?? {};
+        final createNew = args['create_new'] as bool? ?? false;
+
+        // Navigate to Daily Notes page
+        if (mounted) {
+          Navigator.pushNamed(context, DailyNotesPage.routeName);
+        }
+        break;
+      default:
+        // Method not implemented
+        break;
+    }
   }
 
   @override
@@ -903,7 +926,7 @@ class _HomeContentState extends State<HomeContent> {
                             const SizedBox(width: 18),
                             _buildPlannerCard(
                               context,
-                              'assets/Activity_Tools/daily-note.png',
+                              'assets/activity_tools/daily-note.png',
                               'Daily Notes',
                             ),
                           ],
@@ -983,25 +1006,25 @@ class _HomeContentState extends State<HomeContent> {
                           children: [
                             _buildPlannerCard(
                               context,
-                              'assets/Activity_Tools/memory-game.png',
+                              'assets/activity_tools/memory-game.png',
                               'Memory Game',
                             ),
                             const SizedBox(width: 18),
                             _buildPlannerCard(
                               context,
-                              'assets/Activity_Tools/coloring-sheet.png',
+                              'assets/activity_tools/coloring-sheet.png',
                               'Coloring Page',
                             ),
                             const SizedBox(width: 18),
                             _buildPlannerCard(
                               context,
-                              'assets/Activity_Tools/riddles.png',
+                              'assets/activity_tools/riddles.png',
                               'Riddle Quiz',
                             ),
                             const SizedBox(width: 18),
                             _buildPlannerCard(
                               context,
-                              'assets/Activity_Tools/sliding-puzzle.png',
+                              'assets/activity_tools/sliding-puzzle.png',
                               'Sliding Puzzle',
                             ),
                           ],

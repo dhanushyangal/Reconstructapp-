@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:math';
+import '../utils/activity_tracker_mixin.dart';
 
 class ActivityProgress extends StatelessWidget {
+  const ActivityProgress({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -23,17 +26,17 @@ class ActivityProgressPage extends StatefulWidget {
   final String? feeling;
 
   const ActivityProgressPage({
-    Key? key,
+    super.key,
     this.activityType = 'activity',
     this.feeling,
-  }) : super(key: key);
+  });
 
   @override
   _ActivityProgressPageState createState() => _ActivityProgressPageState();
 }
 
 class _ActivityProgressPageState extends State<ActivityProgressPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, ActivityTrackerMixin {
   late AnimationController _confettiController;
   late AnimationController _streakController;
   late Animation<double> _fadeAnimation;
@@ -266,7 +269,7 @@ class _ActivityProgressPageState extends State<ActivityProgressPage>
         title: 'Regular Practitioner',
         description: 'Completed ${allActivities.length} total activities',
       ));
-    } else if (allActivities.length >= 1) {
+    } else if (allActivities.isNotEmpty) {
       achievements.add(Achievement(
         icon: '🥉',
         title: 'Getting Started',
@@ -453,7 +456,7 @@ class _ActivityProgressPageState extends State<ActivityProgressPage>
     return AnimatedBuilder(
       animation: _rotationAnimation,
       builder: (context, child) {
-        return Container(
+        return SizedBox(
           width: 120,
           height: 120,
           child: Stack(
