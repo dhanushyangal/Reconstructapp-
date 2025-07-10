@@ -16,6 +16,7 @@ import 'dart:convert';
 import '../vision_journey/vision-board-travel-journey.dart';
 import '../reset-emotions/reset-emotions-dashboard.dart';
 import '../district-my-mind/distract-my-mind-journey.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -109,13 +110,14 @@ class ActivityTracker {
 }
 
 class ActiveDashboardPage extends StatefulWidget {
-  const ActiveDashboardPage({Key? key}) : super(key: key);
+  const ActiveDashboardPage({super.key});
 
   @override
   _ActiveDashboardPageState createState() => _ActiveDashboardPageState();
 }
 
-class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
+class _ActiveDashboardPageState extends State<ActiveDashboardPage>
+    with ActivityTrackerMixin {
   String? _selectedCategory;
   List<RecentActivityItem> _recentActivities = [];
   bool _isLoadingActivities = true;
@@ -149,13 +151,13 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
       {'name': 'Start Guided Journey', 'image': 'assets/journey.png'},
       {
         'name': 'Digital Coloring',
-        'image': 'assets/Activity_Tools/coloring-sheet.png'
+        'image': 'assets/activity_tools/coloring-sheet.png'
       },
-      {'name': 'Memory Game', 'image': 'assets/Activity_Tools/memory-game.png'},
-      {'name': 'Riddles', 'image': 'assets/Activity_Tools/riddles.png'},
+      {'name': 'Memory Game', 'image': 'assets/activity_tools/memory-game.png'},
+      {'name': 'Riddles', 'image': 'assets/activity_tools/riddles.png'},
       {
         'name': 'Sliding Puzzle',
-        'image': 'assets/Activity_Tools/sliding-puzzle.png'
+        'image': 'assets/activity_tools/sliding-puzzle.png'
       }
     ]
   };
@@ -706,4 +708,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage> {
         break;
     }
   }
+
+  @override
+  String get pageName => 'Dashboard';
 }

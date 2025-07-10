@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'dart:ui';
 
 class FaceColorPage extends StatefulWidget {
   const FaceColorPage({super.key});

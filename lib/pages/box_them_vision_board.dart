@@ -11,6 +11,7 @@ import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
 
 // Add manual login dialog widget
 class ManualLoginDialog extends StatefulWidget {
@@ -145,7 +146,8 @@ class VisionBoardDetailsPage extends StatefulWidget {
   State<VisionBoardDetailsPage> createState() => _VisionBoardDetailsPageState();
 }
 
-class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage> {
+class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
+    with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
   final List<String> visionCategories = [
@@ -175,6 +177,9 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage> {
   bool _isSyncing = false;
   DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
   bool _hasNetworkConnectivity = true;
+
+  @override
+  String get pageName => 'Box Theme Vision Board';
 
   @override
   void initState() {

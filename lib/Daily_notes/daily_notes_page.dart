@@ -17,7 +17,7 @@ import '../services/user_service.dart';
 class DailyNotesPage extends StatefulWidget {
   static const routeName = '/daily-notes';
 
-  const DailyNotesPage({Key? key}) : super(key: key);
+  const DailyNotesPage({super.key});
 
   @override
   State<DailyNotesPage> createState() => _DailyNotesPageState();
@@ -28,15 +28,17 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
   List<NoteData> _filteredNotes = [];
   bool _isLoading = true;
   bool _isGridView = true;
-  TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
   final NotesService _notesService = NotesService.instance;
   Map<String, String>? _userInfo;
+  String? _currentWidgetNoteId;
 
   @override
   void initState() {
     super.initState();
     _initializeAndLoadNotes();
+    _loadCurrentWidgetNoteId();
 
     // Initialize HomeWidget
     HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
@@ -53,6 +55,17 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCurrentWidgetNoteId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _currentWidgetNoteId = prefs.getString('widget_selected_note_id');
+      });
+    } catch (e) {
+      debugPrint('Error loading current widget note ID: $e');
+    }
   }
 
   void _filterNotes() async {
@@ -214,9 +227,16 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
           _filteredNotes = List.from(_notes);
         });
 
-        // Update widget with latest data
-        await _updateWidget();
         debugPrint('Loaded ${_notes.length} notes from database');
+
+        // Update widget with latest data immediately after loading
+        await _updateWidget();
+
+        // Also trigger a delayed update to ensure widget refreshes properly
+        await Future.delayed(Duration(milliseconds: 500));
+        await _updateWidget();
+
+        debugPrint('Widget updated with database notes');
       } else {
         debugPrint('Failed to load notes: ${result['message']}');
         _showWelcomeNote();
@@ -240,6 +260,9 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
       ];
       _filteredNotes = List.from(_notes);
     });
+
+    // Update widget with welcome note data
+    _updateWidget();
   }
 
   Future<void> _saveNoteToDatabase(NoteData note, {bool isNew = false}) async {
@@ -248,7 +271,7 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
           _userInfo!['userName']!.isEmpty ||
           _userInfo!['email']!.isEmpty) {
         debugPrint('Cannot save note: User not logged in');
-        return;
+        throw Exception('User not logged in. Please log in to save notes.');
       }
 
       String noteType = 'text';
@@ -308,43 +331,138 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
           debugPrint('Note ID updated from ${note.id} to $newId');
           note.id = newId;
         }
-        // Update widget when notes are saved
-        await _updateWidget();
-        debugPrint('Note saved successfully to database');
-      } else {
-        debugPrint('Failed to save note: ${result['message']}');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Failed to save note: ${result['message']}')),
-          );
+
+        // Reload notes from database to ensure widget has latest data
+        if (_userInfo != null &&
+            _userInfo!['userName']!.isNotEmpty &&
+            _userInfo!['email']!.isNotEmpty) {
+          await _loadNotesFromDatabase();
+        } else {
+          // Update widget when notes are saved
+          await _updateWidget();
         }
+
+        // Handle offline vs online save messaging
+        if (result['isOffline'] == true) {
+          debugPrint('Note saved offline: ${result['message']}');
+        } else {
+          debugPrint('Note saved successfully to database');
+        }
+      } else {
+        final errorMessage = result['message'] ?? 'Unknown error occurred';
+        debugPrint('Failed to save note: $errorMessage');
+        throw Exception(errorMessage);
       }
     } catch (e) {
       debugPrint('Error saving note to database: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save note: $e')),
-        );
+      // Provide more user-friendly error messages
+      String userMessage = e.toString();
+
+      if (userMessage.contains('Failed host lookup') ||
+          userMessage.contains('SocketException') ||
+          userMessage.contains('NetworkException')) {
+        userMessage =
+            'No internet connection. Note will be saved offline and synced when connection is restored.';
+
+        // Try to save offline as a fallback
+        try {
+          String fallbackNoteType = 'text';
+          if (note.checklistItems.isNotEmpty) {
+            fallbackNoteType = 'checklist';
+          }
+
+          final fallbackChecklistItems = note.checklistItems
+              .map((item) => {
+                    'text': item.text,
+                    'isChecked': item.isChecked,
+                  })
+              .toList();
+
+          final result = await _notesService.saveNote(
+            userName: _userInfo!['userName']!,
+            email: _userInfo!['email']!,
+            title: note.title,
+            content: note.content,
+            noteType: fallbackNoteType,
+            isPinned: note.isPinned,
+            checklistItems: fallbackChecklistItems,
+            imagePath: note.imagePath,
+          );
+
+          if (result['success'] == true && result['isOffline'] == true) {
+            debugPrint('Note saved offline as fallback');
+            await _updateWidget();
+            return; // Success - saved offline
+          }
+        } catch (offlineError) {
+          debugPrint('Failed to save offline as fallback: $offlineError');
+        }
+      } else if (userMessage.contains('AuthRetryableFetchException')) {
+        userMessage =
+            'Authentication error. Please check your internet connection and try again.';
       }
+
+      throw Exception(userMessage);
     }
   }
 
   // Update the widget with latest notes data
   Future<void> _updateWidget() async {
     try {
-      // Get the most important note to display (pinned or most recent)
-      NoteData? noteToDisplay;
-      String displayText = '';
+      debugPrint('=== WIDGET UPDATE DEBUG ===');
+      debugPrint('Total notes to update: ${_notes.length}');
 
-      // First try to find a pinned note
-      if (_notes.isNotEmpty) {
-        noteToDisplay = _notes.firstWhere((note) => note.isPinned,
-            orElse: () => _notes.first);
+      // Ensure we have notes to save
+      if (_notes.isEmpty) {
+        debugPrint('No notes available to save to widget');
+        await HomeWidget.saveWidgetData('daily_notes_data', '[]');
+        await HomeWidget.saveWidgetData(
+            'daily_notes_display_text', 'No notes available');
+
+        // Also save to Android SharedPreferences with correct keys
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('flutter.daily_notes_data', '[]');
+        await prefs.setString(
+            'flutter.daily_notes_display_text', 'No notes available');
+        return;
       }
 
-      if (noteToDisplay != null) {
-        // Format note for display
+      // Save comprehensive notes data for widget configuration
+      final widgetData = _notes.map((note) {
+        final noteData = {
+          'id': note.id,
+          'title': note.title,
+          'content': note.content,
+          'isPinned': note.isPinned,
+          'lastEdited': note.lastEdited.toIso8601String(),
+          'imagePath': note.imagePath,
+          'colorValue': note.color.value,
+          'checklistItems': note.checklistItems
+              .map((item) => {
+                    'id': item.id,
+                    'text': item.text,
+                    'isChecked': item.isChecked,
+                  })
+              .toList(),
+        };
+
+        debugPrint(
+            'Note ${note.id}: "${note.title}" - ${note.content.length} chars, ${note.checklistItems.length} checklist items');
+        return noteData;
+      }).toList();
+
+      final widgetDataJson = json.encode(widgetData);
+
+      // Save to HomeWidget (for iOS and some Android functionality)
+      await HomeWidget.saveWidgetData('daily_notes_data', widgetDataJson);
+      debugPrint('HomeWidget data saved: ${widgetDataJson.length} characters');
+
+      // Generate display text for fallback scenarios
+      String displayText = 'Tap to add notes...';
+      if (_notes.isNotEmpty) {
+        final noteToDisplay = _notes.firstWhere((note) => note.isPinned,
+            orElse: () => _notes.first);
+
         if (noteToDisplay.title.isNotEmpty) {
           displayText = noteToDisplay.title;
           if (noteToDisplay.content.isNotEmpty) {
@@ -357,38 +475,105 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
               : noteToDisplay.content;
         } else if (noteToDisplay.checklistItems.isNotEmpty) {
           displayText =
-              '📋 Checklist with ${noteToDisplay.checklistItems.length} items';
-        } else {
-          displayText = 'Tap to add notes...';
+              'Checklist with ${noteToDisplay.checklistItems.length} items';
         }
-      } else {
-        displayText = 'Tap to add notes...';
       }
 
-      // Save the display text to the widget
       await HomeWidget.saveWidgetData('daily_notes_display_text', displayText);
+      debugPrint('HomeWidget display text saved: "$displayText"');
 
-      // Save simplified notes data for widget (just IDs and titles)
-      final widgetData = _notes
-          .take(5)
-          .map((note) => {
-                'id': note.id,
-                'title': note.title.isNotEmpty ? note.title : 'Untitled',
-                'isPinned': note.isPinned,
-              })
-          .toList();
-      await HomeWidget.saveWidgetData(
-          'daily_notes_data', json.encode(widgetData));
+      // CRITICAL: Save to Android SharedPreferences with the EXACT keys the widget expects
+      final prefs = await SharedPreferences.getInstance();
 
-      // Update widget
+      // Save with flutter. prefix (FlutterSharedPreferences format)
+      await prefs.setString('flutter.daily_notes_data', widgetDataJson);
+      await prefs.setString('flutter.daily_notes_display_text', displayText);
+
+      // ALSO save without flutter. prefix in case widget expects that
+      await prefs.setString('daily_notes_data', widgetDataJson);
+      await prefs.setString('daily_notes_display_text', displayText);
+
+      debugPrint(
+          'SharedPreferences data saved with both flutter. and without prefix');
+      debugPrint('Data length: ${widgetDataJson.length} characters');
+
+      // Verify data was saved correctly
+      final savedFlutterData = prefs.getString('flutter.daily_notes_data');
+      final savedDirectData = prefs.getString('daily_notes_data');
+      debugPrint(
+          'Verification - Flutter prefixed data: ${savedFlutterData != null && savedFlutterData.isNotEmpty}');
+      debugPrint(
+          'Verification - Direct data: ${savedDirectData != null && savedDirectData.isNotEmpty}');
+
+      // Force immediate widget update on Android using platform channel
+      if (Platform.isAndroid) {
+        try {
+          const platform = MethodChannel('com.reconstrect.visionboard/widget');
+
+          // First, sync the data directly to Android SharedPreferences
+          await platform.invokeMethod('syncWidgetData', {
+            'notesData': widgetDataJson,
+            'displayText': displayText,
+            'selectedNoteId': _currentWidgetNoteId,
+          });
+          debugPrint('Widget data synced to Android SharedPreferences');
+
+          // Then force widget update
+          await platform.invokeMethod('forceWidgetUpdate');
+          debugPrint('Android platform channel widget update triggered');
+        } catch (e) {
+          debugPrint('Error with Android platform channel: $e');
+        }
+      }
+
+      // Update widget with multiple attempts to ensure it works
       await HomeWidget.updateWidget(
         androidName: 'DailyNotesWidget',
         iOSName: 'DailyNotesWidget',
       );
 
-      debugPrint('Widget updated with notes data: $displayText');
+      debugPrint('Widget update completed with ${_notes.length} notes');
     } catch (e) {
       debugPrint('Error updating widget: $e');
+    }
+  }
+
+  // Manual widget refresh method for debugging
+  Future<void> _manualRefreshWidget() async {
+    try {
+      debugPrint('=== MANUAL WIDGET REFRESH ===');
+      debugPrint('Current notes count: ${_notes.length}');
+
+      // Force reload notes from database
+      if (_userInfo != null &&
+          _userInfo!['userName']!.isNotEmpty &&
+          _userInfo!['email']!.isNotEmpty) {
+        await _loadNotesFromDatabase();
+      }
+
+      // Update widget
+      await _updateWidget();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Widget refreshed with ${_notes.length} notes'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error in manual widget refresh: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to refresh widget: $e'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -505,7 +690,7 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
       MaterialPageRoute(
         builder: (context) => NoteEditorPage(
           note: note,
-          onSave: (updatedNote) {
+          onSave: (updatedNote) async {
             setState(() {
               // Handle new notes
               if (isNew) {
@@ -538,7 +723,7 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
 
               _filterNotes();
             });
-            _saveNoteToDatabase(updatedNote);
+            await _saveNoteToDatabase(updatedNote, isNew: isNew);
           },
           onDelete: isNew
               ? null
@@ -556,6 +741,9 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                           _notes.removeWhere((n) => n.id == noteId);
                           _filterNotes();
                         });
+
+                        // Update widget after successful deletion
+                        await _updateWidget();
                       }
                     }
                   } catch (e) {
@@ -579,6 +767,409 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
         await Future.delayed(const Duration(milliseconds: 300));
         _createNewNote();
       }
+    }
+  }
+
+  Future<void> _syncOfflineNotes() async {
+    try {
+      if (_userInfo == null ||
+          _userInfo!['userName']!.isEmpty ||
+          _userInfo!['email']!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please log in to sync notes'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  strokeWidth: 2,
+                ),
+              ),
+              SizedBox(width: 16),
+              Text('Syncing offline notes...'),
+            ],
+          ),
+          duration: Duration(seconds: 30),
+        ),
+      );
+
+      final success = await _notesService.syncOfflineNotes(
+        userName: _userInfo!['userName']!,
+        email: _userInfo!['email']!,
+      );
+
+      // Hide loading snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (success) {
+        // Reload notes after successful sync
+        await _loadNotesFromDatabase();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notes synced successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Unable to sync - please check your internet connection'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sync failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Future<void> _addNoteToWidget(NoteData note) async {
+    try {
+      debugPrint('=== WIDGET SELECTION DEBUG ===');
+      debugPrint('Adding note to widget: ${note.id}');
+      debugPrint('Note title: "${note.title}"');
+      debugPrint('Note content length: ${note.content.length}');
+      debugPrint('Note has ${note.checklistItems.length} checklist items');
+
+      // First, ensure widget data is up to date with all notes
+      await _updateWidget();
+
+      // Store the note as the selected widget note using both HomeWidget and SharedPreferences
+      await HomeWidget.saveWidgetData('widget_selected_note_id', note.id);
+
+      // CRITICAL: Save to the exact SharedPreferences key the Android widget expects
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('flutter.widget_selected_note_id', note.id);
+      await prefs.setString('widget_selected_note_id',
+          note.id); // Also save without flutter prefix
+
+      // Update local state
+      setState(() {
+        _currentWidgetNoteId = note.id;
+      });
+
+      debugPrint('Widget selected note ID saved: ${note.id}');
+      debugPrint(
+          'Saved to flutter.widget_selected_note_id and widget_selected_note_id');
+
+      // Trigger an immediate data refresh to ensure everything is synced
+      await _updateWidget();
+
+      // Force immediate widget update on Android using platform channel
+      if (Platform.isAndroid) {
+        try {
+          const platform = MethodChannel('com.reconstrect.visionboard/widget');
+
+          // First, sync the widget data including the selected note ID
+          final currentNotesData =
+              prefs.getString('flutter.daily_notes_data') ?? '[]';
+          final currentDisplayText =
+              prefs.getString('flutter.daily_notes_display_text') ??
+                  'Tap to add notes...';
+
+          await platform.invokeMethod('syncWidgetData', {
+            'notesData': currentNotesData,
+            'displayText': currentDisplayText,
+            'selectedNoteId': note.id,
+          });
+          debugPrint(
+              'Widget data with selected note synced to Android SharedPreferences');
+
+          // Then force widget update
+          await platform.invokeMethod('forceWidgetUpdate');
+          debugPrint('Android platform channel widget update triggered');
+        } catch (e) {
+          debugPrint('Error with platform channel: $e');
+        }
+      }
+
+      // Trigger widget update via home_widget with multiple attempts
+      for (int i = 0; i < 3; i++) {
+        await HomeWidget.updateWidget(
+          androidName: 'DailyNotesWidget',
+          iOSName: 'DailyNotesWidget',
+        );
+        await Future.delayed(Duration(milliseconds: 500 * (i + 1)));
+      }
+
+      debugPrint('Widget updates completed');
+
+      // Verify the data was saved correctly
+      final savedHomeWidget =
+          await HomeWidget.getWidgetData('daily_notes_data');
+      final savedNoteId =
+          await HomeWidget.getWidgetData('widget_selected_note_id');
+      final savedFlutterPrefixNoteId =
+          prefs.getString('flutter.widget_selected_note_id');
+      debugPrint('Verification - Saved note ID (HomeWidget): $savedNoteId');
+      debugPrint(
+          'Verification - Saved note ID (flutter.prefix): $savedFlutterPrefixNoteId');
+      debugPrint(
+          'Verification - Widget data exists: ${savedHomeWidget != null}');
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.widgets, color: Colors.white, size: 20),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '"${note.title.isNotEmpty ? note.title : 'Note'}" added to widget!',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'VIEW',
+              textColor: Colors.white,
+              onPressed: () {
+                // Go to home screen to see the widget
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/',
+                  (route) => false,
+                );
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error adding note to widget: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to add note to widget: $e'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _removeNoteFromWidget() async {
+    try {
+      // Remove the note from widget using HomeWidget to clear the flutter. prefixed key
+      await HomeWidget.saveWidgetData('widget_selected_note_id', null);
+
+      // Also remove locally
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('widget_selected_note_id');
+
+      // Update local state
+      setState(() {
+        _currentWidgetNoteId = null;
+      });
+
+      // Update widget data
+      await _updateWidget();
+
+      // Force immediate widget update on Android using platform channel
+      if (Platform.isAndroid) {
+        try {
+          const platform = MethodChannel('com.reconstrect.visionboard/widget');
+          await platform.invokeMethod('forceWidgetUpdate');
+        } catch (e) {
+          debugPrint('Error with platform channel: $e');
+        }
+      }
+
+      // Trigger widget update via home_widget
+      await HomeWidget.updateWidget(
+        androidName: 'DailyNotesWidget',
+        iOSName: 'DailyNotesWidget',
+      );
+
+      // Show confirmation message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.widgets_outlined, color: Colors.white, size: 20),
+                SizedBox(width: 12),
+                Text(
+                  'Note removed from widget',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error removing note from widget: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove note from widget: $e'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  // Check current widget data for debugging
+  Future<void> _checkWidgetData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Check all possible keys the widget might be looking for
+      final flutterNotesData = prefs.getString('flutter.daily_notes_data');
+      final directNotesData = prefs.getString('daily_notes_data');
+      final flutterDisplayText =
+          prefs.getString('flutter.daily_notes_display_text');
+      final directDisplayText = prefs.getString('daily_notes_display_text');
+      final flutterSelectedNoteId =
+          prefs.getString('flutter.widget_selected_note_id');
+      final directSelectedNoteId = prefs.getString('widget_selected_note_id');
+
+      // Also check HomeWidget data
+      final homeWidgetNotesData =
+          await HomeWidget.getWidgetData('daily_notes_data');
+      final homeWidgetDisplayText =
+          await HomeWidget.getWidgetData('daily_notes_display_text');
+      final homeWidgetSelectedNoteId =
+          await HomeWidget.getWidgetData('widget_selected_note_id');
+
+      debugPrint('=== COMPLETE WIDGET DATA CHECK ===');
+      debugPrint('--- SharedPreferences (flutter. prefix) ---');
+      debugPrint(
+          'flutter.daily_notes_data: ${flutterNotesData != null ? '${flutterNotesData.length} chars' : 'NULL'}');
+      debugPrint('flutter.daily_notes_display_text: "$flutterDisplayText"');
+      debugPrint('flutter.widget_selected_note_id: "$flutterSelectedNoteId"');
+
+      debugPrint('--- SharedPreferences (direct) ---');
+      debugPrint(
+          'daily_notes_data: ${directNotesData != null ? '${directNotesData.length} chars' : 'NULL'}');
+      debugPrint('daily_notes_display_text: "$directDisplayText"');
+      debugPrint('widget_selected_note_id: "$directSelectedNoteId"');
+
+      debugPrint('--- HomeWidget Data ---');
+      debugPrint(
+          'HomeWidget daily_notes_data: ${homeWidgetNotesData != null ? '${homeWidgetNotesData.length} chars' : 'NULL'}');
+      debugPrint(
+          'HomeWidget daily_notes_display_text: "$homeWidgetDisplayText"');
+      debugPrint(
+          'HomeWidget widget_selected_note_id: "$homeWidgetSelectedNoteId"');
+
+      // Parse and show notes if available
+      if (flutterNotesData != null) {
+        try {
+          final List<dynamic> notes = json.decode(flutterNotesData);
+          debugPrint('--- Notes in flutter.daily_notes_data ---');
+          debugPrint('Number of notes: ${notes.length}');
+          for (int i = 0; i < notes.length; i++) {
+            final note = notes[i];
+            debugPrint(
+                'Note $i: ID=${note['id']}, Title="${note['title']}", Content length=${note['content'].length}');
+          }
+        } catch (e) {
+          debugPrint('Error parsing flutter notes data: $e');
+        }
+      }
+
+      // Show summary to user
+      String summary = 'Widget Debug:\n';
+      summary +=
+          'Flutter notes: ${flutterNotesData != null ? '✅ ${json.decode(flutterNotesData).length} notes' : '❌ No data'}\n';
+      summary += 'Selected note: ${flutterSelectedNoteId ?? 'None'}\n';
+      summary += 'HomeWidget data: ${homeWidgetNotesData != null ? '✅' : '❌'}';
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Widget Debug Info'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(summary),
+                SizedBox(height: 16),
+                Text('Options:', style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    // Test sync functionality
+                    if (Platform.isAndroid && flutterNotesData != null) {
+                      try {
+                        const platform =
+                            MethodChannel('com.reconstrect.visionboard/widget');
+                        await platform.invokeMethod('syncWidgetData', {
+                          'notesData': flutterNotesData,
+                          'displayText': flutterDisplayText ?? 'Test sync',
+                          'selectedNoteId': flutterSelectedNoteId,
+                        });
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content:
+                                Text('Manual sync completed! Check widget.'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Sync failed: $e'),
+                            backgroundColor: Colors.red,
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: Text('Force Sync to Widget'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error checking widget data: $e');
     }
   }
 
@@ -608,6 +1199,29 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                 ),
               ),
         actions: [
+          IconButton(
+            icon: Icon(
+              Icons.info_outline,
+              color: Colors.grey.shade600,
+            ),
+            onPressed: _checkWidgetData,
+            tooltip: 'Check widget data',
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.refresh,
+              color: Colors.grey.shade600,
+            ),
+            onPressed: _manualRefreshWidget,
+            tooltip: 'Refresh widget',
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.sync,
+              color: Colors.grey.shade600,
+            ),
+            onPressed: _syncOfflineNotes,
+          ),
           IconButton(
             icon: Icon(
               _isSearching ? Icons.close : Icons.search,
@@ -717,225 +1331,392 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
             ),
           ),
 
-        Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title with pin indicator
-              Row(
-                children: [
-                  if (note.title.isNotEmpty)
-                    Expanded(
-                      child: Text(
-                        note.title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+        // Content section - no padding here since it's handled by the Stack
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title with widget indicator
+            Row(
+              children: [
+                if (note.title.isNotEmpty)
+                  Expanded(
+                    child: Text(
+                      note.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                // Widget indicator - simplified
+                if (_currentWidgetNoteId == note.id)
+                  Container(
+                    margin: const EdgeInsets.only(left: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.green.shade300),
+                    ),
+                    child: Text(
+                      'WIDGET',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade600,
                       ),
                     ),
-                ],
+                  ),
+              ],
+            ),
+
+            if (note.title.isNotEmpty) const SizedBox(height: 8),
+
+            // Content
+            if (note.content.isNotEmpty)
+              Text(
+                note.content,
+                style: const TextStyle(
+                  fontSize: 14,
+                ),
+                maxLines: isGrid ? 8 : 2,
+                overflow: TextOverflow.ellipsis,
               ),
 
-              if (note.title.isNotEmpty) const SizedBox(height: 8),
-
-              // Content
-              if (note.content.isNotEmpty)
-                Text(
-                  note.content,
-                  style: const TextStyle(
-                    fontSize: 14,
-                  ),
-                  maxLines: isGrid ? 8 : 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
-              // Checklist items
-              if (note.checklistItems.isNotEmpty)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: note.checklistItems
-                      .take(isGrid ? 5 : 2)
-                      .map((item) => Padding(
-                            padding: const EdgeInsets.only(bottom: 4.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  item.isChecked
-                                      ? Icons.check_box
-                                      : Icons.check_box_outline_blank,
-                                  size: 16,
-                                  color: Colors.grey,
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    item.text,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      decoration: item.isChecked
-                                          ? TextDecoration.lineThrough
-                                          : null,
-                                      color:
-                                          item.isChecked ? Colors.grey : null,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+            // Checklist items
+            if (note.checklistItems.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: note.checklistItems
+                    .take(isGrid ? 5 : 2)
+                    .map((item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                item.isChecked
+                                    ? Icons.check_box
+                                    : Icons.check_box_outline_blank,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  item.text,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    decoration: item.isChecked
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                    color: item.isChecked ? Colors.grey : null,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ],
-                            ),
-                          ))
-                      .toList(),
-                ),
+                              ),
+                            ],
+                          ),
+                        ))
+                    .toList(),
+              ),
 
-              if (note.checklistItems.length > (isGrid ? 5 : 2))
-                Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: Text(
-                    '+ ${note.checklistItems.length - (isGrid ? 5 : 2)} more items',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-
-              // Last edited date
+            if (note.checklistItems.length > (isGrid ? 5 : 2))
               Padding(
-                padding: const EdgeInsets.only(top: 8.0),
+                padding: const EdgeInsets.only(top: 4.0),
                 child: Text(
-                  'Edited ${_formatDate(note.lastEdited)}',
+                  '+ ${note.checklistItems.length - (isGrid ? 5 : 2)} more items',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey.shade600,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ),
-            ],
-          ),
+
+            // Last edited date
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                'Edited ${_formatDate(note.lastEdited)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
 
     return GestureDetector(
       onTap: () => _editNote(note),
-      child: Stack(
-        children: [
-          Card(
-            margin: const EdgeInsets.symmetric(vertical: 4.0),
-            elevation: 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                image: const DecorationImage(
-                  image: AssetImage('assets/floral_weekly/floral_1.png'),
-                  fit: BoxFit.cover,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(4),
+          image: DecorationImage(
+            image: AssetImage('assets/floral_weekly/floral_1.png'),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // If note has an image, show it at the top
+              if (note.imagePath != null && note.imagePath!.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.file(
+                    File(note.imagePath!),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: 140,
+                  ),
                 ),
-              ),
-              child: Container(
+              // Overlay for readability
+              Container(
+                padding: const EdgeInsets.all(12.0),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                child: cardContent,
-              ),
-            ),
-          ),
-          // Quick action buttons - positioned at the top-right corner
-          Positioned(
-            top: 4,
-            right: 4,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Pin button
-                Material(
-                  color: Colors.transparent,
-                  child: IconButton(
-                    icon: Icon(
-                      note.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                      size: 18,
-                      color: Colors.grey.shade600,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        note.isPinned = !note.isPinned;
-                        // Sort notes - pinned first, then by last edited date
-                        _notes.sort((a, b) {
-                          if (a.isPinned && !b.isPinned) return -1;
-                          if (!a.isPinned && b.isPinned) return 1;
-                          return b.lastEdited.compareTo(a.lastEdited);
-                        });
-                        _filterNotes();
-                      });
-                      _saveNoteToDatabase(note);
-                    },
-                    tooltip: note.isPinned ? 'Unpin' : 'Pin',
-                    padding: const EdgeInsets.all(4),
-                    constraints: const BoxConstraints(),
-                  ),
-                ),
-                // Delete button
-                Material(
-                  color: Colors.transparent,
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: Colors.grey.shade600,
-                    ),
-                    onPressed: () {
-                      // Show confirmation dialog
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Delete note?'),
-                          content: const Text('This action cannot be undone.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('CANCEL'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title row with WIDGET label
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            note.title,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.black,
                             ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                setState(() {
-                                  _notes.removeWhere((n) => n.id == note.id);
-                                  _filterNotes();
-                                });
-                                // Delete from database
-                                if (_userInfo != null) {
-                                  _notesService.deleteNote(
-                                    noteId: int.parse(note.id),
-                                    userName: _userInfo!['userName']!,
-                                    email: _userInfo!['email']!,
-                                  );
-                                }
-                              },
-                              child: const Text('DELETE'),
-                            ),
-                          ],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      );
-                    },
-                    tooltip: 'Delete',
-                    padding: const EdgeInsets.all(4),
-                    constraints: const BoxConstraints(),
-                  ),
+                        if (_currentWidgetNoteId == note.id)
+                          Container(
+                            margin: const EdgeInsets.only(left: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(3),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Text(
+                              'WIDGET',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade700,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    // Action buttons row (widget, pin, delete)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            _currentWidgetNoteId == note.id
+                                ? Icons.widgets
+                                : Icons.widgets_outlined,
+                            size: 18,
+                            color: _currentWidgetNoteId == note.id
+                                ? Colors.green.shade600
+                                : Colors.grey.shade600,
+                          ),
+                          onPressed: () => _currentWidgetNoteId == note.id
+                              ? _removeNoteFromWidget()
+                              : _addNoteToWidget(note),
+                          tooltip: _currentWidgetNoteId == note.id
+                              ? 'Remove from widget'
+                              : 'Add to widget',
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            note.isPinned
+                                ? Icons.push_pin
+                                : Icons.push_pin_outlined,
+                            size: 18,
+                            color: note.isPinned
+                                ? Colors.orange.shade600
+                                : Colors.grey.shade600,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              note.isPinned = !note.isPinned;
+                              _notes.sort((a, b) {
+                                if (a.isPinned && !b.isPinned) return -1;
+                                if (!a.isPinned && b.isPinned) return 1;
+                                return b.lastEdited.compareTo(a.lastEdited);
+                              });
+                              _filterNotes();
+                            });
+                            _saveNoteToDatabase(note);
+                          },
+                          tooltip: note.isPinned ? 'Unpin' : 'Pin',
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: Colors.red.shade400,
+                          ),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Delete note?'),
+                                content:
+                                    const Text('This action cannot be undone.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('CANCEL'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () async {
+                                      Navigator.pop(context);
+                                      setState(() {
+                                        _notes.removeWhere(
+                                            (n) => n.id == note.id);
+                                        _filterNotes();
+                                      });
+                                      if (_userInfo != null) {
+                                        try {
+                                          await _notesService.deleteNote(
+                                            noteId: int.parse(note.id),
+                                            userName: _userInfo!['userName']!,
+                                            email: _userInfo!['email']!,
+                                          );
+                                          await _updateWidget();
+                                        } catch (e) {
+                                          debugPrint('Error deleting note: $e');
+                                        }
+                                      }
+                                    },
+                                    child: const Text('DELETE'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          tooltip: 'Delete',
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    // Content
+                    if (note.content.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6.0),
+                        child: Text(
+                          note.content,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                          maxLines: isGrid ? 8 : 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    // Checklist items
+                    if (note.checklistItems.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: note.checklistItems
+                              .take(isGrid ? 5 : 2)
+                              .map((item) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 4.0),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(
+                                          item.isChecked
+                                              ? Icons.check_box
+                                              : Icons.check_box_outline_blank,
+                                          size: 16,
+                                          color: Colors.grey,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            item.text,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: item.isChecked
+                                                  ? Colors.grey
+                                                  : Colors.black87,
+                                              decoration: item.isChecked
+                                                  ? TextDecoration.lineThrough
+                                                  : null,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                    if (note.checklistItems.length > (isGrid ? 5 : 2))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          '+ ${note.checklistItems.length - (isGrid ? 5 : 2)} more items',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                    // Last edited date
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        'Edited ${_formatDate(note.lastEdited)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -958,15 +1739,15 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
 
 class NoteEditorPage extends StatefulWidget {
   final NoteData note;
-  final Function(NoteData) onSave;
+  final Future<void> Function(NoteData) onSave;
   final Function(String)? onDelete;
 
   const NoteEditorPage({
-    Key? key,
+    super.key,
     required this.note,
     required this.onSave,
     this.onDelete,
-  }) : super(key: key);
+  });
 
   @override
   _NoteEditorPageState createState() => _NoteEditorPageState();
@@ -980,6 +1761,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   bool _isChecklistMode = false;
   Timer? _autoSaveTimer;
   bool _isSaving = false;
+  bool _hasUnsavedChanges = false;
 
   // Map to store persistent controllers for checklist items
   final Map<String, TextEditingController> _checklistControllers = {};
@@ -996,15 +1778,22 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
       _isChecklistMode = true;
     }
 
-    // Set up auto-save listeners
-    _titleController.addListener(_scheduleAutoSave);
-    _contentController.addListener(_scheduleAutoSave);
+    // Set up change listeners
+    _titleController.addListener(_markAsChanged);
+    _contentController.addListener(_markAsChanged);
+
+    // For existing notes, mark as not having unsaved changes initially
+    if (_editedNote.title.isNotEmpty ||
+        _editedNote.content.isNotEmpty ||
+        _editedNote.checklistItems.isNotEmpty) {
+      _hasUnsavedChanges = false;
+    }
   }
 
   @override
   void dispose() {
-    _titleController.removeListener(_scheduleAutoSave);
-    _contentController.removeListener(_scheduleAutoSave);
+    _titleController.removeListener(_markAsChanged);
+    _contentController.removeListener(_markAsChanged);
     _autoSaveTimer?.cancel();
     _titleController.dispose();
     _contentController.dispose();
@@ -1018,17 +1807,20 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     super.dispose();
   }
 
-  void _scheduleAutoSave() {
-    if (_isSaving) return; // Don't schedule if already saving
-
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer(const Duration(seconds: 2), _autoSave);
+  void _markAsChanged() {
+    if (!_hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = true;
+      });
+    }
   }
 
-  void _autoSave() {
-    if (_isSaving) return; // Prevent duplicate saves
+  Future<void> _saveNote() async {
+    if (_isSaving) return;
 
-    _isSaving = true; // Set flag to indicate saving in progress
+    setState(() {
+      _isSaving = true;
+    });
 
     try {
       // Update content from controllers
@@ -1036,13 +1828,59 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
       _editedNote.content = _contentController.text.trim();
       _editedNote.lastEdited = DateTime.now();
 
-      // Save the updated note
-      widget.onSave(_editedNote);
-    } finally {
-      // Add a small delay before allowing new saves to prevent rapid succession
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _isSaving = false;
+      // Save the updated note and wait for completion
+      await widget.onSave(_editedNote);
+
+      setState(() {
+        _hasUnsavedChanges = false;
       });
+
+      // Show save confirmation
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Note saved successfully!'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      final errorMessage = e.toString();
+
+      if (mounted) {
+        // Show different colors/messages based on error type
+        Color backgroundColor = Colors.red;
+        Duration duration = Duration(seconds: 3);
+
+        if (errorMessage.contains('offline') ||
+            errorMessage.contains('internet connection') ||
+            errorMessage.contains('sync when connection')) {
+          backgroundColor = Colors.orange;
+          duration = Duration(seconds: 4);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage.replaceAll('Exception: ', '')),
+            duration: duration,
+            backgroundColor: backgroundColor,
+            action: errorMessage.contains('offline')
+                ? SnackBarAction(
+                    label: 'OK',
+                    textColor: Colors.white,
+                    onPressed: () {},
+                  )
+                : null,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 
@@ -1063,7 +1901,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         setState(() {
           _editedNote.imagePath = savedImagePath;
         });
-        _scheduleAutoSave(); // Schedule save after adding image
+        _markAsChanged(); // Mark as changed after adding image
       }
     } catch (e) {
       debugPrint('Error picking image: $e');
@@ -1081,7 +1919,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         isChecked: false,
       ));
     });
-    _scheduleAutoSave(); // Schedule save after adding checklist item
+    _markAsChanged(); // Mark as changed after adding checklist item
   }
 
   void _updateChecklistItem(String id, {String? text, bool? isChecked}) {
@@ -1098,16 +1936,16 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
       }
     });
     if (isChecked != null) {
-      _scheduleAutoSave(); // Schedule save when checkbox is toggled
+      _markAsChanged(); // Mark as changed when checkbox is toggled
     }
-    // Text changes will trigger auto-save via the timer
+    // Text changes will trigger change detection via the listener
   }
 
   void _removeChecklistItem(String id) {
     setState(() {
       _editedNote.checklistItems.removeWhere((item) => item.id == id);
     });
-    _scheduleAutoSave(); // Schedule save after removing checklist item
+    _markAsChanged(); // Mark as changed after removing checklist item
   }
 
   void _convertToChecklist() {
@@ -1139,6 +1977,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         ));
       }
     });
+    _markAsChanged(); // Mark as changed after converting to checklist
   }
 
   void _convertToText() {
@@ -1165,14 +2004,49 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         _isChecklistMode = false;
       });
     }
+    _markAsChanged(); // Mark as changed after converting to text
   }
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        _autoSave();
-        return true;
+        if (_hasUnsavedChanges) {
+          // Show dialog asking if user wants to save before leaving
+          final result = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Unsaved Changes'),
+              content: const Text(
+                  'You have unsaved changes. Do you want to save before leaving?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context)
+                      .pop(false), // Don't save, just leave
+                  child: const Text('DISCARD'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(null), // Cancel
+                  child: const Text('CANCEL'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await _saveNote();
+                    if (mounted) {
+                      Navigator.of(context).pop(true); // Save and leave
+                    }
+                  },
+                  child: const Text('SAVE'),
+                ),
+              ],
+            ),
+          );
+
+          if (result == null) return false; // User cancelled
+          if (result == true) return true; // User saved
+          return true; // User discarded changes
+        }
+        return true; // No unsaved changes
       },
       child: Scaffold(
         backgroundColor: Colors.white,
@@ -1183,6 +2057,24 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
             color: Colors.grey.shade800,
           ),
           actions: [
+            // Save button
+            IconButton(
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                      ),
+                    )
+                  : Icon(
+                      Icons.save,
+                      color: _hasUnsavedChanges ? Colors.blue : Colors.grey,
+                    ),
+              onPressed: _hasUnsavedChanges && !_isSaving ? _saveNote : null,
+              tooltip: 'Save note',
+            ),
             IconButton(
               icon: Icon(
                 _editedNote.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
@@ -1190,7 +2082,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
               onPressed: () {
                 setState(() {
                   _editedNote.isPinned = !_editedNote.isPinned;
-                  _autoSave();
+                  _markAsChanged();
                 });
               },
               tooltip: _editedNote.isPinned ? 'Unpin' : 'Pin',
@@ -1306,6 +2198,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
                                 setState(() {
                                   _editedNote.imagePath = null;
                                 });
+                                _markAsChanged(); // Mark as changed after removing image
                               },
                             ),
                           ),
@@ -1372,6 +2265,25 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
             ),
           ],
         ),
+        // Floating save button for easier access
+        floatingActionButton: _hasUnsavedChanges
+            ? FloatingActionButton(
+                onPressed: _isSaving ? null : _saveNote,
+                backgroundColor: Colors.blue,
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.save, color: Colors.white),
+                tooltip: 'Save note',
+              )
+            : null,
       ),
     );
   }
@@ -1386,6 +2298,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         if (_checklistControllers[item.id]!.text != item.text) {
           _updateChecklistItem(item.id,
               text: _checklistControllers[item.id]!.text);
+          _markAsChanged(); // Mark as changed when checklist text is modified
         }
       });
     } else if (_checklistControllers[item.id]!.text != item.text) {

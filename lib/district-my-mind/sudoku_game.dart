@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 class SudokuGame extends StatefulWidget {
   final VoidCallback onComplete;
 
-  const SudokuGame({Key? key, required this.onComplete}) : super(key: key);
+  const SudokuGame({super.key, required this.onComplete});
 
   @override
   State<SudokuGame> createState() => _SudokuGameState();
 }
 
-class _SudokuGameState extends State<SudokuGame> {
+class _SudokuGameState extends State<SudokuGame> with ActivityTrackerMixin {
   final List<List<int>> puzzle = [
     [5, 3, 0, 0, 7, 0, 0, 0, 0],
     [6, 0, 0, 1, 9, 5, 0, 0, 0],
@@ -56,6 +57,8 @@ class _SudokuGameState extends State<SudokuGame> {
   }
 
   void _checkSolution() {
+    trackClick('sudoku_check_solution');
+
     bool isCorrect = true;
     for (int i = 0; i < 9; i++) {
       for (int j = 0; j < 9; j++) {
@@ -69,8 +72,10 @@ class _SudokuGameState extends State<SudokuGame> {
     }
 
     if (isCorrect) {
+      trackClick('sudoku_completed');
       widget.onComplete();
     } else {
+      trackClick('sudoku_incorrect_solution');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Some cells are incorrect. Try again!'),
@@ -81,6 +86,8 @@ class _SudokuGameState extends State<SudokuGame> {
   }
 
   void _giveHint() {
+    trackClick('sudoku_hint_used');
+
     List<Map<String, int>> emptyCells = [];
     for (int i = 0; i < 9; i++) {
       for (int j = 0; j < 9; j++) {

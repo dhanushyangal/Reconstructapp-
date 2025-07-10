@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'celebrate_sustain.dart';
 
 class NumbJourney extends StatefulWidget {
-  const NumbJourney({Key? key}) : super(key: key);
+  const NumbJourney({super.key});
 
   @override
   State<NumbJourney> createState() => _NumbJourneyPageState();

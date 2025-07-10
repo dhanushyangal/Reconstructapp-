@@ -11,13 +11,13 @@ class PaymentMethodsPage extends StatefulWidget {
   final DateTime trialEndDate;
 
   const PaymentMethodsPage({
-    Key? key,
+    super.key,
     required this.email,
     required this.trialEndDate,
     this.onClose,
     this.onStartFreeTrial,
     this.onRedeemCode,
-  }) : super(key: key);
+  });
 
   @override
   State<PaymentMethodsPage> createState() => _PaymentMethodsPageState();

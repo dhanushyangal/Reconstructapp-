@@ -11,6 +11,7 @@ import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
 
 class TodoItem {
   String id;
@@ -141,7 +142,8 @@ class RubyRedsThemeVisionBoard extends StatefulWidget {
       _RubyRedsThemeVisionBoardState();
 }
 
-class _RubyRedsThemeVisionBoardState extends State<RubyRedsThemeVisionBoard> {
+class _RubyRedsThemeVisionBoardState extends State<RubyRedsThemeVisionBoard>
+    with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
   final List<String> visionCategories = [
@@ -196,6 +198,9 @@ class _RubyRedsThemeVisionBoardState extends State<RubyRedsThemeVisionBoard> {
   bool _isSyncing = false;
   DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
   bool _hasNetworkConnectivity = true;
+
+  @override
+  String get pageName => 'Ruby Reds Vision Board';
 
   @override
   void initState() {

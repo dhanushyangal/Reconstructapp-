@@ -12,6 +12,8 @@ import android.os.Build
 import android.net.Uri
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
+import android.content.ComponentName
+import android.appwidget.AppWidgetManager
 
 class MainActivity : FlutterActivity() {
     companion object {
@@ -28,6 +30,63 @@ class MainActivity : FlutterActivity() {
         
         methodChannel?.setMethodCallHandler { call, result ->
             Log.d(TAG, "Received method call: ${call.method}")
+            
+            when (call.method) {
+                "forceWidgetUpdate" -> {
+                    try {
+                        // Call the DailyNotesWidget forceWidgetUpdate method
+                        com.reconstrect.visionboard.DailyNotesWidget.forceWidgetUpdate(this)
+                        result.success("Widget update triggered")
+                        Log.d(TAG, "Widget update triggered successfully")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error triggering widget update", e)
+                        result.error("WIDGET_UPDATE_ERROR", "Failed to update widget: ${e.message}", null)
+                    }
+                }
+                "syncWidgetData" -> {
+                    Log.d(TAG, "Received method call: syncWidgetData")
+                    try {
+                        // Get arguments from Flutter
+                        val arguments = call.arguments as? Map<String, Any>
+                        val notesData = arguments?.get("notesData") as? String
+                        val displayText = arguments?.get("displayText") as? String
+                        val selectedNoteId = arguments?.get("selectedNoteId") as? String
+                        
+                        // Write directly to FlutterSharedPreferences to ensure widget can read it
+                        val flutterPrefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                        val editor = flutterPrefs.edit()
+                        
+                        if (notesData != null) {
+                            editor.putString("flutter.daily_notes_data", notesData)
+                            Log.d(TAG, "Synced notes data: ${notesData.length} chars")
+                        }
+                        
+                        if (displayText != null) {
+                            editor.putString("flutter.daily_notes_display_text", displayText)
+                            Log.d(TAG, "Synced display text: $displayText")
+                        }
+                        
+                        if (selectedNoteId != null) {
+                            editor.putString("flutter.widget_selected_note_id", selectedNoteId)
+                            Log.d(TAG, "Synced selected note ID: $selectedNoteId")
+                        }
+                        
+                        editor.apply()
+                        
+                        // Force widget update after syncing
+                        com.reconstrect.visionboard.DailyNotesWidget.forceWidgetUpdate(this)
+                        
+                        Log.d(TAG, "Widget data sync completed successfully")
+                        result.success("Data synced and widget updated")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error syncing widget data", e)
+                        result.error("SYNC_ERROR", "Failed to sync widget data: ${e.message}", null)
+                    }
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
         }
     }
 

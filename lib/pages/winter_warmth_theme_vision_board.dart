@@ -11,6 +11,7 @@ import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
 
 class TodoItem {
   String id;
@@ -142,7 +143,7 @@ class WinterWarmthThemeVisionBoard extends StatefulWidget {
 }
 
 class _WinterWarmthThemeVisionBoardState
-    extends State<WinterWarmthThemeVisionBoard> {
+    extends State<WinterWarmthThemeVisionBoard> with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, List<TodoItem>> _todoLists = {};
@@ -196,6 +197,9 @@ class _WinterWarmthThemeVisionBoardState
     Color.fromARGB(255, 147, 125, 104),
     Color.fromARGB(255, 37, 53, 63),
   ];
+
+  @override
+  String get pageName => 'Winter Warmth Vision Board';
 
   @override
   void initState() {

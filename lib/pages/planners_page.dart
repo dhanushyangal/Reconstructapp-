@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
@@ -27,8 +28,11 @@ class PlannersPage extends StatefulWidget {
   State<PlannersPage> createState() => _PlannersPageState();
 }
 
-class _PlannersPageState extends State<PlannersPage> {
+class _PlannersPageState extends State<PlannersPage> with ActivityTrackerMixin {
   bool _isPremium = false;
+
+  @override
+  String get pageName => 'Planners';
 
   @override
   void initState() {

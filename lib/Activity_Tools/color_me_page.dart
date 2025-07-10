@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'dart:ui';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 
 class ColorMePage extends StatefulWidget {
@@ -65,7 +64,7 @@ class _ColorMePageState extends State<ColorMePage> {
     try {
       final activity = RecentActivityItem(
         name: 'Digital Coloring',
-        imagePath: 'assets/Activity_Tools/coloring-sheet.png',
+        imagePath: 'assets/activity_tools/coloring-sheet.png',
         timestamp: DateTime.now(),
         routeName: ColorMePage.routeName,
       );

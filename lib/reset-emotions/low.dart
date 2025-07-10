@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'celebrate_sustain.dart';
 
 class FeelingLowScreen extends StatefulWidget {
-  const FeelingLowScreen({Key? key}) : super(key: key);
+  const FeelingLowScreen({super.key});
 
   @override
   State<FeelingLowScreen> createState() => _FeelingLowScreenState();

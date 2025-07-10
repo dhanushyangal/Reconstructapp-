@@ -910,4 +910,176 @@ class SupabaseDatabaseService {
       );
     }
   }
+
+  // Upsert (insert or increment) Thought Shredder activity for today
+  Future<Map<String, dynamic>> upsertThoughtShredderActivity({
+    required String email,
+    required String? userName,
+    required DateTime date,
+  }) async {
+    try {
+      final shredDate = date.toIso8601String().split('T')[0];
+      // Check if a record exists for this user and date
+      final existing = await _client
+          .from('daily_shredded_thoughts')
+          .select()
+          .eq('email', email)
+          .eq('shred_date', shredDate)
+          .maybeSingle();
+
+      if (existing != null) {
+        // Increment shred_count
+        final newCount = (existing['shred_count'] ?? 0) + 1;
+        await _client.from('daily_shredded_thoughts').update({
+          'shred_count': newCount,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', existing['id']);
+        return _formatResponse(
+            success: true, message: 'Shred count incremented');
+      } else {
+        // Insert new record
+        await _client.from('daily_shredded_thoughts').insert({
+          'email': email,
+          'user_name': userName,
+          'shred_date': shredDate,
+          'shred_count': 1,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+        return _formatResponse(
+            success: true, message: 'Shred activity inserted');
+      }
+    } catch (e) {
+      debugPrint('Error upserting Thought Shredder activity: $e');
+      return _formatResponse(
+          success: false, message: 'Failed to upsert activity: $e');
+    }
+  }
+
+  // Fetch all Thought Shredder activity for the current user for the current year
+  Future<Map<String, dynamic>> fetchThoughtShredderActivity({
+    required String email,
+    required int year,
+  }) async {
+    try {
+      final start = DateTime(year, 1, 1).toIso8601String().split('T')[0];
+      final end = DateTime(year, 12, 31).toIso8601String().split('T')[0];
+      final response = await _client
+          .from('daily_shredded_thoughts')
+          .select()
+          .eq('email', email)
+          .gte('shred_date', start)
+          .lte('shred_date', end);
+      return _formatResponse(success: true, data: response);
+    } catch (e) {
+      debugPrint('Error fetching Thought Shredder activity: $e');
+      return _formatResponse(
+          success: false, message: 'Failed to fetch activity: $e', data: []);
+    }
+  }
+
+  // Upsert (insert or increment) activity for a mind tool (break_things, bubble_wrap_popper, make_me_smile)
+  Future<Map<String, dynamic>> upsertMindToolActivity({
+    required String email,
+    required String? userName,
+    required DateTime date,
+    required String toolType,
+  }) async {
+    try {
+      final activityDate = date.toIso8601String().split('T')[0];
+      debugPrint(
+          '🔄 SupabaseDB: Upserting $toolType activity for $email on $activityDate');
+
+      // Check if a record exists for this user, tool, and date
+      debugPrint(
+          '🔍 SupabaseDB: Searching for existing record: email=$email, tool_type=$toolType, activity_date=$activityDate');
+      final existingList = await _client
+          .from('mind_tools_daily_activity')
+          .select()
+          .eq('email', email)
+          .eq('tool_type', toolType)
+          .eq('activity_date', activityDate);
+
+      debugPrint(
+          '🔍 SupabaseDB: Found ${existingList.length} existing records');
+      final existing = existingList.isNotEmpty ? existingList.first : null;
+
+      if (existing != null) {
+        // Increment activity_count
+        final currentCount = existing['activity_count'] ?? 0;
+        final newCount = currentCount + 1;
+        debugPrint(
+            '📈 SupabaseDB: Existing record found, incrementing from $currentCount to $newCount');
+
+        await _client.from('mind_tools_daily_activity').update({
+          'activity_count': newCount,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', existing['id']);
+
+        debugPrint(
+            '✅ SupabaseDB: Activity count incremented to $newCount for $toolType');
+        return _formatResponse(
+            success: true, message: 'Activity count incremented to $newCount');
+      } else {
+        // Insert new record
+        debugPrint(
+            '📝 SupabaseDB: No existing record, inserting new activity for $toolType');
+
+        await _client.from('mind_tools_daily_activity').insert({
+          'email': email,
+          'user_name': userName,
+          'activity_date': activityDate,
+          'tool_type': toolType,
+          'activity_count': 1,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+
+        debugPrint('✅ SupabaseDB: New activity inserted for $toolType');
+        return _formatResponse(
+            success: true, message: 'New activity inserted for $toolType');
+      }
+    } catch (e) {
+      debugPrint('❌ SupabaseDB: Error upserting $toolType activity: $e');
+      return _formatResponse(
+          success: false, message: 'Failed to upsert $toolType activity: $e');
+    }
+  }
+
+  // Fetch all activity for a mind tool for the current user for the current year
+  Future<Map<String, dynamic>> fetchMindToolActivity({
+    required String email,
+    required String toolType,
+    required int year,
+  }) async {
+    try {
+      final start = DateTime(year, 1, 1).toIso8601String().split('T')[0];
+      final end = DateTime(year, 12, 31).toIso8601String().split('T')[0];
+      debugPrint(
+          '📊 SupabaseDB: Fetching $toolType activity for $email ($start to $end)');
+
+      final response = await _client
+          .from('mind_tools_daily_activity')
+          .select()
+          .eq('email', email)
+          .eq('tool_type', toolType)
+          .gte('activity_date', start)
+          .lte('activity_date', end);
+
+      debugPrint(
+          '📊 SupabaseDB: Found ${response.length} records for $toolType');
+      for (final record in response) {
+        debugPrint(
+            '📅 SupabaseDB: $toolType ${record['activity_date']} -> ${record['activity_count']} activities');
+      }
+
+      return _formatResponse(success: true, data: response);
+    } catch (e) {
+      debugPrint('❌ SupabaseDB: Error fetching $toolType activity: $e');
+      return _formatResponse(
+          success: false,
+          message: 'Failed to fetch $toolType activity: $e',
+          data: []);
+    }
+  }
 }

@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'activity_progress.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 class CrosswordPuzzle extends StatefulWidget {
   final VoidCallback onComplete;
 
   const CrosswordPuzzle({
-    Key? key,
+    super.key,
     required this.onComplete,
-  }) : super(key: key);
+  });
 
   @override
   State<CrosswordPuzzle> createState() => _CrosswordPuzzleState();
 }
 
-class _CrosswordPuzzleState extends State<CrosswordPuzzle> {
+class _CrosswordPuzzleState extends State<CrosswordPuzzle>
+    with ActivityTrackerMixin {
   final List<List<String>> grid = [
     ['1', '2', '3', '4', '5', 'x', '6', '7', '8', 'x'],
     ['9', '.', '.', '.', '.', '.', '.', '.', '.', 'x'],
@@ -765,7 +767,7 @@ class _CrosswordPuzzleState extends State<CrosswordPuzzle> {
                             elevation: 4,
                             shadowColor: Color(0xFF2196F3).withOpacity(0.4),
                           ),
-                          child: Container(
+                          child: SizedBox(
                             width: 200,
                             child: Text(
                               'Next',

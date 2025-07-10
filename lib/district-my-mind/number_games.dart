@@ -3,15 +3,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'sudoku_game.dart';
 import 'game_2048.dart';
 import 'prime_finder.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 class NumberGames extends StatefulWidget {
-  const NumberGames({Key? key}) : super(key: key);
+  const NumberGames({super.key});
 
   @override
   State<NumberGames> createState() => _NumberGamesState();
 }
 
-class _NumberGamesState extends State<NumberGames> {
+class _NumberGamesState extends State<NumberGames> with ActivityTrackerMixin {
   int _currentStep = 1;
   int _progress = 0;
 

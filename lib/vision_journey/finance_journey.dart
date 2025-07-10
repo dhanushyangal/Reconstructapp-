@@ -24,7 +24,7 @@ class FinanceTask {
 }
 
 class FinanceJourney extends StatefulWidget {
-  const FinanceJourney({Key? key}) : super(key: key);
+  const FinanceJourney({super.key});
 
   @override
   State<FinanceJourney> createState() => _FinanceJourneyState();
@@ -2160,8 +2160,7 @@ class _FinanceJourneyState extends State<FinanceJourney> {
 
       // Format tasks for vision board
       for (var task in selectedTasks) {
-        final taskId = DateTime.now().millisecondsSinceEpoch.toString() +
-            '_${task.description.hashCode}';
+        final taskId = '${DateTime.now().millisecondsSinceEpoch}_${task.description.hashCode}';
         financeTasks.add({
           "id": taskId,
           "text": "${task.description} for $selectedGoal in $selectedMonth",
@@ -2178,8 +2177,7 @@ class _FinanceJourneyState extends State<FinanceJourney> {
         ];
 
         for (var taskText in defaultTasks) {
-          final taskId = DateTime.now().millisecondsSinceEpoch.toString() +
-              '_${taskText.hashCode}';
+          final taskId = '${DateTime.now().millisecondsSinceEpoch}_${taskText.hashCode}';
           financeTasks.add({"id": taskId, "text": taskText, "isDone": false});
         }
       }

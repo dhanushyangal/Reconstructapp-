@@ -4,15 +4,17 @@ import 'word_games.dart';
 import 'number_games.dart';
 import 'creative_activities.dart';
 import 'activity_progress.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 class DistractMyMindJourney extends StatefulWidget {
-  const DistractMyMindJourney({Key? key}) : super(key: key);
+  const DistractMyMindJourney({super.key});
 
   @override
   State<DistractMyMindJourney> createState() => _DistractMyMindJourneyState();
 }
 
-class _DistractMyMindJourneyState extends State<DistractMyMindJourney> {
+class _DistractMyMindJourneyState extends State<DistractMyMindJourney>
+    with ActivityTrackerMixin {
   int _currentStep = 1;
   String? _selectedReason;
   final TextEditingController _feelingsController = TextEditingController();
@@ -56,6 +58,7 @@ class _DistractMyMindJourneyState extends State<DistractMyMindJourney> {
       _selectedReason = reason;
     });
     _saveData();
+    trackClick('distract_mind_reason_selected - $reason');
   }
 
   void _goToStep(int step) {
@@ -68,6 +71,8 @@ class _DistractMyMindJourneyState extends State<DistractMyMindJourney> {
   }
 
   Future<void> _navigateToActivity(String activityType) async {
+    trackClick('distract_mind_activity_selected - $activityType');
+
     Widget activity;
     switch (activityType) {
       case 'word_games':
@@ -136,6 +141,7 @@ class _DistractMyMindJourneyState extends State<DistractMyMindJourney> {
                     IconButton(
                       icon: Icon(Icons.bar_chart, color: Color(0xFF1E88E5)),
                       onPressed: () {
+                        trackClick('distract_mind_progress_viewed');
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -252,7 +258,7 @@ class _DistractMyMindJourneyState extends State<DistractMyMindJourney> {
                             elevation: 4,
                             shadowColor: Color(0xFF2196F3).withOpacity(0.4),
                           ),
-                          child: Container(
+                          child: SizedBox(
                             width: 200,
                             child: Text(
                               'Continue',
@@ -301,7 +307,7 @@ class _DistractMyMindJourneyState extends State<DistractMyMindJourney> {
                         textAlign: TextAlign.center,
                       ),
                       SizedBox(height: 24),
-                      Container(
+                      SizedBox(
                         height: 500, // Increased height for better spacing
                         child: Stack(
                           children: [

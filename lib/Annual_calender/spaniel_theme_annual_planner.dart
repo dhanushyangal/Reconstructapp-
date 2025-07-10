@@ -20,6 +20,7 @@ import 'dart:async';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'dart:math';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
 
 class SpanielThemeCalendarApp extends StatefulWidget {
   final int monthIndex;
@@ -42,7 +43,7 @@ class SpanielThemeCalendarApp extends StatefulWidget {
 }
 
 class _SpanielThemeCalendarAppState extends State<SpanielThemeCalendarApp>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final List<String> months = [
     'January',
@@ -826,11 +827,11 @@ class _SpanielThemeCalendarAppState extends State<SpanielThemeCalendarApp>
                       _showEventDialog();
                     });
                   });
-                },
-                child: const Icon(Icons.add, size: 14), // Even smaller icon
+                }, // Even smaller icon
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black87,
-                elevation: 4, // Optional: reduced elevation for better fit
+                elevation: 4,
+                child: const Icon(Icons.add, size: 14), // Optional: reduced elevation for better fit
               ),
             ),
           ),
@@ -2035,7 +2036,7 @@ class _SpanielThemeCalendarAppState extends State<SpanielThemeCalendarApp>
             }
 
             // Append our new task to the existing one
-            finalDescription = cleanedDescription + '::' + taskDescription;
+            finalDescription = '$cleanedDescription::$taskDescription';
             existingTaskId = taskId;
             existingTaskFound = true;
 
@@ -2398,7 +2399,7 @@ class _SpanielThemeCalendarAppState extends State<SpanielThemeCalendarApp>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Day indicator
-                          Container(
+                          SizedBox(
                             width: 50,
                             child: Column(
                               children: [

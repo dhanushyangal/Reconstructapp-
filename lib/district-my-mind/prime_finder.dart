@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'activity_progress.dart';
+import '../utils/activity_tracker_mixin.dart';
 
 class PrimeFinder extends StatefulWidget {
   final VoidCallback onComplete;
 
-  const PrimeFinder({Key? key, required this.onComplete}) : super(key: key);
+  const PrimeFinder({super.key, required this.onComplete});
 
   @override
   State<PrimeFinder> createState() => _PrimeFinderState();
 }
 
-class _PrimeFinderState extends State<PrimeFinder> {
+class _PrimeFinderState extends State<PrimeFinder> with ActivityTrackerMixin {
   int correctCount = 0;
   List<bool> attempted = List.filled(101, false);
 
@@ -27,14 +28,20 @@ class _PrimeFinderState extends State<PrimeFinder> {
   void _handleCellTap(int number) {
     if (attempted[number]) return;
 
+    trackClick('prime_finder_cell_tapped - $number');
+
     setState(() {
       attempted[number] = true;
       if (isPrime(number)) {
         correctCount++;
+        trackClick('prime_finder_correct_prime - $number');
+      } else {
+        trackClick('prime_finder_incorrect_prime - $number');
       }
     });
 
     if (correctCount >= 10) {
+      trackClick('prime_finder_completed');
       Navigator.push(
         context,
         MaterialPageRoute(

@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 
 class RestlessScreen extends StatefulWidget {
+  const RestlessScreen({super.key});
+
   @override
   _RestlessScreenState createState() => _RestlessScreenState();
 }
