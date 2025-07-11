@@ -78,7 +78,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<!-- Google OAuth client ID for iOS (reversed) -->
-				<string>com.googleusercontent.apps.633982729642-l3rnsu8636ib9bf2gvbaqmahraomb9f0</string>
+				<string>com.googleusercontent.apps.633982729642-ios-client-id-placeholder</string>
 			</array>
 		</dict>
 		<dict>
