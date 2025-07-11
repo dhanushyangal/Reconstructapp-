@@ -157,48 +157,25 @@ class DailyNotesWidget : AppWidgetProvider() {
                 }
                 
                 if (noteToDisplay != null) {
-                    Log.d("DailyNotesWidget", "Found selected note: ${noteToDisplay.optString("title")}")
                     updateWidgetFromNote(context, views, noteToDisplay, displayText)
                 } else {
-                    // Selected note not found - instead of clearing, show available notes
-                    Log.w("DailyNotesWidget", "Selected note ID $selectedNoteId not found in ${jsonArray.length()} notes")
+                    // Selected note not found, clear the selection and show message
+                    val widgetPrefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
+                    val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
                     
-                    // Try to show the first available note instead of clearing
-                    if (jsonArray.length() > 0) {
-                        val firstNote = jsonArray.getJSONObject(0)
-                        Log.d("DailyNotesWidget", "Showing first available note instead: ${firstNote.optString("title")}")
-                        updateWidgetFromNote(context, views, firstNote, displayText)
-                        
-                        // Update the selected note ID to the first note
-                        val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                        flutterPrefs.edit().putString("flutter.widget_selected_note_id", firstNote.optString("id")).apply()
-                    } else {
-                        setEmptyState(views, "No notes available.\nTap app to create notes")
-                    }
+                    // Clear both possible selections
+                    widgetPrefs.edit().remove("widget_note_$appWidgetId").apply()
+                    flutterPrefs.edit().remove("flutter.widget_selected_note_id").apply()
+                    
+                    setEmptyState(views, "Note no longer exists.\nTap app to select another note")
                 }
             } catch (e: Exception) {
-                Log.e("DailyNotesWidget", "Error parsing notes data", e)
-                setEmptyState(views, "Error loading note: ${e.message}")
-            }
-        } else if (notesData != null) {
-            // We have notes data but no selected note - show the first note
-            try {
-                val jsonArray = JSONArray(notesData)
-                if (jsonArray.length() > 0) {
-                    val firstNote = jsonArray.getJSONObject(0)
-                    Log.d("DailyNotesWidget", "No note selected, showing first note: ${firstNote.optString("title")}")
-                    updateWidgetFromNote(context, views, firstNote, displayText)
-                } else {
-                    setEmptyState(views, "No notes available.\nTap app to create notes")
-                }
-            } catch (e: Exception) {
-                Log.e("DailyNotesWidget", "Error parsing notes data for fallback", e)
-                setEmptyState(views, "Error loading notes")
+                // Error parsing data
+                setEmptyState(views, "Error loading note")
             }
         } else {
-            // No notes data available
-            Log.w("DailyNotesWidget", "No notes data available")
-            setEmptyState(views, "Open the Reconstruct app\nand create some notes\nto display here")
+            // No specific note selected, show message to select a note
+            setEmptyState(views, "Open the Reconstruct app\nand tap the widget icon (📱) on any note\nto display it here")
         }
 
         // Create the intent for opening the Daily Notes page directly
@@ -304,9 +281,9 @@ class DailyNotesWidget : AppWidgetProvider() {
             
             // Add title if available
             if (title.isNotEmpty()) {
-                checklistText.append("$title\n\n")
+                checklistText.append("📋 $title\n\n")
             } else {
-                checklistText.append("Checklist\n\n")
+                checklistText.append("📋 Checklist\n\n")
             }
             
             // Build a formatted string of checklist items
@@ -325,7 +302,7 @@ class DailyNotesWidget : AppWidgetProvider() {
             
             // If there are more items, add indication
             if (checklistItems.length() > MAX_CHECKLIST_ITEMS) {
-                checklistText.append("\n+${checklistItems.length() - MAX_CHECKLIST_ITEMS} more items...")
+                checklistText.append("\n📌 +${checklistItems.length() - MAX_CHECKLIST_ITEMS} more items...")
             }
             
             views.setTextViewText(R.id.note_content, checklistText.toString().trim())
@@ -337,7 +314,7 @@ class DailyNotesWidget : AppWidgetProvider() {
             
             // Add title if available and different from content
             if (title.isNotEmpty() && !content.startsWith(title)) {
-                displayContent.append("$title\n\n")
+                displayContent.append("📝 $title\n\n")
             }
             
             // Add content with length limit for widget display
@@ -354,7 +331,7 @@ class DailyNotesWidget : AppWidgetProvider() {
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         } else if (title.isNotEmpty()) {
             // Only title, no content
-            views.setTextViewText(R.id.note_content, title)
+            views.setTextViewText(R.id.note_content, "📝 $title")
             views.setTextColor(R.id.note_content, Color.WHITE)
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         } else if (displayText != null && displayText.isNotEmpty()) {
@@ -364,7 +341,7 @@ class DailyNotesWidget : AppWidgetProvider() {
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         } else {
             // Empty note
-            views.setTextViewText(R.id.note_content, "Empty note")
+            views.setTextViewText(R.id.note_content, "📝 Empty note")
             views.setTextColor(R.id.note_content, Color.WHITE)
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         }

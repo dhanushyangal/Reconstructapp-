@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Network access entitlements -->
+	<key>com.apple.developer.networking.networkextension</key>
+	<array>
+		<string>app-proxy-provider</string>
+	</array>
+	
+	<!-- Allow arbitrary loads for development -->
+	<key>com.apple.developer.networking.HotspotConfiguration</key>
+	<true/>
+	
+	<!-- Associated domains for deep links -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:reconstrect.com</string>
+	</array>
+	
+	<!-- Background modes -->
+	<key>com.apple.developer.background-modes</key>
+	<array>
+		<string>background-processing</string>
+		<string>background-fetch</string>
+	</array>
+</dict>
+</plist> 
