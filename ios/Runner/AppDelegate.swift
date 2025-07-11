@@ -16,8 +16,8 @@ import GoogleSignIn
        let clientId = plist["CLIENT_ID"] as? String {
       GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
     } else {
-      // Fallback client ID if GoogleService-Info.plist is not found
-      let clientId = "633982729642-l3rnsu8636ib9bf2gvbaqmahraomb9f0.apps.googleusercontent.com"
+      // Fallback client ID if GoogleService-Info.plist is not found (use iOS client ID)
+      let clientId = "633982729642-p8p5svhsbuu6g18kmk8agshb5j92amkf.apps.googleusercontent.com"
       GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
     }
     

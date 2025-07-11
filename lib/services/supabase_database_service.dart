@@ -289,13 +289,14 @@ class SupabaseDatabaseService {
           'openid', // This is crucial for ID token
         ],
         serverClientId: GoogleSignInConfig
-            .currentPlatformClientId, // Use platform-specific client ID
+            .serverClientIdForGoogleSignIn, // Use platform-specific client ID with iOS fix
       );
 
       debugPrint('Google Sign-In configured with:');
+      debugPrint('- Platform: ${GoogleSignInConfig.currentPlatformName}');
       debugPrint('- Scopes: ${googleSignIn.scopes}');
       debugPrint(
-          '- Server Client ID: ${GoogleSignInConfig.currentPlatformClientId}');
+          '- Server Client ID: ${GoogleSignInConfig.serverClientIdForGoogleSignIn ?? "null (iOS fix)"}');
 
       // Force sign out to clear any cached credentials
       try {
