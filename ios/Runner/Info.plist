@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Reconstrect1</string>
+	<string>Reconstruct</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -45,5 +45,75 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- Network and Internet permissions -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	
+	<!-- Local Network permissions -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app needs local network access for debugging and development purposes.</string>
+	
+	<!-- Camera and Photo Library permissions (for image features) -->
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to take photos for notes and vision boards.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to select images for notes and vision boards.</string>
+	
+	<!-- Microphone permission (if audio features are used) -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app may use microphone for audio features.</string>
+	
+	<!-- Google Sign-In URL Schemes -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>google</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Google OAuth client ID for iOS (reversed) -->
+				<string>com.googleusercontent.apps.633982729642-l3rnsu8636ib9bf2gvbaqmahraomb9f0</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>reconstrect</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Deep link scheme for app -->
+				<string>reconstrect</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- Background modes for notifications and background processing -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>background-processing</string>
+		<string>background-fetch</string>
+	</array>
+	
+	<!-- Google Services configuration -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>googlegmail</string>
+		<string>googlemail</string>
+		<string>googledrive</string>
+		<string>googleplus</string>
+		<string>googlechromes</string>
+		<string>googlechrome</string>
+	</array>
+	
+	<!-- Prevent automatic backup of sensitive data -->
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
+	<key>NSSupportsSuddenTermination</key>
+	<false/>
 </dict>
 </plist>
