@@ -194,8 +194,21 @@ class SubscriptionManager extends ChangeNotifier {
         return false;
       }
 
+      // Only fetch fresh data if cache is expired or doesn't exist
+      // Add a small delay to prevent rapid successive calls
+      final lastFetchTime = prefs.getInt('_last_fetch_time') ?? 0;
+      final timeSinceLastFetch = currentTime - lastFetchTime;
+      if (timeSinceLastFetch < 2000) {
+        // 2 seconds minimum between fetches
+        debugPrint('Skipping fetch - too soon since last fetch');
+        final cachedIsPremium = prefs.getBool(_isPremiumKey) ?? false;
+        return cachedIsPremium;
+      }
+
       // Fetch fresh data from Supabase
       debugPrint('Fetching fresh premium status from Supabase for: $email');
+      await prefs.setInt('_last_fetch_time', currentTime);
+
       final databaseService = SupabaseDatabaseService();
       final response = await databaseService.checkTrialStatus(email: email);
 

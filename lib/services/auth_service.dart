@@ -71,21 +71,30 @@ class AuthService extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
+    debugPrint('🔐 AuthService: Starting email/password sign-in for: $email');
+
     try {
+      debugPrint('🔐 AuthService: Calling Supabase loginUser...');
       final result = await _supabaseService.loginUser(
         email: email,
         password: password,
       );
+      debugPrint('🔐 AuthService: Supabase loginUser completed');
+      debugPrint('🔐 AuthService: Login result: ${result['success']}');
 
       if (result['success'] == true) {
         _userData = result['user'];
-        debugPrint('AuthService: Email/password sign-in successful');
+        debugPrint('🔐 AuthService: Email/password sign-in successful');
+        debugPrint('🔐 AuthService: User data: $_userData');
         notifyListeners();
+      } else {
+        debugPrint(
+            '🔐 AuthService: Email/password sign-in failed: ${result['message']}');
       }
 
       return result;
     } catch (e) {
-      debugPrint('AuthService: Email/password sign-in error: $e');
+      debugPrint('🔐 AuthService: Email/password sign-in error: $e');
       return {
         'success': false,
         'message': 'Sign-in failed: $e',

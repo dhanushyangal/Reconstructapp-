@@ -49,6 +49,7 @@ import 'weekly_planners/floral_theme_weekly_planner.dart';
 import 'weekly_planners/watercolor_theme_weekly_planner.dart';
 import 'weekly_planners/japanese_theme_weekly_planner.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'utils/platform_features.dart';
 
 import 'dart:developer';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
@@ -329,14 +330,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', token);
 
-        // Check premium status using simplified approach
-        final subscriptionManager = SubscriptionManager();
-        final hasAccess = await subscriptionManager.hasAccess();
+        // Fast premium status check using cache first
+        final hasAccess = await _fastPremiumCheck();
 
         // Update local storage
         await _updatePremiumFlags(prefs, hasAccess);
 
         debugPrint('Premium access status: $hasAccess');
+
+        // Refresh premium status in background for accuracy
+        _refreshPremiumStatusInBackground();
       }
     } catch (e) {
       debugPrint('Error during auth initialization: $e');
@@ -345,6 +348,69 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (mounted) {
         setState(() => _isInitializing = false);
       }
+    }
+  }
+
+  Future<bool> _fastPremiumCheck() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Check cache first for immediate response
+      final lastCheckTime = prefs.getInt('last_premium_check') ?? 0;
+      final currentTime = DateTime.now().millisecondsSinceEpoch;
+      final timeSinceLastCheck = currentTime - lastCheckTime;
+      final cacheExpired = timeSinceLastCheck > (5 * 60 * 1000); // 5 minutes
+
+      if (!cacheExpired && lastCheckTime > 0) {
+        final cachedIsPremium = prefs.getBool('is_premium') ?? false;
+        final cachedTrialStart = prefs.getString('trial_start_date');
+        final cachedTrialEnd = prefs.getString('trial_end_date');
+
+        if (cachedIsPremium) {
+          debugPrint('Premium status (cached): true');
+          return true;
+        }
+
+        if (cachedTrialStart != null && cachedTrialEnd != null) {
+          final trialEndDate = DateTime.parse(cachedTrialEnd);
+          final now = DateTime.now();
+          final hasActiveTrial =
+              now.isBefore(trialEndDate) || now.isAtSameMomentAs(trialEndDate);
+
+          debugPrint(
+              'Trial status (cached): ${hasActiveTrial ? "Active" : "Expired"}');
+          return hasActiveTrial;
+        }
+      }
+
+      // If no cache or expired, do a quick database check
+      final subscriptionManager = SubscriptionManager();
+      final hasAccess = await subscriptionManager.hasAccess();
+
+      debugPrint('Premium status (fresh): $hasAccess');
+      return hasAccess;
+    } catch (e) {
+      debugPrint('Error in fast premium check: $e');
+      // Fallback to cached value
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('is_premium') ?? false;
+    }
+  }
+
+  void _refreshPremiumStatusInBackground() async {
+    try {
+      // Wait a bit to let the UI load first
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      final subscriptionManager = SubscriptionManager();
+      final hasAccess = await subscriptionManager.hasAccess();
+
+      final prefs = await SharedPreferences.getInstance();
+      await _updatePremiumFlags(prefs, hasAccess);
+
+      debugPrint('Premium status refreshed in background: $hasAccess');
+    } catch (e) {
+      debugPrint('Error refreshing premium status in background: $e');
     }
   }
 
@@ -483,8 +549,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final authService = AuthService.instance;
       supabaseUser = authService.currentUser;
 
-      // Initialize premium status
-      await _loadPremiumStatus();
+      // Fast premium status initialization
+      await _loadPremiumStatusFast();
 
       // Check first launch for new users
       if (!_isPremium) {
@@ -495,6 +561,72 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } finally {
       if (mounted) {
         setState(() => _isInitializing = false);
+      }
+    }
+  }
+
+  Future<void> _loadPremiumStatusFast() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Check cache first for immediate response
+      final lastCheckTime = prefs.getInt('last_premium_check') ?? 0;
+      final currentTime = DateTime.now().millisecondsSinceEpoch;
+      final timeSinceLastCheck = currentTime - lastCheckTime;
+      final cacheExpired = timeSinceLastCheck > (5 * 60 * 1000); // 5 minutes
+
+      if (!cacheExpired && lastCheckTime > 0) {
+        final cachedIsPremium = prefs.getBool('is_premium') ?? false;
+        final cachedTrialStart = prefs.getString('trial_start_date');
+        final cachedTrialEnd = prefs.getString('trial_end_date');
+
+        if (cachedIsPremium) {
+          debugPrint('HomePage: Premium status (cached): true');
+          if (mounted) {
+            setState(() {
+              _isPremium = true;
+            });
+            _initPages();
+          }
+          return;
+        }
+
+        if (cachedTrialStart != null && cachedTrialEnd != null) {
+          final trialEndDate = DateTime.parse(cachedTrialEnd);
+          final now = DateTime.now();
+          final hasActiveTrial =
+              now.isBefore(trialEndDate) || now.isAtSameMomentAs(trialEndDate);
+
+          debugPrint(
+              'HomePage: Trial status (cached): ${hasActiveTrial ? "Active" : "Expired"}');
+          if (mounted) {
+            setState(() {
+              _isPremium = hasActiveTrial;
+            });
+            _initPages();
+          }
+          return;
+        }
+      }
+
+      // If no cache or expired, do a quick database check
+      final subscriptionManager = SubscriptionManager();
+      final hasAccess = await subscriptionManager.hasAccess();
+
+      debugPrint('HomePage: Premium status (fresh): $hasAccess');
+      if (mounted) {
+        setState(() {
+          _isPremium = hasAccess;
+        });
+        _initPages();
+      }
+    } catch (e) {
+      debugPrint('Error loading premium status fast: $e');
+      if (mounted) {
+        setState(() {
+          _isPremium = false;
+        });
+        _initPages();
       }
     }
   }
@@ -511,8 +643,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final lastRefreshTime = prefs.getInt('_last_premium_refresh_time') ?? 0;
       final currentTime = DateTime.now().millisecondsSinceEpoch;
 
-      if (currentTime - lastRefreshTime > 30000) {
-        // 30 seconds
+      // Increase interval to 5 minutes to reduce database calls
+      if (currentTime - lastRefreshTime > 300000) {
+        // 5 minutes instead of 30 seconds
         await _checkTrialStatus();
         await prefs.setInt('_last_premium_refresh_time', currentTime);
       }
@@ -562,6 +695,46 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<bool> _checkTrialStatus() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Check cache first
+      final lastCheckTime = prefs.getInt('last_premium_check') ?? 0;
+      final currentTime = DateTime.now().millisecondsSinceEpoch;
+      final timeSinceLastCheck = currentTime - lastCheckTime;
+      final cacheExpired = timeSinceLastCheck > (5 * 60 * 1000); // 5 minutes
+
+      if (!cacheExpired && lastCheckTime > 0) {
+        final cachedIsPremium = prefs.getBool('is_premium') ?? false;
+        final cachedTrialStart = prefs.getString('trial_start_date');
+        final cachedTrialEnd = prefs.getString('trial_end_date');
+
+        if (cachedIsPremium) {
+          if (mounted) {
+            setState(() {
+              _isPremium = true;
+            });
+            _updatePages();
+          }
+          return true;
+        }
+
+        if (cachedTrialStart != null && cachedTrialEnd != null) {
+          final trialEndDate = DateTime.parse(cachedTrialEnd);
+          final now = DateTime.now();
+          final hasActiveTrial =
+              now.isBefore(trialEndDate) || now.isAtSameMomentAs(trialEndDate);
+
+          if (mounted) {
+            setState(() {
+              _isPremium = hasActiveTrial;
+            });
+            _updatePages();
+          }
+          return hasActiveTrial;
+        }
+      }
+
+      // Only fetch from database if cache is expired
       final subscriptionManager = SubscriptionManager();
       final hasAccess = await subscriptionManager.hasAccess();
       final trialEnded = await subscriptionManager.hasTrialEnded();
@@ -936,52 +1109,64 @@ class _HomeContentState extends State<HomeContent> {
                   ),
                 ),
                 const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Mind Tools',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          height: 0.8,
+                PlatformFeatureBuilder(
+                  featureName: 'mind_tools_section',
+                  builder: (context) => SizedBox(
+                    width: double.infinity,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Mind Tools',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            height: 0.8,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      const SizedBox(width: 8),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _buildPlannerCard(
-                              context,
-                              'assets/Mind_tools/thought-shredder.png',
-                              'Thought Shredder',
-                            ),
-                            const SizedBox(width: 18),
-                            _buildPlannerCard(
-                              context,
-                              'assets/Mind_tools/make-me-smile.png',
-                              'Make Me Smile',
-                            ),
-                            const SizedBox(width: 18),
-                            _buildPlannerCard(
-                              context,
-                              'assets/Mind_tools/bubble-popper.png',
-                              'Bubble Wrap Popper',
-                            ),
-                            const SizedBox(width: 18),
-                            _buildPlannerCard(
-                              context,
-                              'assets/Mind_tools/break-things.png',
-                              'Break Things',
-                            ),
-                          ],
+                        const SizedBox(height: 10),
+                        const SizedBox(width: 8),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              // Thought Shredder - available on both platforms
+                              _buildPlannerCard(
+                                context,
+                                'assets/Mind_tools/thought-shredder.png',
+                                'Thought Shredder',
+                              ),
+                              const SizedBox(width: 18),
+                              // Make Me Smile - available on both platforms
+                              _buildPlannerCard(
+                                context,
+                                'assets/Mind_tools/make-me-smile.png',
+                                'Make Me Smile',
+                              ),
+                              const SizedBox(width: 18),
+                              // Bubble Wrap Popper - Android only
+                              PlatformFeatureWidget(
+                                featureName: 'bubble_wrap_popper',
+                                child: _buildPlannerCard(
+                                  context,
+                                  'assets/Mind_tools/bubble-popper.png',
+                                  'Bubble Wrap Popper',
+                                ),
+                              ),
+                              // Break Things - Android only
+                              PlatformFeatureWidget(
+                                featureName: 'break_things_tool',
+                                child: _buildPlannerCard(
+                                  context,
+                                  'assets/Mind_tools/break-things.png',
+                                  'Break Things',
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 30),
@@ -1450,6 +1635,46 @@ class _ProfilePageState extends State<ProfilePage> {
       }
 
       debugPrint('Using MySQL user data: $_userEmail');
+    } else {
+      // Fallback to current Supabase user if AuthService userData is not available
+      final currentUser = AuthService.instance.currentUser;
+      if (currentUser?.email != null) {
+        _userEmail = currentUser!.email;
+        _userId = currentUser.id;
+
+        // Set display name from user metadata or email
+        final name = currentUser.userMetadata?['name'] ??
+            currentUser.userMetadata?['username'] ??
+            currentUser.email!.split('@')[0];
+
+        if (name != null && name.toString().trim().isNotEmpty) {
+          _displayName = name.toString().trim();
+          _nameController.text = _displayName ?? '';
+          debugPrint('Using Supabase user name: $_displayName');
+        } else {
+          // Format email prefix as name
+          String emailPrefix = currentUser.email!.split('@')[0];
+          emailPrefix = emailPrefix
+              .replaceAllMapped(RegExp(r'[_\-.]'), (match) => ' ')
+              .split(' ')
+              .map((word) {
+                if (word.isNotEmpty) {
+                  return '${word[0].toUpperCase()}${word.substring(1)}';
+                }
+                return '';
+              })
+              .join(' ')
+              .trim();
+
+          _displayName = emailPrefix;
+          _nameController.text = _displayName ?? '';
+          debugPrint('Using formatted email prefix as name: $_displayName');
+        }
+
+        debugPrint('Using Supabase user data: $_userEmail');
+      } else {
+        debugPrint('No user email available');
+      }
     }
 
     // Load additional profile data from SharedPreferences

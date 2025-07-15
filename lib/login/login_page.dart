@@ -4,6 +4,7 @@ import 'register_page.dart';
 import '../services/auth_service.dart';
 import 'google_confirmation_page.dart';
 import '../utils/network_utils.dart';
+import '../utils/platform_features.dart';
 
 class LoginPage extends StatefulWidget {
   final bool showGoogleSignIn;
@@ -211,7 +212,8 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 32),
 
                 // Conditionally show Google Sign In
-                if (widget.showGoogleSignIn) ...[
+                if (widget.showGoogleSignIn &&
+                    PlatformFeatures.isFeatureAvailable('google_sign_in')) ...[
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
