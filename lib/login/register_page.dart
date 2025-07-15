@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../login/login_page.dart';
 import '../services/auth_service.dart';
 import 'google_confirmation_page.dart';
+import 'verification_completion_page.dart';
+import '../utils/platform_features.dart';
 
 class RegisterPage extends StatefulWidget {
   final bool showGoogleSignIn;
@@ -76,8 +78,17 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _isLoading = true);
     debugPrint('Attempting registration for email: ${_emailController.text}');
 
+    // Show initial loading message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Creating your account...'),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 2),
+      ),
+    );
+
     try {
-      // Add a timeout to prevent hanging indefinitely
+      // Add a timeout to prevent hanging indefinitely (increased to 45 seconds)
       final result = await _authService
           .registerUser(
         username: _usernameController.text.trim(),
@@ -85,9 +96,9 @@ class _RegisterPageState extends State<RegisterPage> {
         password: _passwordController.text,
       )
           .timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 45),
         onTimeout: () {
-          debugPrint('Registration request timed out after 15 seconds');
+          debugPrint('Registration request timed out after 45 seconds');
           return {
             'success': false,
             'message':
@@ -101,33 +112,82 @@ class _RegisterPageState extends State<RegisterPage> {
       if (result['success']) {
         debugPrint('Registration successful: ${result['user']['email']}');
 
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration successful'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        // Check if email confirmation is required
+        final requiresEmailConfirmation =
+            result['message']?.contains('check your email') ?? false;
 
-        // Wait a moment for the user to see the success message
-        await Future.delayed(const Duration(milliseconds: 800));
+        if (requiresEmailConfirmation) {
+          // Navigate to verification completion page
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VerificationCompletionPage(
+                email: _emailController.text.trim(),
+                username: _usernameController.text.trim(),
+                password: _passwordController.text, // Pass the password
+              ),
+            ),
+          );
+        } else {
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registration successful'),
+              backgroundColor: Colors.green,
+            ),
+          );
 
-        // Check if the widget is still mounted before navigating
-        if (!mounted) return;
+          // Wait a moment for the user to see the success message
+          await Future.delayed(const Duration(milliseconds: 800));
 
-        debugPrint('Navigating to home page after successful registration');
-        // Navigate to the home page directly
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil('/home', (route) => false);
+          // Check if the widget is still mounted before navigating
+          if (!mounted) return;
+
+          // Force AuthService to refresh user data
+          await _authService.initialize();
+
+          debugPrint('Navigating to home page after successful registration');
+          // Navigate to the home page directly
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/home', (route) => false);
+        }
       } else {
         debugPrint('Registration failed: ${result['message']}');
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Registration failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
+
+        // Check if it's a timeout error but registration might have succeeded
+        if (result['message']?.contains('timed out') == true) {
+          // Navigate to verification completion page for timeout cases
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VerificationCompletionPage(
+                email: _emailController.text.trim(),
+                username: _usernameController.text.trim(),
+                password: _passwordController.text, // Pass the password
+              ),
+            ),
+          );
+
+          // Show timeout message
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Registration may have succeeded but took too long. Please check your email for verification link.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 6),
+              ),
+            );
+          });
+        } else {
+          // Show regular error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Registration failed'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint('Registration error: $e');
@@ -187,44 +247,58 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 const SizedBox(height: 32),
 
-                // Google Sign Up Button
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black87,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Colors.grey, width: 1),
-                    ),
-                    elevation: 0,
-                  ),
-                  onPressed: _isLoading ? null : _handleGoogleSignIn,
-                  icon: Image.asset('assets/google_logo.png', height: 24),
-                  label: const Text(
-                    'Continue with Google',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Divider
-                const Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'OR',
-                        style: TextStyle(color: Colors.grey),
+                // Google Sign Up Button - Only show on Android
+                PlatformFeatureWidget(
+                  featureName: 'google_sign_in',
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black87,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: const BorderSide(color: Colors.grey, width: 1),
                       ),
+                      elevation: 0,
                     ),
-                    Expanded(child: Divider()),
-                  ],
+                    onPressed: _isLoading ? null : _handleGoogleSignIn,
+                    icon: Image.asset('assets/google_logo.png', height: 24),
+                    label: const Text(
+                      'Continue with Google',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
                 ),
 
-                const SizedBox(height: 24),
+                // Show divider only if Google Sign-In is available
+                PlatformFeatureWidget(
+                  featureName: 'google_sign_in',
+                  child: const SizedBox(height: 24),
+                ),
+
+                // Divider - Only show if Google Sign-In is available
+                PlatformFeatureWidget(
+                  featureName: 'google_sign_in',
+                  child: const Row(
+                    children: [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'OR',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
+                ),
+
+                // Show spacing only if Google Sign-In is available
+                PlatformFeatureWidget(
+                  featureName: 'google_sign_in',
+                  child: const SizedBox(height: 24),
+                ),
 
                 // Registration Fields
                 TextField(
@@ -293,13 +367,23 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   onPressed: _isLoading ? null : _handleRegistration,
                   child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Creating account...',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ],
                         )
                       : const Text(
                           'Sign up',

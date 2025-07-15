@@ -3,6 +3,7 @@ import 'login_page.dart';
 import 'register_page.dart';
 import '../services/auth_service.dart';
 import 'google_confirmation_page.dart';
+import '../utils/platform_features.dart';
 
 class InitialAuthPage extends StatefulWidget {
   const InitialAuthPage({super.key});
@@ -102,27 +103,36 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
                   ),
                   const SizedBox(height: 48),
 
-                  // Google Sign In Button
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.all(16),
-                      side: const BorderSide(color: Colors.grey, width: 1),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                  // Google Sign In Button - Only show on Android
+                  PlatformFeatureWidget(
+                    featureName: 'google_sign_in',
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                        side: const BorderSide(color: Colors.grey, width: 1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                    ),
-                    onPressed:
-                        _isLoading ? null : () => _handleGoogleSignIn(context),
-                    icon: Image.asset('assets/google_logo.png', height: 24),
-                    label: const Text(
-                      'Continue with Google',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
+                      onPressed: _isLoading
+                          ? null
+                          : () => _handleGoogleSignIn(context),
+                      icon: Image.asset('assets/google_logo.png', height: 24),
+                      label: const Text(
+                        'Continue with Google',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+
+                  // Show spacing only if Google Sign-In is available
+                  PlatformFeatureWidget(
+                    featureName: 'google_sign_in',
+                    child: const SizedBox(height: 16),
+                  ),
 
                   // Email Button
                   OutlinedButton.icon(

@@ -80,7 +80,14 @@ class SupabaseDatabaseService {
     try {
       await _client
           .from('user')
-          .update({'welcome_email_sent': true}).eq('email', email);
+          .update({'welcome_email_sent': true})
+          .eq('email', email)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              debugPrint('⚠️ Email status update timed out');
+            },
+          );
       debugPrint('✅ Updated welcome_email_sent to true for: $email');
     } catch (e) {
       debugPrint('⚠️ Could not update email sent status: $e');
@@ -97,53 +104,40 @@ class SupabaseDatabaseService {
         'SupabaseDatabaseService: Starting registration for email: $email');
 
     try {
-      // Create auth user with Supabase Auth
+      // Create auth user with Supabase Auth (with web-based email confirmation)
+      debugPrint(
+          'SupabaseDatabaseService: Registering user with username: $username');
+
       final supabase.AuthResponse response = await _client.auth.signUp(
         email: email,
         password: password,
         data: {
           'username': username,
           'name': username,
+          'display_name':
+              username, // Add display_name as well for better compatibility
         },
+        emailRedirectTo: 'https://reconstructyourmind.com/verify-email.php',
       );
 
+      debugPrint('SupabaseDatabaseService: Registration response received');
+      debugPrint(
+          'SupabaseDatabaseService: User metadata: ${response.user?.userMetadata}');
+
       if (response.user != null) {
-        // Also create entry in custom user table for additional data
-        try {
-          final now = DateTime.now();
-          final trialEndDate = now.add(const Duration(days: 7));
+        // User record will be created in public.user table after email confirmation
+        // via database trigger, so we don't need to create it here
+        debugPrint(
+            'User registered successfully. User record will be created after email confirmation.');
 
-          await _client.from('user').insert({
-            'name': username,
-            'email': email,
-            'password_hash':
-                'supabase_auth', // Placeholder since Supabase handles auth
-            'firebase_uid': response.user!.id, // Store Supabase user ID
-            'welcome_email_sent': false,
-            'is_premium': false,
-            'trial_start_date':
-                now.toIso8601String().split('T')[0], // Today's date
-            'trial_end_date':
-                trialEndDate.toIso8601String().split('T')[0], // 7 days from now
-          });
-          debugPrint(
-              'New user registered with trial dates: ${now.toIso8601String().split('T')[0]} to ${trialEndDate.toIso8601String().split('T')[0]}');
-        } catch (e) {
-          debugPrint(
-              'Warning: Could not create user record in custom table: $e');
-          // Continue even if custom table insert fails
-        }
+        // 📧 Send welcome email (will be sent after email confirmation)
+        // Note: Welcome email will be sent when user first logs in after verification
+        debugPrint(
+            'Welcome email will be sent after user verifies their email and logs in.');
 
-        // 📧 Send welcome email
-        final emailSent = await _sendWelcomeEmail(
-          email: email,
-          name: username,
-        );
-
-        // Update email sent status if successful
-        if (emailSent) {
-          await _updateEmailSentStatus(email);
-        }
+        // Check if email confirmation is required
+        final requiresEmailConfirmation =
+            response.user!.emailConfirmedAt == null;
 
         // Format user data to match the expected structure
         final userData = {
@@ -153,13 +147,21 @@ class SupabaseDatabaseService {
           'name': username,
           'supabase_uid': response.user!.id,
           'is_premium': false,
+          'email_confirmed': !requiresEmailConfirmation,
         };
+
+        String message;
+        if (requiresEmailConfirmation) {
+          message =
+              'Registration successful! Please check your email to verify your account at reconstructyourmind.com';
+        } else {
+          message =
+              'Registration successful! Welcome email will be sent after verification.';
+        }
 
         return _formatResponse(
           success: true,
-          message: emailSent
-              ? 'Registration successful! Welcome email sent.'
-              : 'Registration successful! Email sending failed.',
+          message: message,
           user: userData,
           token: response.session?.accessToken,
         );
@@ -190,16 +192,21 @@ class SupabaseDatabaseService {
     required String password,
   }) async {
     debugPrint(
-        'SupabaseDatabaseService: Attempting to login with email: $email');
+        '🔐 SupabaseDatabaseService: Attempting to login with email: $email');
 
     try {
+      debugPrint(
+          '🔐 SupabaseDatabaseService: Calling _client.auth.signInWithPassword...');
       final supabase.AuthResponse response =
           await _client.auth.signInWithPassword(
         email: email,
         password: password,
       );
+      debugPrint('🔐 SupabaseDatabaseService: signInWithPassword completed');
 
       if (response.user != null) {
+        debugPrint(
+            '🔐 SupabaseDatabaseService: User found, fetching custom user data...');
         // Get additional user data from custom user table
         Map<String, dynamic>? customUserData;
         try {
@@ -207,9 +214,20 @@ class SupabaseDatabaseService {
               .from('user')
               .select()
               .eq('email', email)
-              .maybeSingle();
+              .maybeSingle()
+              .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              debugPrint(
+                  '🔐 SupabaseDatabaseService: Database query timed out');
+              return null;
+            },
+          );
+          debugPrint(
+              '🔐 SupabaseDatabaseService: Custom user data fetched: ${customUserData != null}');
         } catch (e) {
-          debugPrint('Could not fetch custom user data: $e');
+          debugPrint(
+              '🔐 SupabaseDatabaseService: Could not fetch custom user data: $e');
         }
 
         // 📧 Check if welcome email was sent, if not send it
@@ -219,19 +237,44 @@ class SupabaseDatabaseService {
         if (customUserData != null &&
             customUserData['welcome_email_sent'] == false) {
           debugPrint('📧 Welcome email not sent yet, sending now...');
-          emailSent = await _sendWelcomeEmail(
-            email: email,
-            name: customUserData['name'] ?? email.split('@')[0],
-          );
+          try {
+            emailSent = await _sendWelcomeEmail(
+              email: email,
+              name: customUserData['name'] ?? email.split('@')[0],
+            ).timeout(
+              const Duration(seconds: 10),
+              onTimeout: () {
+                debugPrint('📧 Welcome email sending timed out');
+                return false;
+              },
+            );
+          } catch (e) {
+            debugPrint('📧 Error sending welcome email: $e');
+            emailSent = false;
+          }
 
           if (emailSent) {
-            await _updateEmailSentStatus(email);
+            try {
+              await _updateEmailSentStatus(email).timeout(
+                const Duration(seconds: 5),
+                onTimeout: () {
+                  debugPrint('📧 Email status update timed out');
+                },
+              );
+            } catch (e) {
+              debugPrint('📧 Error updating email status: $e');
+            }
             loginMessage = 'Login successful! Welcome email sent.';
           } else {
             loginMessage = 'Login successful! Email sending failed.';
           }
+        } else if (customUserData == null) {
+          debugPrint(
+              '📧 No user record found - user may need to verify email first');
+          loginMessage =
+              'Login successful! Please verify your email to access all features.';
         } else {
-          debugPrint('📧 Welcome email already sent or user data not found');
+          debugPrint('📧 Welcome email already sent');
         }
 
         final userData = {
@@ -247,6 +290,8 @@ class SupabaseDatabaseService {
           'is_premium': customUserData?['is_premium'] ?? false,
         };
 
+        debugPrint(
+            '🔐 SupabaseDatabaseService: Login successful, returning user data');
         return _formatResponse(
           success: true,
           message: loginMessage,
@@ -254,13 +299,14 @@ class SupabaseDatabaseService {
           token: response.session?.accessToken,
         );
       } else {
+        debugPrint('🔐 SupabaseDatabaseService: No user found in response');
         return _formatResponse(
           success: false,
           message: 'Login failed: Invalid credentials',
         );
       }
     } catch (e) {
-      debugPrint('Error in loginUser: $e');
+      debugPrint('🔐 SupabaseDatabaseService: Error in loginUser: $e');
 
       String errorMessage = 'An error occurred during login';
       if (e is supabase.AuthException) {
@@ -370,107 +416,78 @@ class SupabaseDatabaseService {
 
         debugPrint('Profile image URL: $profileImageUrl');
 
-        // Create or update entry in custom user table for additional data
+        // Check if user record exists in custom user table
+        // User records are only created after email verification via database trigger
+        Map<String, dynamic>? customUserData;
         try {
-          final existingUser = await _client
+          customUserData = await _client
               .from('user')
               .select()
               .eq('email', response.user!.email!)
               .maybeSingle();
+        } catch (e) {
+          debugPrint('Could not fetch custom user data: $e');
+        }
 
-          if (existingUser == null) {
-            // Create new user record with trial dates
-            debugPrint('Creating new user record for: ${response.user!.email}');
+        // For Google Sign-In, we need to handle the case where user might not have a record yet
+        // This can happen if they signed up with Google but haven't verified their email
+        if (customUserData == null) {
+          debugPrint(
+              'No user record found for Google user: ${response.user!.email}');
+          debugPrint(
+              'User record will be created after email verification via database trigger');
 
+          // For Google users, we can consider them verified since Google handles verification
+          // But we'll still wait for the database trigger to create the record
+          // This ensures consistency with the email verification flow
+        } else {
+          // Update existing user with latest profile image
+          debugPrint('Updating existing user: ${customUserData['name']}');
+
+          final updateData = {
+            'profile_image_url': profileImageUrl,
+            'name': response.user!.userMetadata?['full_name'] ??
+                response.user!.userMetadata?['name'] ??
+                googleUser.displayName ??
+                customUserData['name'],
+          };
+
+          // If trial dates are null, set them for existing user
+          if (customUserData['trial_start_date'] == null) {
             final now = DateTime.now();
             final trialEndDate = now.add(const Duration(days: 7));
-
-            await _client.from('user').insert({
-              'name': response.user!.userMetadata?['full_name'] ??
-                  response.user!.userMetadata?['name'] ??
-                  googleUser.displayName ??
-                  response.user!.email!.split('@')[0],
-              'email': response.user!.email!,
-              'password_hash': 'google_auth',
-              'firebase_uid': response.user!.id, // Store Supabase user ID
-              'welcome_email_sent': false,
-              'is_premium': false,
-              'trial_start_date':
-                  now.toIso8601String().split('T')[0], // Today's date
-              'trial_end_date': trialEndDate
-                  .toIso8601String()
-                  .split('T')[0], // 7 days from now
-              'profile_image_url': profileImageUrl,
-              'google_id': googleUser.id,
-              'created_at': DateTime.now().toIso8601String(),
-            });
+            updateData['trial_start_date'] =
+                now.toIso8601String().split('T')[0];
+            updateData['trial_end_date'] =
+                trialEndDate.toIso8601String().split('T')[0];
             debugPrint(
-                'New user record created with trial dates: ${now.toIso8601String().split('T')[0]} to ${trialEndDate.toIso8601String().split('T')[0]}');
+                'Setting trial dates for existing user: ${now.toIso8601String().split('T')[0]} to ${trialEndDate.toIso8601String().split('T')[0]}');
+          }
 
-            // 📧 Send welcome email for new Google user
+          await _client
+              .from('user')
+              .update(updateData)
+              .eq('email', response.user!.email!);
+
+          debugPrint(
+              'User record updated with latest profile image and trial dates');
+
+          // 📧 Check if welcome email was sent for existing Google user
+          if (customUserData['welcome_email_sent'] == false) {
+            debugPrint(
+                '📧 Welcome email not sent yet for existing Google user, sending now...');
             final emailSent = await _sendWelcomeEmail(
               email: response.user!.email!,
               name: response.user!.userMetadata?['full_name'] ??
                   response.user!.userMetadata?['name'] ??
                   googleUser.displayName ??
-                  response.user!.email!.split('@')[0],
+                  customUserData['name'],
             );
 
             if (emailSent) {
               await _updateEmailSentStatus(response.user!.email!);
             }
-          } else {
-            // Update existing user with latest profile image and check trial dates
-            debugPrint('Updating existing user: ${existingUser['name']}');
-
-            final updateData = {
-              'profile_image_url': profileImageUrl,
-              'name': response.user!.userMetadata?['full_name'] ??
-                  response.user!.userMetadata?['name'] ??
-                  googleUser.displayName ??
-                  existingUser['name'],
-            };
-
-            // If trial dates are null, set them for existing user
-            if (existingUser['trial_start_date'] == null) {
-              final now = DateTime.now();
-              final trialEndDate = now.add(const Duration(days: 7));
-              updateData['trial_start_date'] =
-                  now.toIso8601String().split('T')[0];
-              updateData['trial_end_date'] =
-                  trialEndDate.toIso8601String().split('T')[0];
-              debugPrint(
-                  'Setting trial dates for existing user: ${now.toIso8601String().split('T')[0]} to ${trialEndDate.toIso8601String().split('T')[0]}');
-            }
-
-            await _client
-                .from('user')
-                .update(updateData)
-                .eq('email', response.user!.email!);
-
-            debugPrint(
-                'User record updated with latest profile image and trial dates');
-
-            // 📧 Check if welcome email was sent for existing Google user
-            if (existingUser['welcome_email_sent'] == false) {
-              debugPrint(
-                  '📧 Welcome email not sent yet for existing Google user, sending now...');
-              final emailSent = await _sendWelcomeEmail(
-                email: response.user!.email!,
-                name: response.user!.userMetadata?['full_name'] ??
-                    response.user!.userMetadata?['name'] ??
-                    googleUser.displayName ??
-                    existingUser['name'],
-              );
-
-              if (emailSent) {
-                await _updateEmailSentStatus(response.user!.email!);
-              }
-            }
           }
-        } catch (e) {
-          debugPrint('Warning: Could not create/update user record: $e');
-          // Continue even if custom table insert fails
         }
 
         // Format user data with profile image
@@ -603,6 +620,56 @@ class SupabaseDatabaseService {
             .maybeSingle();
       } catch (e) {
         debugPrint('Could not fetch custom user data: $e');
+      }
+
+      // If custom user data doesn't exist, try to create it
+      if (customUserData == null && currentUser.email != null) {
+        debugPrint(
+            'Custom user data not found, attempting to create profile...');
+        try {
+          final now = DateTime.now();
+          final trialEndDate = now.add(const Duration(days: 7));
+
+          // Try RPC first, then fallback to direct insert
+          try {
+            await _client.rpc('create_user_profile', params: {
+              'user_name': currentUser.userMetadata?['username'] ??
+                  currentUser.email!.split('@')[0],
+              'user_email': currentUser.email!,
+              'user_id': currentUser.id,
+              'trial_start': now.toIso8601String().split('T')[0],
+              'trial_end': trialEndDate.toIso8601String().split('T')[0],
+            });
+            debugPrint('User profile created via RPC');
+          } catch (rpcError) {
+            debugPrint('RPC failed, trying direct insert: $rpcError');
+            await _client.from('user').insert({
+              'name': currentUser.userMetadata?['username'] ??
+                  currentUser.email!.split('@')[0],
+              'email': currentUser.email!,
+              'password_hash': 'supabase_auth',
+              'firebase_uid': currentUser.id,
+              'welcome_email_sent': false,
+              'is_premium': false,
+              'trial_start_date': now.toIso8601String().split('T')[0],
+              'trial_end_date': trialEndDate.toIso8601String().split('T')[0],
+            });
+            debugPrint('User profile created via direct insert');
+          }
+
+          // Try to fetch the newly created data
+          try {
+            customUserData = await _client
+                .from('user')
+                .select()
+                .eq('email', currentUser.email!)
+                .maybeSingle();
+          } catch (e) {
+            debugPrint('Could not fetch newly created user data: $e');
+          }
+        } catch (e) {
+          debugPrint('Could not create user profile: $e');
+        }
       }
 
       final userData = {
