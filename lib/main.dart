@@ -567,6 +567,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _loadPremiumStatusFast() async {
     try {
+      // For iOS users, automatically set premium status to true (free access)
+      if (PlatformFeatures.isIOSFreeAccess) {
+        debugPrint('HomePage: iOS user detected - setting free access');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_hasCompletedPaymentKey, true);
+        await prefs.setBool('is_subscribed', true);
+        await prefs.setBool('premium_features_enabled', true);
+        await prefs.setBool('is_premium_user', true);
+
+        if (mounted) {
+          setState(() {
+            _isPremium = true;
+          });
+          _initPages();
+        }
+        debugPrint(
+            'HomePage: iOS user premium status set to true (free access)');
+        return;
+      }
+
       final prefs = await SharedPreferences.getInstance();
 
       // Check cache first for immediate response
@@ -695,6 +715,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<bool> _checkTrialStatus() async {
     try {
+      // For iOS users, always return true (free access)
+      if (PlatformFeatures.isIOSFreeAccess) {
+        debugPrint(
+            'HomePage: iOS user - trial status check returns true (free access)');
+        if (mounted) {
+          setState(() {
+            _isPremium = true;
+          });
+          _updatePages();
+        }
+        return true;
+      }
+
       final prefs = await SharedPreferences.getInstance();
 
       // Check cache first
@@ -766,6 +799,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!isFirstLaunch || !mounted) return;
 
     await prefs.setBool(_firstLaunchKey, false);
+
+    // For iOS users, skip trial setup and set free access
+    if (PlatformFeatures.isIOSFreeAccess) {
+      debugPrint('HomePage: iOS user first launch - setting free access');
+      await _updatePremiumFlags(prefs, true);
+      setState(() => _isPremium = true);
+      _updatePages();
+      return;
+    }
 
     // Check if user already has premium or active trial
     final currentUser = AuthService.instance.currentUser;
@@ -1711,7 +1753,25 @@ class _ProfilePageState extends State<ProfilePage> {
   // Load premium status from database first, then SharedPreferences as fallback
   Future<void> loadPremiumStatus() async {
     try {
-      // Always check database first for authoritative data
+      // For iOS users, automatically set premium status to true (free access)
+      if (PlatformFeatures.isIOSFreeAccess) {
+        debugPrint('iOS user detected - setting free access');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_hasCompletedPaymentKey, true);
+        await prefs.setBool('is_subscribed', true);
+        await prefs.setBool('premium_features_enabled', true);
+        await prefs.setBool('is_premium_user', true);
+
+        if (mounted) {
+          setState(() {
+            _isPremium = true;
+          });
+          debugPrint('iOS user premium status set to true (free access)');
+        }
+        return;
+      }
+
+      // For Android users, check database first for authoritative data
       final currentUser = AuthService.instance.currentUser;
       final userEmail = currentUser?.email;
 
@@ -2245,6 +2305,73 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // Add a widget to show premium status in the profile page
   Widget _buildPremiumStatus() {
+    // For iOS users, show free access status instead of premium/trial
+    if (PlatformFeatures.isIOSFreeAccess) {
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        margin: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.green.shade200,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.green.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.green.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.check_circle,
+                color: Colors.green.shade700,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Free Access',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'All features are free for iOS users',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.green.shade700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // For Android users, show the original premium/trial status
     return FutureBuilder<bool>(
         future: _isUserOnTrial(),
         builder: (context, snapshot) {
@@ -2428,6 +2555,13 @@ class _ProfilePageState extends State<ProfilePage> {
   // Helper method to check if user is on trial - checks database first
   Future<bool> _isUserOnTrial() async {
     try {
+      // For iOS users, always return false (no trial needed for free access)
+      if (PlatformFeatures.isIOSFreeAccess) {
+        debugPrint(
+            'ProfilePage: iOS user - trial check returns false (free access)');
+        return false;
+      }
+
       // Get current user email for database check
       final currentUser = AuthService.instance.currentUser;
       final userEmail = currentUser?.email;
@@ -2479,6 +2613,12 @@ class _ProfilePageState extends State<ProfilePage> {
   // Helper method to get formatted trial end date - checks database first
   Future<String> _getTrialEndDate() async {
     try {
+      // For iOS users, return empty string (no trial end date needed)
+      if (PlatformFeatures.isIOSFreeAccess) {
+        debugPrint('ProfilePage: iOS user - no trial end date needed');
+        return '';
+      }
+
       // Get current user email for database check
       final currentUser = AuthService.instance.currentUser;
       final userEmail = currentUser?.email;
@@ -2552,6 +2692,20 @@ class _ProfilePageState extends State<ProfilePage> {
   // Method to show payment page when user wants to upgrade
   Future<void> _showPaymentPage() async {
     try {
+      // For iOS users, show message that all features are already free
+      if (PlatformFeatures.isIOSFreeAccess) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('All features are already free for iOS users!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
       final email = _userEmail ??
           AuthService.instance.currentUser?.email ??
           'user@example.com';

@@ -53,6 +53,9 @@ class PlatformFeatures {
     'advanced_planners': true,
     'export_features': true,
     'cloud_sync': true,
+
+    // iOS free access - all features free for iOS users
+    'ios_free_access': true,
   };
 
   /// Check if a feature is available on the current platform
@@ -100,6 +103,10 @@ class PlatformFeatures {
     }
   }
 
+  /// Check if iOS users get free access to all features
+  static bool get isIOSFreeAccess =>
+      isIOS && _featureFlags['ios_free_access'] == true;
+
   /// Get a list of available features for the current platform
   static List<String> getAvailableFeatures() {
     return _featureFlags.keys
@@ -130,6 +137,7 @@ class PlatformFeatures {
       'availableFeatures': getAvailableFeatures(),
       'hiddenFeatures': getHiddenFeatures(),
       'isMobile': isMobile,
+      'isIOSFreeAccess': isIOSFreeAccess,
     };
   }
 
@@ -137,6 +145,7 @@ class PlatformFeatures {
   static void debugPrintFeatures() {
     debugPrint('=== Platform Features Debug ===');
     debugPrint('Platform: ${isIOS ? "iOS" : isAndroid ? "Android" : "Web"}');
+    debugPrint('iOS Free Access: $isIOSFreeAccess');
     debugPrint('Available Features: ${getAvailableFeatures().join(", ")}');
     debugPrint('Hidden Features: ${getHiddenFeatures().join(", ")}');
     debugPrint('==============================');
