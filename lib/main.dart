@@ -2281,6 +2281,7 @@ class _ProfilePageState extends State<ProfilePage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
@@ -2331,19 +2332,23 @@ class _ProfilePageState extends State<ProfilePage> {
                               builder: (context, dateSnapshot) {
                                 final String trialEndDate =
                                     dateSnapshot.data ?? '';
-                                return Text(
-                                  _isPremium
-                                      ? (isOnTrial
-                                          ? 'Your trial ends on $trialEndDate'
-                                          : 'You have full access to all premium features')
-                                      : 'Upgrade to premium for full access',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: _isPremium
+                                return Flexible(
+                                  child: Text(
+                                    _isPremium
                                         ? (isOnTrial
-                                            ? Colors.amber.shade700
-                                            : Colors.blue.shade700)
-                                        : Colors.grey.shade600,
+                                            ? 'Your trial ends on $trialEndDate'
+                                            : 'You have full access to all premium features')
+                                        : 'Upgrade to premium for full access',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: _isPremium
+                                          ? (isOnTrial
+                                              ? Colors.amber.shade700
+                                              : Colors.blue.shade700)
+                                          : Colors.grey.shade600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 2,
                                   ),
                                 );
                               }),
@@ -2351,22 +2356,27 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     if (!_isPremium)
-                      ElevatedButton(
-                        onPressed: () => _showPaymentPage(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                      Flexible(
+                        child: ElevatedButton(
+                          onPressed: () => _showPaymentPage(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 0,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          'Upgrade',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
+                          child: const Text(
+                            'Upgrade',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),
@@ -2379,29 +2389,31 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        RichText(
-                          textAlign: TextAlign.center,
-                          text: TextSpan(
-                            style: TextStyle(
-                                fontSize: 13, color: Colors.grey[600]),
-                            children: [
-                              TextSpan(
-                                text: "Cancel",
-                                style: TextStyle(
-                                  color: Colors.blue,
-                                  decoration: TextDecoration.underline,
+                        Flexible(
+                          child: RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.grey[600]),
+                              children: [
+                                TextSpan(
+                                  text: "Cancel",
+                                  style: TextStyle(
+                                    color: Colors.blue,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap = () {
+                                      launchUrl(Uri.parse(
+                                          "https://play.google.com/store/account/subscriptions"));
+                                    },
                                 ),
-                                recognizer: TapGestureRecognizer()
-                                  ..onTap = () {
-                                    launchUrl(Uri.parse(
-                                        "https://play.google.com/store/account/subscriptions"));
-                                  },
-                              ),
-                              TextSpan(
-                                text:
-                                    " anytime, no charges after current billing cycle.",
-                              ),
-                            ],
+                                TextSpan(
+                                  text:
+                                      " anytime, no charges after current billing cycle.",
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],

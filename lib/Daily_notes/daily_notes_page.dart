@@ -1539,7 +1539,7 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                             _currentWidgetNoteId == note.id
                                 ? Icons.widgets
                                 : Icons.widgets_outlined,
-                            size: 18,
+                            size: 16,
                             color: _currentWidgetNoteId == note.id
                                 ? Colors.green.shade600
                                 : Colors.grey.shade600,
@@ -1550,15 +1550,18 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                           tooltip: _currentWidgetNoteId == note.id
                               ? 'Remove from widget'
                               : 'Add to widget',
-                          padding: const EdgeInsets.all(4),
-                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(2),
+                          constraints: const BoxConstraints(
+                            minWidth: 24,
+                            minHeight: 24,
+                          ),
                         ),
                         IconButton(
                           icon: Icon(
                             note.isPinned
                                 ? Icons.push_pin
                                 : Icons.push_pin_outlined,
-                            size: 18,
+                            size: 16,
                             color: note.isPinned
                                 ? Colors.orange.shade600
                                 : Colors.grey.shade600,
@@ -1576,13 +1579,16 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                             _saveNoteToDatabase(note);
                           },
                           tooltip: note.isPinned ? 'Unpin' : 'Pin',
-                          padding: const EdgeInsets.all(4),
-                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(2),
+                          constraints: const BoxConstraints(
+                            minWidth: 24,
+                            minHeight: 24,
+                          ),
                         ),
                         IconButton(
                           icon: Icon(
                             Icons.delete_outline,
-                            size: 18,
+                            size: 16,
                             color: Colors.red.shade400,
                           ),
                           onPressed: () {
@@ -1625,8 +1631,11 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
                             );
                           },
                           tooltip: 'Delete',
-                          padding: const EdgeInsets.all(4),
-                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(2),
+                          constraints: const BoxConstraints(
+                            minWidth: 24,
+                            minHeight: 24,
+                          ),
                         ),
                       ],
                     ),
