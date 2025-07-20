@@ -94,6 +94,139 @@ class SupabaseDatabaseService {
     }
   }
 
+  // Method to check if email already exists in Supabase Auth
+  Future<bool> _checkEmailExists(String email) async {
+    try {
+      debugPrint('🔍 Checking if email exists: $email');
+
+      // Check in auth.users table using admin query
+      final response = await _client
+          .from('auth.users')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+
+      final exists = response != null;
+      debugPrint('🔍 Email $email exists: $exists');
+      return exists;
+    } catch (e) {
+      debugPrint('🔍 Error checking email existence: $e');
+      // If we can't check, assume it doesn't exist to allow registration
+      return false;
+    }
+  }
+
+  // Method to check if username already exists in custom user table
+  Future<bool> _checkUsernameExists(String username) async {
+    try {
+      debugPrint('🔍 Checking if username exists: $username');
+
+      // Check in public.user table
+      final response = await _client
+          .from('user')
+          .select('id')
+          .eq('name', username)
+          .maybeSingle();
+
+      final exists = response != null;
+      debugPrint('🔍 Username $username exists: $exists');
+      return exists;
+    } catch (e) {
+      debugPrint('🔍 Error checking username existence: $e');
+      // If we can't check, assume it doesn't exist to allow registration
+      return false;
+    }
+  }
+
+  // Method to validate registration data before creating user
+  Future<Map<String, dynamic>> _validateRegistrationData({
+    required String username,
+    required String email,
+  }) async {
+    debugPrint(
+        '🔍 Validating registration data for: $email, username: $username');
+
+    // Check if email already exists
+    final emailExists = await _checkEmailExists(email);
+    if (emailExists) {
+      return _formatResponse(
+        success: false,
+        message:
+            'Email is already registered. Please use a different email or try signing in.',
+      );
+    }
+
+    // Check if username already exists
+    final usernameExists = await _checkUsernameExists(username);
+    if (usernameExists) {
+      return _formatResponse(
+        success: false,
+        message:
+            'Username is already taken. Please choose a different username.',
+      );
+    }
+
+    debugPrint('✅ Registration validation passed');
+    return _formatResponse(success: true);
+  }
+
+  // Public method to check username availability
+  Future<Map<String, dynamic>> checkUsernameAvailability(
+      String username) async {
+    try {
+      debugPrint('🔍 Checking username availability: $username');
+
+      final exists = await _checkUsernameExists(username);
+
+      if (exists) {
+        return _formatResponse(
+          success: false,
+          message:
+              'Username is already taken. Please choose a different username.',
+        );
+      } else {
+        return _formatResponse(
+          success: true,
+          message: 'Username is available',
+        );
+      }
+    } catch (e) {
+      debugPrint('🔍 Error checking username availability: $e');
+      return _formatResponse(
+        success: false,
+        message: 'Error checking username availability',
+      );
+    }
+  }
+
+  // Public method to check email availability
+  Future<Map<String, dynamic>> checkEmailAvailability(String email) async {
+    try {
+      debugPrint('🔍 Checking email availability: $email');
+
+      final exists = await _checkEmailExists(email);
+
+      if (exists) {
+        return _formatResponse(
+          success: false,
+          message:
+              'Email is already registered. Please use a different email or try signing in.',
+        );
+      } else {
+        return _formatResponse(
+          success: true,
+          message: 'Email is available',
+        );
+      }
+    } catch (e) {
+      debugPrint('🔍 Error checking email availability: $e');
+      return _formatResponse(
+        success: false,
+        message: 'Error checking email availability',
+      );
+    }
+  }
+
   // Method to register a new user with Supabase Auth
   Future<Map<String, dynamic>> registerUser({
     required String username,
@@ -104,6 +237,16 @@ class SupabaseDatabaseService {
         'SupabaseDatabaseService: Starting registration for email: $email');
 
     try {
+      // First validate the registration data
+      final validationResult = await _validateRegistrationData(
+        username: username,
+        email: email,
+      );
+
+      if (!validationResult['success']) {
+        return validationResult;
+      }
+
       // Create auth user with Supabase Auth (with web-based email confirmation)
       debugPrint(
           'SupabaseDatabaseService: Registering user with username: $username');
@@ -334,15 +477,15 @@ class SupabaseDatabaseService {
           'profile',
           'openid', // This is crucial for ID token
         ],
-        serverClientId: GoogleSignInConfig
-            .serverClientIdForGoogleSignIn, // Use platform-specific client ID with iOS fix
+        serverClientId:
+            '633982729642-l3rnsu8636ib9bf2gvbaqmahraomb9f0.apps.googleusercontent.com',
       );
 
       debugPrint('Google Sign-In configured with:');
-      debugPrint('- Platform: ${GoogleSignInConfig.currentPlatformName}');
+      debugPrint('- Platform: Android');
       debugPrint('- Scopes: ${googleSignIn.scopes}');
       debugPrint(
-          '- Server Client ID: ${GoogleSignInConfig.serverClientIdForGoogleSignIn ?? "null (iOS fix)"}');
+          '- Server Client ID: 633982729642-l3rnsu8636ib9bf2gvbaqmahraomb9f0.apps.googleusercontent.com');
 
       // Force sign out to clear any cached credentials
       try {
@@ -354,7 +497,17 @@ class SupabaseDatabaseService {
 
       // Attempt to sign in
       debugPrint('Attempting Google Sign-In...');
-      GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      debugPrint('Google Sign-In instance: $googleSignIn');
+
+      GoogleSignInAccount? googleUser;
+      try {
+        googleUser = await googleSignIn.signIn();
+        debugPrint('Google Sign-In attempt completed');
+      } catch (signInError) {
+        debugPrint('Google Sign-In error: $signInError');
+        debugPrint('Error type: ${signInError.runtimeType}');
+        rethrow;
+      }
 
       if (googleUser == null) {
         debugPrint('Google Sign-In cancelled by user');

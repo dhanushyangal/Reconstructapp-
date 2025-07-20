@@ -667,12 +667,13 @@ class _AnimalThemeCalendarAppState extends State<AnimalThemeCalendarApp>
         child: Stack(
           children: [
             Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 ClipRRect(
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(12)),
                   child: SizedBox(
-                    height: 114,
+                    height: 100,
                     child: Image.asset(
                       'assets/animal_calendar/animaltheme-${monthIndex + 1}.png',
                       width: double.infinity,
@@ -681,18 +682,17 @@ class _AnimalThemeCalendarAppState extends State<AnimalThemeCalendarApp>
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   month,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  height: 200,
+                const SizedBox(height: 2),
+                Expanded(
                   child: Padding(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -731,7 +731,8 @@ class _AnimalThemeCalendarAppState extends State<AnimalThemeCalendarApp>
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black87,
                   elevation: 4,
-                  child: const Icon(Icons.add, size: 14), // Optional: reduced elevation for better fit
+                  child: const Icon(Icons.add,
+                      size: 14), // Optional: reduced elevation for better fit
                 ),
               ),
             ),
@@ -755,7 +756,7 @@ class _AnimalThemeCalendarAppState extends State<AnimalThemeCalendarApp>
                   )))
               .toList(),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 8),
         Expanded(
           child: GridView.builder(
             shrinkWrap: true,
@@ -2686,76 +2687,79 @@ class _AnimalThemeCalendarAppState extends State<AnimalThemeCalendarApp>
           // Main content (even when loading, show at least the UI structure)
           showFullCalendar
               ? _buildFullCalendarView()
-              : Column(
-                  children: [
-                    Expanded(
-                      child: Screenshot(
-                        controller: screenshotController,
-                        child: Container(
-                          color: Colors.white,
-                          child: _isLoading
-                              ? Center(child: CircularProgressIndicator())
-                              : GridView.builder(
-                                  padding: const EdgeInsets.all(6),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    childAspectRatio: 0.55,
-                                    crossAxisSpacing: 6,
-                                    mainAxisSpacing: 6,
+              : SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Container(
+                        height: MediaQuery.of(context).size.height * 0.7,
+                        child: Screenshot(
+                          controller: screenshotController,
+                          child: Container(
+                            color: Colors.white,
+                            child: _isLoading
+                                ? Center(child: CircularProgressIndicator())
+                                : GridView.builder(
+                                    padding: const EdgeInsets.all(6),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      childAspectRatio: 0.55,
+                                      crossAxisSpacing: 6,
+                                      mainAxisSpacing: 6,
+                                    ),
+                                    itemCount: months.length,
+                                    itemBuilder: (context, index) =>
+                                        _buildMonthCard(months[index], index),
                                   ),
-                                  itemCount: months.length,
-                                  itemBuilder: (context, index) =>
-                                      _buildMonthCard(months[index], index),
-                                ),
-                        ),
-                      ),
-                    ),
-                    if (!_isLoading)
-                      Padding(
-                        padding: const EdgeInsets.only(
-                            left: 16.0, right: 16.0, bottom: 16.0),
-                        child: ElevatedButton.icon(
-                          onPressed: _takeScreenshotAndShare,
-                          icon: const Icon(Icons.share),
-                          label: const Text('Download Calendar'),
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 56),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(2),
-                            ),
                           ),
                         ),
                       ),
-                    if (!_isLoading)
-                      Padding(
-                        padding: const EdgeInsets.only(
-                            left: 16.0, right: 16.0, bottom: 8.0),
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final url =
-                                'https://youtube.com/shorts/IAeczaEygUM?feature=share';
-                            final uri = Uri.parse(url);
-                            if (!await launchUrl(uri,
-                                mode: LaunchMode.externalApplication)) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text(
-                                        'Could not open YouTube shorts: $url')),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.widgets),
-                          label: const Text('Add Widgets'),
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 56),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(2),
+                      if (!_isLoading)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                              left: 16.0, right: 16.0, bottom: 16.0),
+                          child: ElevatedButton.icon(
+                            onPressed: _takeScreenshotAndShare,
+                            icon: const Icon(Icons.share),
+                            label: const Text('Download Calendar'),
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 56),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                      if (!_isLoading)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                              left: 16.0, right: 16.0, bottom: 8.0),
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final url =
+                                  'https://youtube.com/shorts/IAeczaEygUM?feature=share';
+                              final uri = Uri.parse(url);
+                              if (!await launchUrl(uri,
+                                  mode: LaunchMode.externalApplication)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text(
+                                          'Could not open YouTube shorts: $url')),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.widgets),
+                            label: const Text('Add Widgets'),
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 56),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
 
           // Bottom loading indicator when refreshing data (not blocking the whole screen)

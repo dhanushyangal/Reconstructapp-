@@ -174,6 +174,45 @@ class AuthService extends ChangeNotifier {
 
   // Check if user is authenticated
   bool get isAuthenticated => _supabaseService.isAuthenticated;
+
+  // Check username availability
+  Future<Map<String, dynamic>> checkUsernameAvailability(
+      String username) async {
+    try {
+      debugPrint('🔍 AuthService: Checking username availability: $username');
+
+      // Use the Supabase service to check username availability
+      final result = await _supabaseService.checkUsernameAvailability(username);
+
+      debugPrint('🔍 AuthService: Username availability result: $result');
+      return result;
+    } catch (e) {
+      debugPrint('🔍 AuthService: Error checking username availability: $e');
+      return {
+        'success': false,
+        'message': 'Error checking username availability',
+      };
+    }
+  }
+
+  // Check email availability
+  Future<Map<String, dynamic>> checkEmailAvailability(String email) async {
+    try {
+      debugPrint('🔍 AuthService: Checking email availability: $email');
+
+      // Use the Supabase service to check email availability
+      final result = await _supabaseService.checkEmailAvailability(email);
+
+      debugPrint('🔍 AuthService: Email availability result: $result');
+      return result;
+    } catch (e) {
+      debugPrint('🔍 AuthService: Error checking email availability: $e');
+      return {
+        'success': false,
+        'message': 'Error checking email availability',
+      };
+    }
+  }
 }
 
 // Mock classes for compatibility with existing code

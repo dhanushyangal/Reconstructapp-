@@ -14,7 +14,6 @@ import '../Activity_Tools/sliding_puzzle_page.dart';
 import '../Activity_Tools/color_me_now.dart';
 import 'dart:convert';
 import '../vision_journey/vision-board-travel-journey.dart';
-import '../reset-emotions/reset-emotions-dashboard.dart';
 import '../district-my-mind/distract-my-mind-journey.dart';
 import '../utils/activity_tracker_mixin.dart';
 
@@ -135,7 +134,6 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
       {'name': 'Fun Calendars', 'image': 'assets/calendar.jpg'}
     ],
     'mind': [
-      {'name': 'Reset Emotions', 'image': 'assets/journey.png'},
       {
         'name': 'Thought Shredder',
         'image': 'assets/Mind_tools/thought-shredder.png'
@@ -275,7 +273,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
         spacing: 10,
         runSpacing: 10,
         children: [
-          _buildQuickLinkButton('Box breathing'),
+          _buildQuickLinkButton('Thought Shredder'),
           _buildQuickLinkButton('Coloring sheets'),
           _buildQuickLinkButton('Memory game', isNew: true),
           _buildQuickLinkButton('Sliding puzzle'),
@@ -291,10 +289,11 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
       onPressed: () {
         // Navigate based on the button text
         switch (text) {
-          case 'Box breathing':
-            // TODO: Add Box breathing page navigation when available
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Box breathing coming soon')),
+          case 'Thought Shredder':
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const ThoughtShredderPage()),
             );
             break;
           case 'Coloring sheets':
@@ -639,13 +638,6 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
   // Fix the onTap handler to use the existing methods again
   void _handleMindToolNavigation(String toolName) {
     switch (toolName) {
-      case 'Reset Emotions':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => const ResetEmotionsDashboard()),
-        );
-        break;
       case 'Thought Shredder':
         Navigator.push(
           context,
@@ -709,6 +701,5 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
     }
   }
 
-  @override
   String get pageName => 'Dashboard';
 }

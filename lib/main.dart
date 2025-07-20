@@ -1992,52 +1992,63 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ),
                                     ),
                                     const SizedBox(height: 16),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
+                                    Column(
                                       children: [
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 24, vertical: 12),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                          ),
-                                          onPressed: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const PlannersPage(),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 24,
+                                                      vertical: 12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                               ),
-                                            );
-                                          },
-                                          child: const Text('Explore Features'),
+                                            ),
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const PlannersPage(),
+                                                ),
+                                              );
+                                            },
+                                            child:
+                                                const Text('Explore Features'),
+                                          ),
                                         ),
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 24, vertical: 12),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            backgroundColor:
-                                                theme.colorScheme.primary,
-                                            foregroundColor: Colors.white,
-                                          ),
-                                          onPressed: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const UserSettingsPage(),
+                                        const SizedBox(height: 12),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 24,
+                                                      vertical: 12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                               ),
-                                            );
-                                          },
-                                          child: const Text('My Active Boards'),
+                                              backgroundColor:
+                                                  theme.colorScheme.primary,
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const UserSettingsPage(),
+                                                ),
+                                              );
+                                            },
+                                            child:
+                                                const Text('My Active Boards'),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -2344,6 +2355,7 @@ class _ProfilePageState extends State<ProfilePage> {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     'Free Access',
@@ -2436,6 +2448,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             _isPremium
@@ -2459,24 +2472,22 @@ class _ProfilePageState extends State<ProfilePage> {
                               builder: (context, dateSnapshot) {
                                 final String trialEndDate =
                                     dateSnapshot.data ?? '';
-                                return Flexible(
-                                  child: Text(
-                                    _isPremium
+                                return Text(
+                                  _isPremium
+                                      ? (isOnTrial
+                                          ? 'Your trial ends on $trialEndDate'
+                                          : 'You have full access to all premium features')
+                                      : 'Upgrade to premium for full access',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: _isPremium
                                         ? (isOnTrial
-                                            ? 'Your trial ends on $trialEndDate'
-                                            : 'You have full access to all premium features')
-                                        : 'Upgrade to premium for full access',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: _isPremium
-                                          ? (isOnTrial
-                                              ? Colors.amber.shade700
-                                              : Colors.blue.shade700)
-                                          : Colors.grey.shade600,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 2,
+                                            ? Colors.amber.shade700
+                                            : Colors.blue.shade700)
+                                        : Colors.grey.shade600,
                                   ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
                                 );
                               }),
                         ],

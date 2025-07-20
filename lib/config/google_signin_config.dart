@@ -6,13 +6,9 @@ class GoogleSignInConfig {
   static const String webClientId =
       '633982729642-l3rnsu8636ib9bf2gvbaqmahraomb9f0.apps.googleusercontent.com';
 
-  // Android client ID (updated from GoogleService-Info.plist)
+  // Android client ID (from strings.xml)
   static const String androidClientId =
-      '633982729642-h1n9cc07ut6515sefpbtr7vbu74gh1vr.apps.googleusercontent.com';
-
-  // iOS client ID (real one from GoogleService-Info.plist)
-  static const String iosClientId =
-      '633982729642-p8p5svhsbuu6g18kmk8agshb5j92amkf.apps.googleusercontent.com';
+      '633982729642-4lotqibb3rnglifn79rt0ibjorg40oib.apps.googleusercontent.com';
 
   static const String projectId = 'recostrect3';
 
@@ -28,33 +24,9 @@ class GoogleSignInConfig {
       return webClientId;
     } else if (Platform.isAndroid) {
       return androidClientId;
-    } else if (Platform.isIOS) {
-      // Use proper iOS client ID instead of web client ID
-      return iosClientId;
     } else {
-      // For other platforms, use web client ID as fallback
+      // For iOS and other platforms, use web client ID
       return webClientId;
     }
-  }
-
-  // UPDATED: Use the real iOS client ID for Google Sign-In
-  static String? get serverClientIdForGoogleSignIn {
-    if (Platform.isIOS) {
-      // Use the real iOS client ID for proper OAuth flow
-      return iosClientId;
-    } else if (Platform.isAndroid) {
-      return androidClientId;
-    } else if (kIsWeb) {
-      return webClientId;
-    }
-    return null;
-  }
-
-  // Get the current platform name for debugging
-  static String get currentPlatformName {
-    if (kIsWeb) return 'Web';
-    if (Platform.isAndroid) return 'Android';
-    if (Platform.isIOS) return 'iOS';
-    return 'Other';
   }
 }

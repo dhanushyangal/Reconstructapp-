@@ -24,7 +24,181 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
+  bool _isValidatingUsername = false;
+  bool _isValidatingEmail = false;
+  String? _usernameError;
+  String? _emailError;
+  String? _passwordError;
   final AuthService _authService = AuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Add listeners for real-time validation
+    _usernameController.addListener(_validateUsername);
+    _emailController.addListener(_validateEmail);
+    _passwordController.addListener(_validatePassword);
+    _confirmPasswordController.addListener(_validatePassword);
+  }
+
+  // Real-time username validation
+  Future<void> _validateUsername() async {
+    final username = _usernameController.text.trim();
+
+    if (username.isEmpty) {
+      setState(() {
+        _usernameError = null;
+        _isValidatingUsername = false;
+      });
+      return;
+    }
+
+    if (username.length < 3) {
+      setState(() {
+        _usernameError = 'Username must be at least 3 characters long';
+        _isValidatingUsername = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isValidatingUsername = true;
+      _usernameError = null;
+    });
+
+    try {
+      // Add a small delay to avoid too many requests
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (_usernameController.text.trim() != username) {
+        // User has typed more, skip this validation
+        return;
+      }
+
+      final result = await _authService.checkUsernameAvailability(username);
+
+      if (mounted) {
+        setState(() {
+          _isValidatingUsername = false;
+          if (!result['success']) {
+            _usernameError = result['message'];
+          } else {
+            _usernameError = null;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isValidatingUsername = false;
+          _usernameError = 'Error checking username availability';
+        });
+      }
+    }
+  }
+
+  // Real-time email validation
+  Future<void> _validateEmail() async {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty) {
+      setState(() {
+        _emailError = null;
+        _isValidatingEmail = false;
+      });
+      return;
+    }
+
+    // Basic email format validation
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      setState(() {
+        _emailError = 'Please enter a valid email address';
+        _isValidatingEmail = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isValidatingEmail = true;
+      _emailError = null;
+    });
+
+    try {
+      // Add a small delay to avoid too many requests
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (_emailController.text.trim() != email) {
+        // User has typed more, skip this validation
+        return;
+      }
+
+      final result = await _authService.checkEmailAvailability(email);
+
+      if (mounted) {
+        setState(() {
+          _isValidatingEmail = false;
+          if (!result['success']) {
+            _emailError = result['message'];
+          } else {
+            _emailError = null;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isValidatingEmail = false;
+          _emailError = 'Error checking email availability';
+        });
+      }
+    }
+  }
+
+  // Real-time password validation
+  void _validatePassword() {
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (password.isEmpty && confirmPassword.isEmpty) {
+      setState(() {
+        _passwordError = null;
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      setState(() {
+        _passwordError = 'Password must be at least 6 characters long';
+      });
+      return;
+    }
+
+    if (confirmPassword.isNotEmpty && password != confirmPassword) {
+      setState(() {
+        _passwordError = 'Passwords do not match';
+      });
+      return;
+    }
+
+    setState(() {
+      _passwordError = null;
+    });
+  }
+
+  // Check if the form is valid for submission
+  bool _isFormValid() {
+    return !_isLoading &&
+        !_isValidatingUsername &&
+        !_isValidatingEmail &&
+        _usernameError == null &&
+        _emailError == null &&
+        _passwordError == null &&
+        _usernameController.text.trim().isNotEmpty &&
+        _emailController.text.trim().isNotEmpty &&
+        _passwordController.text.isNotEmpty &&
+        _confirmPasswordController.text.isNotEmpty;
+  }
 
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoading = true);
@@ -68,12 +242,8 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _handleRegistration() async {
-    if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
-      return;
-    }
+    // Password validation is now handled in real-time
+    // The form validation ensures passwords match and meet requirements
 
     setState(() => _isLoading = true);
     debugPrint('Attempting registration for email: ${_emailController.text}');
@@ -206,6 +376,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   void dispose() {
+    _usernameController.removeListener(_validateUsername);
+    _emailController.removeListener(_validateEmail);
+    _passwordController.removeListener(_validatePassword);
+    _confirmPasswordController.removeListener(_validatePassword);
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -309,6 +483,21 @@ class _RegisterPageState extends State<RegisterPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     prefixIcon: const Icon(Icons.person_outline),
+                    suffixIcon: _isValidatingUsername
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : _usernameError == null &&
+                                _usernameController.text.isNotEmpty
+                            ? const Icon(Icons.check_circle,
+                                color: Colors.green)
+                            : null,
+                    errorText: _usernameError,
                   ),
                 ),
 
@@ -322,6 +511,21 @@ class _RegisterPageState extends State<RegisterPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     prefixIcon: const Icon(Icons.email_outlined),
+                    suffixIcon: _isValidatingEmail
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : _emailError == null &&
+                                _emailController.text.isNotEmpty
+                            ? const Icon(Icons.check_circle,
+                                color: Colors.green)
+                            : null,
+                    errorText: _emailError,
                   ),
                 ),
 
@@ -336,6 +540,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     prefixIcon: const Icon(Icons.lock_outline),
+                    errorText: _passwordError,
                   ),
                 ),
 
@@ -350,6 +555,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     prefixIcon: const Icon(Icons.lock_outline),
+                    errorText: _passwordError,
                   ),
                 ),
 
@@ -365,7 +571,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: _isLoading ? null : _handleRegistration,
+                  onPressed: _isFormValid() ? _handleRegistration : null,
                   child: _isLoading
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.center,
