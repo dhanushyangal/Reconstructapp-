@@ -729,10 +729,17 @@ class SupabaseDatabaseService {
         );
       } else if (e.toString().contains('Unacceptable audience')) {
         return _formatResponse(
-            success: false,
-            message: 'Supabase Google provider not configured properly.\n\n'
-                'REQUIRED STEPS:\n\n'
-                '1. Go to Supabase Dashboard → Authentication → Providers\n');
+          success: false,
+          message: 'Supabase Google provider not configured properly.\n\n'
+              'REQUIRED STEPS:\n\n'
+              '1. Go to Supabase Dashboard → Authentication → Providers\n'
+              '2. Enable Google provider and configure:\n'
+              '   • Client ID: ${GoogleSignInConfig.currentPlatformClientId}\n'
+              '   • Client Secret: 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\n'
+              '   • Redirect URL: https://ruxsfzvrumqxsvanbbow.supabase.co/auth/v1/callback\n\n'
+              'This will allow users to appear in Supabase Authentication dashboard.\n\n'
+              'Error: $e',
+        );
       }
 
       return _formatResponse(
