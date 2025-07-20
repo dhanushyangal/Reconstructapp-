@@ -477,15 +477,13 @@ class SupabaseDatabaseService {
           'profile',
           'openid', // This is crucial for ID token
         ],
-        serverClientId:
-            '633982729642-l3rnsu8636ib9bf2gvbaqmahraomb9f0.apps.googleusercontent.com',
+        serverClientId: GoogleSignInConfig.webClientId,
       );
 
       debugPrint('Google Sign-In configured with:');
-      debugPrint('- Platform: Android');
+      debugPrint('- Platform: ${GoogleSignInConfig.currentPlatformClientId}');
       debugPrint('- Scopes: ${googleSignIn.scopes}');
-      debugPrint(
-          '- Server Client ID: 633982729642-l3rnsu8636ib9bf2gvbaqmahraomb9f0.apps.googleusercontent.com');
+      debugPrint('- Server Client ID: ${GoogleSignInConfig.webClientId}');
 
       // Force sign out to clear any cached credentials
       try {
