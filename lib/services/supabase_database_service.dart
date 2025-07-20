@@ -481,9 +481,9 @@ class SupabaseDatabaseService {
       );
 
       debugPrint('Google Sign-In configured with:');
-      debugPrint('- Platform: ${GoogleSignInConfig.currentPlatformClientId}');
+      debugPrint('- Platform: [CONFIGURED]');
       debugPrint('- Scopes: ${googleSignIn.scopes}');
-      debugPrint('- Server Client ID: ${GoogleSignInConfig.webClientId}');
+      debugPrint('- Server Client ID: [CONFIGURED]');
 
       // Force sign out to clear any cached credentials
       try {
@@ -723,7 +723,7 @@ class SupabaseDatabaseService {
               '3. Go to APIs & Services → Credentials\n'
               '4. Find your OAuth 2.0 client ID\n'
               '5. Make sure it\'s configured as "Web application" type\n'
-              '6. Ensure the client ID matches: ${GoogleSignInConfig.webClientId}\n\n'
+              '6. Ensure the client ID matches: [CONFIGURED]\n\n'
               'If the client ID is for "Android" type, you need to create a separate "Web application" client ID for ID tokens.\n\n'
               'Error: $e',
         );
@@ -734,7 +734,7 @@ class SupabaseDatabaseService {
               'REQUIRED STEPS:\n\n'
               '1. Go to Supabase Dashboard → Authentication → Providers\n'
               '2. Enable Google provider and configure:\n'
-              '   • Client ID: ${GoogleSignInConfig.currentPlatformClientId}\n'
+              '   • Client ID: [CONFIGURED]\n'
               '   • Client Secret: [YOUR_CLIENT_SECRET_HERE]\n'
               '   • Redirect URL: https://ruxsfzvrumqxsvanbbow.supabase.co/auth/v1/callback\n\n'
               'This will allow users to appear in Supabase Authentication dashboard.\n\n'
