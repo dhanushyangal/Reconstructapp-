@@ -123,6 +123,27 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Sign in with Apple
+  Future<dynamic> signInWithApple() async {
+    try {
+      final result = await _supabaseService.signInWithApple();
+
+      if (result['success'] == true) {
+        _userData = result['user'];
+        debugPrint('AuthService: Apple sign-in successful');
+        notifyListeners();
+
+        // Return a mock user credential for compatibility
+        return MockUserCredential(result['user']);
+      } else {
+        return null;
+      }
+    } catch (e) {
+      debugPrint('AuthService: Apple sign-in error: $e');
+      return null;
+    }
+  }
+
   // Register new user
   Future<Map<String, dynamic>> registerUser({
     required String username,

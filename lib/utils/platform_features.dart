@@ -22,6 +22,7 @@ class PlatformFeatures {
     'weekly_planner': true,
     'mind_tools_section': true,
     'google_sign_in': true, // Available on both platforms by default
+    'apple_sign_in': true, // Available only on iOS
 
     // Features available only on Android
     'android_widgets': true,
@@ -75,6 +76,7 @@ class PlatformFeatures {
       case 'make_me_smile':
       case 'add_widgets': // Hide Add Widgets on iOS
       case 'google_sign_in': // Hide Google Sign-In on iOS
+      case 'apple_sign_in': // Only show Apple Sign-In on iOS
         return isAndroid; // Only show on Android
 
       // Features hidden on Android
