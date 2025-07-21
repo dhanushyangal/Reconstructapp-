@@ -51,23 +51,13 @@
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
 	</dict>
-	
-	<!-- Local Network permissions -->
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>This app needs local network access for debugging and development purposes.</string>
 	
 	<!-- Camera and Photo Library permissions (for image features) -->
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to take photos for notes and vision boards.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs photo library access to select images for notes and vision boards.</string>
-	
-	<!-- Microphone permission (if audio features are used) -->
-	<key>NSMicrophoneUsageDescription</key>
-	<string>This app may use microphone for audio features.</string>
 	
 	<!-- Google Sign-In URL Schemes -->
 	<key>CFBundleURLTypes</key>
@@ -90,24 +80,6 @@
 				<string>reconstrect</string>
 			</array>
 		</dict>
-	</array>
-	
-	<!-- Background modes for notifications and background processing -->
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>background-processing</string>
-		<string>background-fetch</string>
-	</array>
-	
-	<!-- Google Services configuration -->
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>googlegmail</string>
-		<string>googlemail</string>
-		<string>googledrive</string>
-		<string>googleplus</string>
-		<string>googlechromes</string>
-		<string>googlechrome</string>
 	</array>
 	
 	<!-- Prevent automatic backup of sensitive data -->
