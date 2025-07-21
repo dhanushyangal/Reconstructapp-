@@ -4,7 +4,6 @@ import 'register_page.dart';
 import '../services/auth_service.dart';
 import 'google_confirmation_page.dart';
 import '../utils/platform_features.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class InitialAuthPage extends StatefulWidget {
   const InitialAuthPage({super.key});
@@ -28,55 +27,6 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Google sign in cancelled or failed')),
-        );
-      } else {
-        if (!context.mounted) return;
-
-        // Show confirmation page
-        final user = userCredential.user!;
-        final displayName = user.displayName ?? 'User';
-        final initial = displayName[0].toUpperCase();
-
-        if (!context.mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => GoogleConfirmationPage(
-              email: user.email!,
-              displayName: displayName,
-              initial: initial,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _handleAppleSignIn(BuildContext context) async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final userCredential = await _authService.signInWithApple();
-      if (userCredential == null) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Apple sign in cancelled or failed')),
         );
       } else {
         if (!context.mounted) return;
@@ -152,20 +102,6 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
-
-                  // Conditionally show Apple Sign In (iOS only)
-                  PlatformFeatureWidget(
-                    featureName: 'apple_sign_in',
-                    child: Column(
-                      children: [
-                        SignInWithAppleButton(
-                          onPressed: _isLoading ? null : () => _handleAppleSignIn(context),
-                          style: SignInWithAppleButtonStyle.black,
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-                  ),
 
                   // Google Sign In Button - Only show on Android
                   PlatformFeatureWidget(

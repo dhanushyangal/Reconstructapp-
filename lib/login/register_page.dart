@@ -5,7 +5,6 @@ import '../services/auth_service.dart';
 import 'google_confirmation_page.dart';
 import 'verification_completion_page.dart';
 import '../utils/platform_features.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class RegisterPage extends StatefulWidget {
   final bool showGoogleSignIn;
@@ -242,46 +241,6 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  Future<void> _handleAppleSignIn() async {
-    setState(() => _isLoading = true);
-    try {
-      final userCredential = await _authService.signInWithApple();
-      if (userCredential == null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Apple sign in cancelled or failed')),
-        );
-      } else if (mounted && userCredential != null) {
-        // Show confirmation page
-        final user = userCredential.user;
-        if (user == null) return;
-        final displayName = user.displayName ?? 'User';
-        final initial = displayName[0].toUpperCase();
-
-        if (!context.mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => GoogleConfirmationPage(
-              email: user.email!,
-              displayName: displayName,
-              initial: initial,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
   Future<void> _handleRegistration() async {
     // Password validation is now handled in real-time
     // The form validation ensures passwords match and meet requirements
@@ -484,15 +443,6 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
                 ),
-
-                // Conditionally show Apple Sign In (iOS only)
-                if (PlatformFeatures.isFeatureAvailable('apple_sign_in')) ...[
-                  SignInWithAppleButton(
-                    onPressed: _isLoading ? null : _handleAppleSignIn,
-                    style: SignInWithAppleButtonStyle.black,
-                  ),
-                  const SizedBox(height: 16),
-                ],
 
                 // Show divider only if Google Sign-In is available
                 PlatformFeatureWidget(

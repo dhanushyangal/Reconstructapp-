@@ -6,7 +6,6 @@ import '../config/google_signin_config.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class SupabaseDatabaseService {
   // Supabase client instance
@@ -746,84 +745,6 @@ class SupabaseDatabaseService {
       return _formatResponse(
         success: false,
         message: 'Google Sign-In failed: $e',
-      );
-    }
-  }
-
-  // Method for Apple Sign-In with Supabase
-  Future<Map<String, dynamic>> signInWithApple() async {
-    debugPrint('SupabaseDatabaseService: Starting Apple Sign-In');
-    try {
-      // Request Apple credentials
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
-
-      final idToken = credential.identityToken;
-      final accessToken = credential.authorizationCode;
-
-      if (idToken == null || accessToken == null) {
-        return _formatResponse(
-          success: false,
-          message: 'Apple Sign-In failed: Missing token(s)',
-        );
-      }
-
-      debugPrint('Apple Sign-In tokens obtained successfully');
-      debugPrint('Attempting Supabase authentication...');
-
-      final supabase.AuthResponse response =
-          await _client.auth.signInWithIdToken(
-        provider: supabase.OAuthProvider.apple,
-        idToken: idToken,
-        accessToken: accessToken,
-      );
-
-      if (response.user != null) {
-        debugPrint('Supabase authentication successful for Apple user: ${response.user!.email}');
-        debugPrint('Supabase user ID: ${response.user!.id}');
-        debugPrint('User metadata: ${response.user!.userMetadata}');
-
-        final userData = {
-          'id': response.user!.id,
-          'email': response.user!.email,
-          'username': response.user!.userMetadata?['full_name'] ??
-              response.user!.userMetadata?['name'] ??
-              credential.givenName ??
-              response.user!.email!.split('@')[0],
-          'name': response.user!.userMetadata?['full_name'] ??
-              response.user!.userMetadata?['name'] ??
-              credential.givenName ??
-              response.user!.email!.split('@')[0],
-          'supabase_uid': response.user!.id,
-          'is_premium': false,
-          'profile_image_url': null, // Apple does not provide profile image
-          'apple_user_id': credential.userIdentifier,
-        };
-
-        debugPrint('Apple Sign-In completed successfully');
-        return _formatResponse(
-          success: true,
-          message: 'Apple Sign-In successful',
-          user: userData,
-          token: response.session?.accessToken,
-        );
-      } else {
-        debugPrint('Supabase authentication failed - no user returned');
-        return _formatResponse(
-          success: false,
-          message: 'Apple Sign-In failed - no user returned from Supabase',
-        );
-      }
-    } catch (e) {
-      debugPrint('Error in Apple Sign-In: $e');
-      debugPrint('Error type: ${e.runtimeType}');
-      return _formatResponse(
-        success: false,
-        message: 'Apple Sign-In failed: $e',
       );
     }
   }
