@@ -59,29 +59,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs photo library access to select images for notes and vision boards.</string>
 	
-	<!-- Google Sign-In URL Schemes -->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>google</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<!-- Google OAuth client ID for iOS (reversed) -->
-				<string>com.googleusercontent.apps.633982729642-p8p5svhsbuu6g18kmk8agshb5j92amkf</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>reconstrect</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<!-- Deep link scheme for app -->
-				<string>reconstrect</string>
-			</array>
-		</dict>
-	</array>
-	
+
 	<!-- Prevent automatic backup of sensitive data -->
 	<key>NSSupportsAutomaticTermination</key>
 	<false/>
