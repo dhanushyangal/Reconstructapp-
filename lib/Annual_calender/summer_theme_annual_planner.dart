@@ -21,6 +21,8 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'dart:math';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
+import '../utils/platform_features.dart';
+import '../pages/active_tasks_page.dart';
 
 class SummerThemeCalendarApp extends StatefulWidget {
   final int monthIndex;
@@ -2810,9 +2812,13 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
                         padding: const EdgeInsets.only(
                             left: 16.0, right: 16.0, bottom: 16.0),
                         child: ElevatedButton.icon(
-                          onPressed: _takeScreenshotAndShare,
-                          icon: const Icon(Icons.share),
-                          label: const Text('Download Calendar'),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
+                            );
+                          },
+                          icon: const Icon(Icons.save),
+                          label: const Text('Save Calendar'),
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 56),
                             shape: RoundedRectangleBorder(
@@ -2821,7 +2827,7 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
                           ),
                         ),
                       ),
-                    if (!_isLoading)
+                    if (PlatformFeatures.isFeatureAvailable('add_widgets'))
                       Padding(
                         padding: const EdgeInsets.only(
                             left: 16.0, right: 16.0, bottom: 8.0),

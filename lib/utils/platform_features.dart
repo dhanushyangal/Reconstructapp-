@@ -44,6 +44,7 @@ class PlatformFeatures {
     'bubble_wrap_popper': true, // Set to false to hide on iOS
     'thought_shredder': true, // Set to false to hide on iOS
     'make_me_smile': true, // Set to false to hide on iOS
+    'add_widgets': true, // Set to false to hide on iOS
 
     // Features to hide on Android (examples)
     'ios_specific_feature': false, // Set to true to show only on iOS
@@ -72,6 +73,7 @@ class PlatformFeatures {
       case 'bubble_wrap_popper':
       case 'thought_shredder':
       case 'make_me_smile':
+      case 'add_widgets': // Hide Add Widgets on iOS
       case 'google_sign_in': // Hide Google Sign-In on iOS
         return isAndroid; // Only show on Android
 

@@ -59,7 +59,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs photo library access to select images for notes and vision boards.</string>
 	
-
+	
 	<!-- Prevent automatic backup of sensitive data -->
 	<key>NSSupportsAutomaticTermination</key>
 	<false/>

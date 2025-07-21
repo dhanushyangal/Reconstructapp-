@@ -10,9 +10,11 @@ import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
+import '../pages/active_tasks_page.dart';
 
 import '../services/weekly_planner_service.dart';
 import '../services/user_service.dart';
+import '../utils/platform_features.dart';
 
 class TodoItem {
   String text;
@@ -531,34 +533,39 @@ class _WatercolorThemeWeeklyPlannerState
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final url =
-                        'https://youtube.com/shorts/IAeczaEygUM?feature=share';
-                    final uri = Uri.parse(url);
-                    if (!await launchUrl(uri,
-                        mode: LaunchMode.externalApplication)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content:
-                                Text('Could not open YouTube shorts: $url')),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.widgets),
-                  label: const Text('Add Widgets'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                if (PlatformFeatures.isFeatureAvailable('add_widgets'))
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final url =
+                          'https://youtube.com/shorts/IAeczaEygUM?feature=share';
+                      final uri = Uri.parse(url);
+                      if (!await launchUrl(uri,
+                          mode: LaunchMode.externalApplication)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content:
+                                  Text('Could not open YouTube shorts: $url')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.widgets),
+                    label: const Text('Add Widgets'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: _takeScreenshotAndShare,
-                  icon: const Icon(Icons.share),
-                  label: const Text('Share Weekly Planner'),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
+                    );
+                  },
+                  icon: const Icon(Icons.save),
+                  label: const Text('Save Weekly Planner'),
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 56),
                     shape: RoundedRectangleBorder(

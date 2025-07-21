@@ -14,6 +14,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../services/user_service.dart';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
+import '../utils/platform_features.dart';
+import '../pages/active_tasks_page.dart';
 
 class HappyCoupleThemeCalendarApp extends StatefulWidget {
   final int monthIndex;
@@ -1101,40 +1103,45 @@ class _HappyCoupleThemeCalendarAppState
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(
-                          left: 16.0, right: 16.0, top: 16.0, bottom: 8.0),
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final url =
-                              'https://youtube.com/shorts/IAeczaEygUM?feature=share';
-                          final uri = Uri.parse(url);
-                          if (!await launchUrl(uri,
-                              mode: LaunchMode.externalApplication)) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      'Could not open YouTube shorts: $url')),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.widgets),
-                        label: const Text('Add Widgets'),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 56),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(2),
+                    if (PlatformFeatures.isFeatureAvailable('add_widgets'))
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            left: 16.0, right: 16.0, top: 16.0, bottom: 8.0),
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final url =
+                                'https://youtube.com/shorts/IAeczaEygUM?feature=share';
+                            final uri = Uri.parse(url);
+                            if (!await launchUrl(uri,
+                                mode: LaunchMode.externalApplication)) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(
+                                        'Could not open YouTube shorts: $url')),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.widgets),
+                          label: const Text('Add Widgets'),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 56),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                         ),
                       ),
-                    ),
                     Padding(
                       padding: const EdgeInsets.only(
                           left: 16.0, right: 16.0, bottom: 16.0),
                       child: ElevatedButton.icon(
-                        onPressed: _takeScreenshotAndShare,
-                        icon: const Icon(Icons.share),
-                        label: const Text('Download Calendar'),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
+                          );
+                        },
+                        icon: const Icon(Icons.save),
+                        label: const Text('Save Calendar'),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 56),
                           shape: RoundedRectangleBorder(

@@ -12,6 +12,8 @@ import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
+import '../utils/platform_features.dart';
+import 'active_tasks_page.dart';
 
 class TodoItem {
   String id;
@@ -642,43 +644,47 @@ class _RubyRedsThemeVisionBoardState extends State<RubyRedsThemeVisionBoard>
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
+                if (PlatformFeatures.isFeatureAvailable('add_widgets'))
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final url =
+                          'https://youtube.com/shorts/IAeczaEygUM?feature=share';
+                      final uri = Uri.parse(url);
+                      if (!await launchUrl(uri,
+                          mode: LaunchMode.externalApplication)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text('Could not open YouTube shorts: $url')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.widgets, color: Colors.blue),
+                    label: const Text(
+                      'Add Widgets',
+                      style: TextStyle(fontSize: 18, color: Colors.blue),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                      minimumSize: const Size(double.infinity, 56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () async {
-                    final url =
-                        'https://youtube.com/shorts/IAeczaEygUM?feature=share';
-                    final uri = Uri.parse(url);
-                    if (!await launchUrl(uri,
-                        mode: LaunchMode.externalApplication)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content:
-                                Text('Could not open YouTube shorts: $url')),
-                      );
-                    }
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
+                    );
                   },
-                  icon: const Icon(Icons.widgets, color: Colors.blue),
+                  icon: const Icon(Icons.save, color: Colors.blue),
                   label: const Text(
-                    'Add Widgets',
+                    'Save Vision Board',
                     style: TextStyle(fontSize: 18, color: Colors.blue),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color.fromARGB(255, 255, 255, 255),
-                    minimumSize: const Size(double.infinity, 56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _takeScreenshotAndShare,
-                  icon: const Icon(Icons.share, color: Colors.blue),
-                  label: const Text(
-                    'Share Vision Board',
-                    style: TextStyle(fontSize: 18, color: Colors.blue),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color.fromARGB(255, 255, 255, 255),
                     minimumSize: const Size(double.infinity, 56),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
