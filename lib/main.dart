@@ -522,12 +522,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _handleMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'openDailyNotes':
-        final args = call.arguments as Map<dynamic, dynamic>? ?? {};
-        final createNew = args['create_new'] as bool? ?? false;
-
         // Navigate to Daily Notes page
         if (mounted) {
-          Navigator.pushNamed(context, DailyNotesPage.routeName);
+          Navigator.pushNamed(context, DailyNotesPage.routeName,
+              arguments: {'create_new': true});
         }
         break;
       default:
@@ -2099,6 +2097,24 @@ class _ProfilePageState extends State<ProfilePage> {
                                 label: const Text('Sign Out'),
                               ),
                             ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red[900],
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: _deleteAccount,
+                                icon: const Icon(Icons.delete_forever),
+                                label: const Text('Delete Account'),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -2186,6 +2202,260 @@ class _ProfilePageState extends State<ProfilePage> {
             SnackBar(
               content: Text('Error signing out: $e'),
               backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    // Show a more serious confirmation dialog for account deletion
+    bool confirm = await showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text(
+                'Delete Account',
+                style:
+                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Are you sure you want to delete your account?',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'This action will:',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('• Permanently delete all your data'),
+                  const Text('• Remove all your vision boards and tasks'),
+                  const Text('• Delete your activity history'),
+                  const Text('• Cancel any active subscriptions'),
+                  const Text('• Sign you out of the application'),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'This action cannot be undone.',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your account and all data will be permanently deleted from our system.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Continue'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (confirm) {
+      // Show email confirmation dialog
+      final TextEditingController emailController = TextEditingController();
+      bool emailConfirmed = await showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text(
+                  'Confirm Email Address',
+                  style:
+                      TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'To delete your account, please enter your email address:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _userEmail ?? 'No email available',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Enter your email address',
+                        border: OutlineInputBorder(),
+                        hintText: 'example@email.com',
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'This is your final confirmation. Once you proceed, your account will be permanently deleted.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red[600],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      final enteredEmail = emailController.text.trim();
+                      final userEmail = _userEmail?.trim();
+
+                      if (enteredEmail.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please enter your email address'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (enteredEmail.toLowerCase() !=
+                          userEmail?.toLowerCase()) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Email address does not match'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      Navigator.of(context).pop(true);
+                    },
+                    child: const Text('Delete Account'),
+                  ),
+                ],
+              );
+            },
+          ) ??
+          false;
+
+      if (!emailConfirmed) {
+        return; // User cancelled the email confirmation
+      }
+
+      try {
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return const AlertDialog(
+              content: Row(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(width: 16),
+                  Text('Deleting your account...'),
+                ],
+              ),
+            );
+          },
+        );
+
+        // Clear local data first
+        await _clearProfileData();
+
+        // Clear database service cached data
+        await DatabaseService.instance.clearUserData();
+
+        // Clear user service data
+        await UserService.instance.clearUserInfo();
+
+        // Delete account from AuthService
+        final result = await _authService.deleteAccount();
+
+        // Close loading dialog
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+
+        if (result['success'] == true) {
+          debugPrint('Account deleted successfully');
+
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Account and all data deleted successfully'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+
+          // Navigate to auth wrapper
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/auth', (route) => false);
+        } else {
+          // Show error message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to delete account: ${result['message']}'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 5),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        // Close loading dialog if still open
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting account: $e'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
             ),
           );
         }

@@ -164,6 +164,33 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Delete account
+  Future<Map<String, dynamic>> deleteAccount() async {
+    try {
+      debugPrint('AuthService: Starting account deletion');
+
+      // Delete account from Supabase
+      final result = await _supabaseService.deleteAccount();
+
+      if (result['success'] == true) {
+        _userData = null;
+        debugPrint('AuthService: Account deleted successfully');
+        notifyListeners();
+      } else {
+        debugPrint(
+            'AuthService: Account deletion failed: ${result['message']}');
+      }
+
+      return result;
+    } catch (e) {
+      debugPrint('AuthService: Delete account error: $e');
+      return {
+        'success': false,
+        'message': 'Failed to delete account: $e',
+      };
+    }
+  }
+
   // Get auth token
   String? get authToken => _supabaseService.authToken;
 
