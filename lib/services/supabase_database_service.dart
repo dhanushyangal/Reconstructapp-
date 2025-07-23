@@ -2,10 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../config/supabase_config.dart';
-import '../config/google_signin_config.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 
 class SupabaseDatabaseService {
   // Supabase client instance
@@ -464,290 +463,8 @@ class SupabaseDatabaseService {
   }
 
   // Method for Google Sign-In with Supabase
-  Future<Map<String, dynamic>> signInWithGoogle() async {
-    debugPrint('SupabaseDatabaseService: Starting Google Sign-In');
-
-    try {
-      // Configure Google Sign-In with proper settings for ID token
-      debugPrint('Configuring Google Sign-In for ID token...');
-
-      GoogleSignIn googleSignIn = GoogleSignIn(
-        scopes: [
-          'email',
-          'profile',
-          'openid', // This is crucial for ID token
-        ],
-        serverClientId: GoogleSignInConfig.webClientId,
-      );
-
-      debugPrint('Google Sign-In configured with:');
-      debugPrint('- Platform: [CONFIGURED]');
-      debugPrint('- Scopes: ${googleSignIn.scopes}');
-      debugPrint('- Server Client ID: [CONFIGURED]');
-
-      // Force sign out to clear any cached credentials
-      try {
-        await googleSignIn.signOut();
-        debugPrint('Previous Google Sign-In session cleared');
-      } catch (e) {
-        debugPrint('Note: No previous session to clear: $e');
-      }
-
-      // Attempt to sign in
-      debugPrint('Attempting Google Sign-In...');
-      debugPrint('Google Sign-In instance: $googleSignIn');
-
-      GoogleSignInAccount? googleUser;
-      try {
-        googleUser = await googleSignIn.signIn();
-        debugPrint('Google Sign-In attempt completed');
-      } catch (signInError) {
-        debugPrint('Google Sign-In error: $signInError');
-        debugPrint('Error type: ${signInError.runtimeType}');
-        rethrow;
-      }
-
-      if (googleUser == null) {
-        debugPrint('Google Sign-In cancelled by user');
-        return _formatResponse(
-          success: false,
-          message: 'Google Sign-In cancelled by user',
-        );
-      }
-
-      debugPrint('Google user obtained: ${googleUser.email}');
-      debugPrint('Google user display name: ${googleUser.displayName}');
-      debugPrint('Google user photo URL: ${googleUser.photoUrl}');
-
-      // Get authentication details
-      final googleAuth = await googleUser.authentication;
-      final accessToken = googleAuth.accessToken;
-      final idToken = googleAuth.idToken;
-
-      debugPrint('Access token available: ${accessToken != null}');
-      debugPrint('ID token available: ${idToken != null}');
-
-      if (idToken != null) {
-        debugPrint('ID token length: ${idToken.length}');
-        debugPrint('ID token starts with: ${idToken.substring(0, 20)}...');
-      }
-
-      if (accessToken == null) {
-        throw 'No Access Token found from Google.';
-      }
-      if (idToken == null) {
-        throw 'No ID Token found from Google. This usually means:\n'
-            '1. The serverClientId is not properly configured\n'
-            '2. The OAuth client is not set up correctly in Google Console\n'
-            '3. The "openid" scope is missing\n\n'
-            'Please check your Google Cloud Console OAuth 2.0 client configuration.';
-      }
-
-      debugPrint('Google Sign-In tokens obtained successfully');
-      debugPrint('Attempting Supabase authentication...');
-
-      // Sign in with Supabase using Google tokens (this will create user in Supabase Auth)
-      final supabase.AuthResponse response =
-          await _client.auth.signInWithIdToken(
-        provider: supabase.OAuthProvider.google,
-        idToken: idToken,
-        accessToken: accessToken,
-      );
-
-      if (response.user != null) {
-        debugPrint(
-            'Supabase authentication successful for user: ${response.user!.email}');
-        debugPrint('Supabase user ID: ${response.user!.id}');
-        debugPrint('User metadata: ${response.user!.userMetadata}');
-
-        // Get profile picture URL from Google or Supabase metadata
-        String? profileImageUrl = googleUser.photoUrl ??
-            response.user!.userMetadata?['avatar_url'] ??
-            response.user!.userMetadata?['picture'];
-
-        debugPrint('Profile image URL: $profileImageUrl');
-
-        // Check if user record exists in custom user table
-        // User records are only created after email verification via database trigger
-        Map<String, dynamic>? customUserData;
-        try {
-          customUserData = await _client
-              .from('user')
-              .select()
-              .eq('email', response.user!.email!)
-              .maybeSingle();
-        } catch (e) {
-          debugPrint('Could not fetch custom user data: $e');
-        }
-
-        // For Google Sign-In, we need to handle the case where user might not have a record yet
-        // This can happen if they signed up with Google but haven't verified their email
-        if (customUserData == null) {
-          debugPrint(
-              'No user record found for Google user: ${response.user!.email}');
-          debugPrint(
-              'User record will be created after email verification via database trigger');
-
-          // For Google users, we can consider them verified since Google handles verification
-          // But we'll still wait for the database trigger to create the record
-          // This ensures consistency with the email verification flow
-        } else {
-          // Update existing user with latest profile image
-          debugPrint('Updating existing user: ${customUserData['name']}');
-
-          final updateData = {
-            'profile_image_url': profileImageUrl,
-            'name': response.user!.userMetadata?['full_name'] ??
-                response.user!.userMetadata?['name'] ??
-                googleUser.displayName ??
-                customUserData['name'],
-          };
-
-          // If trial dates are null, set them for existing user
-          if (customUserData['trial_start_date'] == null) {
-            final now = DateTime.now();
-            final trialEndDate = now.add(const Duration(days: 7));
-            updateData['trial_start_date'] =
-                now.toIso8601String().split('T')[0];
-            updateData['trial_end_date'] =
-                trialEndDate.toIso8601String().split('T')[0];
-            debugPrint(
-                'Setting trial dates for existing user: ${now.toIso8601String().split('T')[0]} to ${trialEndDate.toIso8601String().split('T')[0]}');
-          }
-
-          await _client
-              .from('user')
-              .update(updateData)
-              .eq('email', response.user!.email!);
-
-          debugPrint(
-              'User record updated with latest profile image and trial dates');
-
-          // 📧 Check if welcome email was sent for existing Google user
-          if (customUserData['welcome_email_sent'] == false) {
-            debugPrint(
-                '📧 Welcome email not sent yet for existing Google user, sending now...');
-            final emailSent = await _sendWelcomeEmail(
-              email: response.user!.email!,
-              name: response.user!.userMetadata?['full_name'] ??
-                  response.user!.userMetadata?['name'] ??
-                  googleUser.displayName ??
-                  customUserData['name'],
-            );
-
-            if (emailSent) {
-              await _updateEmailSentStatus(response.user!.email!);
-            }
-          }
-        }
-
-        // Format user data with profile image
-        final userData = {
-          'id': response.user!.id,
-          'email': response.user!.email,
-          'username': response.user!.userMetadata?['full_name'] ??
-              response.user!.userMetadata?['name'] ??
-              googleUser.displayName ??
-              response.user!.email!.split('@')[0],
-          'name': response.user!.userMetadata?['full_name'] ??
-              response.user!.userMetadata?['name'] ??
-              googleUser.displayName ??
-              response.user!.email!.split('@')[0],
-          'supabase_uid': response.user!.id,
-          'is_premium': false,
-          'profile_image_url': profileImageUrl,
-          'google_id': googleUser.id,
-        };
-
-        debugPrint('Google Sign-In completed successfully');
-        return _formatResponse(
-          success: true,
-          message: 'Google Sign-In successful',
-          user: userData,
-          token: response.session?.accessToken,
-        );
-      } else {
-        debugPrint('Supabase authentication failed - no user returned');
-        return _formatResponse(
-          success: false,
-          message: 'Google Sign-In failed - no user returned from Supabase',
-        );
-      }
-    } catch (e) {
-      debugPrint('Error in Google Sign-In: $e');
-      debugPrint('Error type: ${e.runtimeType}');
-
-      // Enhanced error handling for common issues
-      if (e.toString().contains('ApiException: 10')) {
-        return _formatResponse(
-          success: false,
-          message: 'Google Sign-In configuration error (Code 10).\n\n'
-              'TROUBLESHOOTING STEPS:\n\n'
-              '1. ✅ SHA1 fingerprint is correctly added (verified in your screenshot)\n'
-              '2. ✅ Package name is correct: com.reconstrect.visionboard\n'
-              '3. ❓ Check if these APIs are ENABLED in Google Cloud Console:\n'
-              '   • Identity Toolkit API\n'
-              '   • Google Sign-In API\n'
-              '   • Google+ API\n\n'
-              '4. ❓ Clear Google Play Services cache:\n'
-              '   Settings → Apps → Google Play Services → Storage → Clear Cache\n\n'
-              '5. ❓ OAuth Consent Screen must be configured\n\n'
-              'If all above are correct, this might be a Google Play Services caching issue.\n'
-              'Try restarting your device or clearing Google Play Services data.\n\n'
-              'Full error: $e',
-        );
-      } else if (e.toString().contains('sign_in_failed')) {
-        return _formatResponse(
-          success: false,
-          message: 'Google Sign-In failed to start.\n\n'
-              'This could be due to:\n'
-              '• Missing Google Play Services\n'
-              '• Incorrect SHA1 certificate\n'
-              '• API not enabled in Google Console\n\n'
-              'Error: $e',
-        );
-      } else if (e.toString().contains('network')) {
-        return _formatResponse(
-          success: false,
-          message: 'Network error during Google Sign-In.\n'
-              'Please check your internet connection and try again.\n\n'
-              'Error: $e',
-        );
-      } else if (e.toString().contains('No ID Token')) {
-        return _formatResponse(
-          success: false,
-          message: 'ID Token missing from Google Sign-In.\n\n'
-              'SOLUTION STEPS:\n\n'
-              '1. Go to Google Cloud Console (console.cloud.google.com)\n'
-              '2. Select your project: recostrect3\n'
-              '3. Go to APIs & Services → Credentials\n'
-              '4. Find your OAuth 2.0 client ID\n'
-              '5. Make sure it\'s configured as "Web application" type\n'
-              '6. Ensure the client ID matches: [CONFIGURED]\n\n'
-              'If the client ID is for "Android" type, you need to create a separate "Web application" client ID for ID tokens.\n\n'
-              'Error: $e',
-        );
-      } else if (e.toString().contains('Unacceptable audience')) {
-        return _formatResponse(
-          success: false,
-          message: 'Supabase Google provider not configured properly.\n\n'
-              'REQUIRED STEPS:\n\n'
-              '1. Go to Supabase Dashboard → Authentication → Providers\n'
-              '2. Enable Google provider and configure:\n'
-              '   • Client ID: [CONFIGURED]\n'
-              '   • OAuth Secret: [CONFIGURED]\n'
-              '   • Redirect URL: https://ruxsfzvrumqxsvanbbow.supabase.co/auth/v1/callback\n\n'
-              'This will allow users to appear in Supabase Authentication dashboard.\n\n'
-              'Error: $e',
-        );
-      }
-
-      return _formatResponse(
-        success: false,
-        message: 'Google Sign-In failed: $e',
-      );
-    }
-  }
+  // Remove Supabase Google sign-in method
+  // Remove: Future<Map<String, dynamic>> signInWithGoogle() async { ... }
 
   // Method to get the current user's profile
   Future<Map<String, dynamic>> getUserProfile() async {
@@ -1091,14 +808,49 @@ class SupabaseDatabaseService {
     }
   }
 
-  // Check if user is currently authenticated
-  bool get isAuthenticated => _client.auth.currentUser != null;
+  // Check if user is authenticated (use Firebase when using accessToken function)
+  bool get isAuthenticated {
+    try {
+      // When using accessToken function, check Firebase auth instead
+      final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+      return firebaseUser != null;
+    } catch (e) {
+      debugPrint('Error checking authentication: $e');
+      return false;
+    }
+  }
 
-  // Get current user
-  supabase.User? get currentUser => _client.auth.currentUser;
+  // Get current user (use Firebase when using accessToken function)
+  dynamic get currentUser {
+    try {
+      // When using accessToken function, return Firebase user wrapped
+      final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        return _FirebaseUserWrapper(firebaseUser);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting current user: $e');
+      return null;
+    }
+  }
 
   // Get auth token
-  String? get authToken => _client.auth.currentSession?.accessToken;
+  String? get authToken {
+    try {
+      // When using accessToken function, return Firebase ID token
+      final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        // Note: This is async, but we need sync for compatibility
+        // The actual token is handled by the accessToken function in SupabaseConfig
+        return 'firebase_token';
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting auth token: $e');
+      return null;
+    }
+  }
 
   // Method to update user premium status
   Future<Map<String, dynamic>> updateUserPremiumStatus({
@@ -1402,4 +1154,97 @@ class SupabaseDatabaseService {
           data: []);
     }
   }
+
+  /// Check if a user exists in auth.users by email
+  Future<bool> isUserInAuthUsers(String email) async {
+    try {
+      // Correct: query 'auth.users' (not 'public.auth.users')
+      final result = await _client.from('auth.users').select('id').eq('email', email).maybeSingle();
+      return result != null;
+    } catch (e) {
+      debugPrint('Error checking auth.users: $e');
+      return false;
+    }
+  }
+
+  /// Insert user data into 'user' table after Firebase sign-in
+  Future<void> upsertUserToUserAndUsersTables({
+    required String id, // Firebase UID
+    required String email,
+    required String name,
+    String? photoUrl,
+  }) async {
+    try {
+      // Check if user already exists in 'user' table
+      final existing = await _client.from('user').select('id').eq('email', email).maybeSingle();
+      if (existing != null) {
+        debugPrint("User already exists in 'user' table: $email");
+        return;
+      }
+      
+      // When using accessToken function, we can't access supabase.auth
+      // Use the Firebase user data passed as parameters instead
+      final userData = {
+        'name': name,
+        'email': email,
+        'firebase_uid': id,
+        'profile_image_url': photoUrl,
+        'password_hash': 'firebase', // Added to satisfy NOT NULL constraint
+      };
+      
+      await _client.from('user').upsert(userData, onConflict: 'email');
+      debugPrint("Inserted user into 'user' table: $email");
+      
+    } catch (e) {
+      debugPrint("Error inserting into 'user' table: $e");
+    }
+  }
+
+  Future<Map<String, dynamic>> upsertUserData({
+    required String username,
+    required String email,
+    required String firebaseUid,
+  }) async {
+    try {
+      await _client.from('user').upsert({
+        'email': email,
+        'name': username,
+        'firebase_uid': firebaseUid,
+        'password_hash': 'firebase',
+      }, onConflict: 'email').select();
+
+      await _client.from('users').upsert({
+        'email': email,
+        'username': username,
+        'supabase_uid': firebaseUid,
+      });
+
+      return {'success': true};
+    } catch (e) {
+      // If it's a 404 with empty message, treat as success
+      if (e.toString().contains('code: 404') && e.toString().contains('message: {}')) {
+        return {'success': true};
+      }
+      return {'success': false, 'message': 'Failed to upsert user: $e'};
+    }
+  }
+}
+
+// Wrapper class to make Firebase user compatible with Supabase user structure
+class _FirebaseUserWrapper {
+  final fb_auth.User _firebaseUser;
+
+  _FirebaseUserWrapper(this._firebaseUser);
+
+  // Mimic Supabase user properties
+  String get id => _firebaseUser.uid;
+  String? get email => _firebaseUser.email;
+  String? get emailConfirmedAt => null; // Firebase doesn't have this concept
+  Map<String, dynamic>? get userMetadata => {
+    'name': _firebaseUser.displayName,
+    'username': _firebaseUser.displayName,
+    'avatar_url': _firebaseUser.photoURL,
+    'picture': _firebaseUser.photoURL,
+    'profile_image_url': _firebaseUser.photoURL,
+  };
 }

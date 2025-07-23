@@ -57,6 +57,7 @@ import 'config/supabase_config.dart';
 import 'services/database_service.dart';
 import 'services/user_service.dart';
 import 'services/supabase_database_service.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 // Constants
 const String _hasCompletedPaymentKey = 'has_completed_payment';
@@ -115,7 +116,7 @@ Future<void> _checkSupabaseReachability() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await Firebase.initializeApp();
   // Initialize core services
   await _initializeApp();
 
@@ -137,6 +138,9 @@ Future<void> _initializeApp() async {
 
     // Initialize connectivity monitoring
     await initConnectivity();
+
+    // Load guest state from SharedPreferences
+    await AuthService.loadGuestState();
 
     // In-app purchases are automatically configured for Android in newer versions
 
@@ -457,6 +461,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     if (_errorMessage.isNotEmpty) {
       return _buildErrorScreen();
+    }
+
+    // Allow guest access
+    if (AuthService.isGuest) {
+      return const HomePage();
     }
 
     return _authService.isAuthenticated ? const HomePage() : const LoginPage();
@@ -1479,7 +1488,43 @@ class _HomeContentState extends State<HomeContent> {
 
   // Show premium dialog
   void _showPremiumDialog(BuildContext context) {
-    // First check if trial has ended
+    final bool isGuest = AuthService.isGuest;
+    
+    // For guest users, show sign in dialog
+    if (isGuest) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Sign In Required'),
+            content: const Text(
+                'This feature requires you to sign in or create an account. '
+                'Sign in to save your progress and access all features.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Navigate to login page for guest users
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Sign In'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+    
+    // For regular users, check if trial has ended
     final subscriptionManager = SubscriptionManager();
     subscriptionManager.hasTrialEnded().then((trialEnded) {
       if (trialEnded) {
@@ -1906,7 +1951,15 @@ class _ProfilePageState extends State<ProfilePage> {
                               ],
                             ),
                             const SizedBox(height: 24),
-                            if (_displayName?.isNotEmpty ?? false)
+                            if (AuthService.isGuest)
+                              Text(
+                                'Guest',
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            else if (_displayName?.isNotEmpty ?? false)
                               Text(
                                 _displayName!,
                                 style: const TextStyle(
@@ -1937,7 +1990,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                             const SizedBox(height: 8),
                             Text(
-                              _userEmail ?? 'No email available',
+                              AuthService.isGuest ? 'Guest Account' : (_userEmail ?? 'No email available'),
                               style: TextStyle(
                                 fontSize: 16,
                                 color: theme.colorScheme.onSurface
@@ -1979,11 +2032,15 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ],
                                     ),
                                     const SizedBox(height: 16),
-                                    const Text(
-                                      'Thanks for creating your Reconstruct account.\n\n'
-                                      'Your personalised dashboard is getting ready and will be available shortly. '
-                                      'Save, edit and download calendars, coloring sheets and planners. '
-                                      'Use the daily activity tracker to build new habits and more!',
+                                    Text(
+                                      AuthService.isGuest 
+                                        ? 'Welcome to Reconstruct! You\'re currently using the app as a guest.\n\n'
+                                          'Sign in or create an account to save your progress, access premium features, '
+                                          'and sync your data across devices. Enjoy exploring our free features!'
+                                        : 'Thanks for creating your Reconstruct account.\n\n'
+                                          'Your personalised dashboard is getting ready and will be available shortly. '
+                                          'Save, edit and download calendars, coloring sheets and planners. '
+                                          'Use the daily activity tracker to build new habits and more!',
                                       style: TextStyle(
                                         fontSize: 14,
                                         height: 1.5,
@@ -2084,7 +2141,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               width: double.infinity,
                               child: ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red[700],
+                                  backgroundColor: AuthService.isGuest ? Colors.blue[700] : Colors.red[700],
                                   foregroundColor: Colors.white,
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 16),
@@ -2092,9 +2149,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                                onPressed: _signOut,
-                                icon: const Icon(Icons.logout),
-                                label: const Text('Sign Out'),
+                                onPressed: AuthService.isGuest ? _signInAsGuest : _signOut,
+                                icon: Icon(AuthService.isGuest ? Icons.login : Icons.logout),
+                                label: Text(AuthService.isGuest ? 'Sign In' : 'Sign Out'),
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -2151,6 +2208,11 @@ class _ProfilePageState extends State<ProfilePage> {
         debugPrint('No user ID available to save profile image');
       }
     }
+  }
+
+  Future<void> _signInAsGuest() async {
+    // Navigate to login page for guest users
+    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
   }
 
   Future<void> _signOut() async {
@@ -2586,6 +2648,97 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // Add a widget to show premium status in the profile page
   Widget _buildPremiumStatus() {
+    // For guest users, show guest status
+    if (AuthService.isGuest) {
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        margin: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.orange.shade200,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.orange.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.person_outline,
+                color: Colors.orange.shade700,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Guest Mode',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Sign in to save progress and access premium features',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.orange.shade700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: ElevatedButton(
+                onPressed: () => _signInAsGuest(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  elevation: 0,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Sign In',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
     // For iOS users, show free access status instead of premium/trial
     if (PlatformFeatures.isIOSFreeAccess) {
       return AnimatedContainer(

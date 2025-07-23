@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 
 class SupabaseConfig {
   // Supabase URL and keys
@@ -12,7 +13,7 @@ class SupabaseConfig {
   // Track if Supabase is already initialized
   static bool _isInitialized = false;
 
-  // Initialize Supabase client
+  // Initialize Supabase client with Firebase Auth integration
   static Future<void> initialize() async {
     if (_isInitialized) {
       debugPrint('SupabaseConfig: Already initialized, skipping');
@@ -24,9 +25,20 @@ class SupabaseConfig {
         url: url,
         anonKey: anonKey,
         debug: kDebugMode,
+        // Add accessToken function for Firebase Auth integration
+        accessToken: () async {
+          try {
+            final token = await fb_auth.FirebaseAuth.instance.currentUser?.getIdToken();
+            debugPrint('SupabaseConfig: Firebase token retrieved: ${token != null ? 'success' : 'null'}');
+            return token;
+          } catch (e) {
+            debugPrint('SupabaseConfig: Error getting Firebase token: $e');
+            return null;
+          }
+        },
       );
       _isInitialized = true;
-      debugPrint('SupabaseConfig: Successfully initialized');
+      debugPrint('SupabaseConfig: Successfully initialized with Firebase Auth integration');
     } catch (e) {
       debugPrint('SupabaseConfig: Initialization failed: $e');
       // Don't rethrow - allow app to continue even if Supabase init fails

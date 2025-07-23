@@ -4,6 +4,7 @@ import '../config/supabase_config.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 
 class NotesService {
   static final NotesService instance = NotesService._internal();
@@ -13,7 +14,6 @@ class NotesService {
 
   // Offline storage keys
   static const String _offlineNotesKey = 'offline_notes';
-  static const String _pendingNotesKey = 'pending_notes';
   static const String _lastSyncKey = 'last_sync_timestamp';
 
   NotesService._internal() {
@@ -686,12 +686,52 @@ class NotesService {
     }
   }
 
-  // Check if user is currently authenticated with Supabase
-  bool get isAuthenticated => _client.auth.currentUser != null;
+  // Check if user is authenticated (use Firebase when using accessToken function)
+  bool get isAuthenticated {
+    try {
+      // When using accessToken function, check Firebase auth instead
+      final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+      return firebaseUser != null;
+    } catch (e) {
+      debugPrint('Error checking authentication: $e');
+      return false;
+    }
+  }
 
-  // Get current user
-  supabase.User? get currentUser => _client.auth.currentUser;
+  // Get current user (use Firebase when using accessToken function)
+  dynamic get currentUser {
+    try {
+      // When using accessToken function, return Firebase user wrapped
+      final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        return _FirebaseUserWrapper(firebaseUser);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting current user: $e');
+      return null;
+    }
+  }
 
   // Get auth token from Supabase
   String? get authToken => _client.auth.currentSession?.accessToken;
+}
+
+// Wrapper class to make Firebase user compatible with Supabase user structure
+class _FirebaseUserWrapper {
+  final fb_auth.User _firebaseUser;
+
+  _FirebaseUserWrapper(this._firebaseUser);
+
+  // Mimic Supabase user properties
+  String get id => _firebaseUser.uid;
+  String? get email => _firebaseUser.email;
+  String? get emailConfirmedAt => null; // Firebase doesn't have this concept
+  Map<String, dynamic>? get userMetadata => {
+    'name': _firebaseUser.displayName,
+    'username': _firebaseUser.displayName,
+    'avatar_url': _firebaseUser.photoURL,
+    'picture': _firebaseUser.photoURL,
+    'profile_image_url': _firebaseUser.photoURL,
+  };
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+
 
 class GoogleConfirmationPage extends StatelessWidget {
   final String email;
@@ -15,15 +15,12 @@ class GoogleConfirmationPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = AuthService.instance.currentUser;
+    // When using accessToken function, we can't access supabase.auth
+    // Use the passed parameters instead
 
-    // Get profile image URL from Supabase user metadata
-    String? profileImageUrl;
-    if (user?.userMetadata != null) {
-      profileImageUrl = user!.userMetadata!['avatar_url'] ??
-          user.userMetadata!['picture'] ??
-          user.userMetadata!['profile_image_url'];
-    }
+    // When using accessToken function, we can't access supabase.auth
+    // Use a default image or the passed photoUrl if needed
+    String? profileImageUrl = null; // We'll use a default image for now
 
     return Scaffold(
       body: SafeArea(

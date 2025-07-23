@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-
-import '../login/login_page.dart';
+import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
-import 'google_confirmation_page.dart';
-import 'verification_completion_page.dart';
+import '../services/supabase_database_service.dart';
 import '../utils/platform_features.dart';
+import 'google_confirmation_page.dart';
+import 'login_page.dart';
+import 'verification_completion_page.dart';
 
 class RegisterPage extends StatefulWidget {
   final bool showGoogleSignIn;
@@ -200,46 +201,8 @@ class _RegisterPageState extends State<RegisterPage> {
         _confirmPasswordController.text.isNotEmpty;
   }
 
-  Future<void> _handleGoogleSignIn() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final userCredential = await _authService.signInWithGoogle();
-      if (userCredential == null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Google sign in cancelled or failed')),
-        );
-      } else if (mounted) {
-        // Show confirmation page
-        final user = userCredential?.user;
-        if (user == null) return;
-        final displayName = user.displayName ?? 'User';
-        final initial = displayName[0].toUpperCase();
-
-        if (!context.mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => GoogleConfirmationPage(
-              email: user.email!,
-              displayName: displayName,
-              initial: initial,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
+  // Remove any usage of _authService.signInWithGoogle
+  // If Google sign-in is needed, use signInWithGoogleFirebase instead
 
   Future<void> _handleRegistration() async {
     // Password validation is now handled in real-time
@@ -435,7 +398,78 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                       elevation: 0,
                     ),
-                    onPressed: _isLoading ? null : _handleGoogleSignIn,
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            setState(() => _isLoading = true);
+                            try {
+                              debugPrint('Starting Google sign-in process...');
+                              
+                              final result = await _authService.signInWithGoogleFirebase();
+                              
+                              if (!result['success']) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(result['message'] ?? 'Google sign in failed'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                                return;
+                              }
+                              
+                              final userData = result['user'];
+                              
+                              debugPrint('Google sign-in successful, checking Supabase authentication...');
+                              
+                              // When using accessToken function, Supabase automatically handles authentication
+                              // No need to check currentUser or currentSession - they're not accessible
+                              debugPrint('Supabase authentication handled automatically via Firebase JWT');
+                              
+                              // Now safely upsert user data into the database
+                              try {
+                                await SupabaseDatabaseService().upsertUserToUserAndUsersTables(
+                                  id: userData['id'],
+                                  email: userData['email'],
+                                  name: userData['name'],
+                                  photoUrl: userData['photoUrl'],
+                                );
+                                debugPrint('User data upserted successfully');
+                              } catch (e) {
+                                debugPrint('Error upserting user data: $e');
+                                // Don't fail the sign-in if upsert fails, just log it
+                              }
+                              
+                              final displayName = userData['name'] ?? 'User';
+                              final initial = displayName[0].toUpperCase();
+                              
+                              if (!context.mounted) return;
+                              
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => GoogleConfirmationPage(
+                                    email: userData['email'],
+                                    displayName: displayName,
+                                    initial: initial,
+                                  ),
+                                ),
+                              );
+                              
+                            } catch (e) {
+                              debugPrint('Google sign-in error: $e');
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: ${e.toString()}'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            } finally {
+                              if (mounted) setState(() => _isLoading = false);
+                            }
+                          },
                     icon: Image.asset('assets/google_logo.png', height: 24),
                     label: const Text(
                       'Continue with Google',
@@ -616,6 +650,16 @@ class _RegisterPageState extends State<RegisterPage> {
                       child: const Text('Sign in'),
                     ),
                   ],
+                ),
+                // Guest access
+                TextButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () async {
+                          await AuthService.signInAsGuest();
+                          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+                        },
+                  child: const Text('Continue as Guest'),
                 ),
 
                 // Terms and Privacy

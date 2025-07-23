@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import 'google_confirmation_page.dart';
 import '../utils/network_utils.dart';
 import '../utils/platform_features.dart';
+import '../services/supabase_database_service.dart';
 
 class LoginPage extends StatefulWidget {
   final bool showGoogleSignIn;
@@ -138,33 +139,65 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoading = true);
-
     try {
-      final userCredential = await _authService.signInWithGoogle();
-      if (userCredential == null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Google sign in cancelled or failed')),
-        );
-      } else if (mounted && userCredential != null) {
-        // Show confirmation page
-        final user = userCredential.user;
-        if (user == null) return;
-        final displayName = user.displayName ?? 'User';
-        final initial = displayName[0].toUpperCase();
-
-        if (!context.mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => GoogleConfirmationPage(
-              email: user.email!,
-              displayName: displayName,
-              initial: initial,
+      debugPrint('Starting Google sign-in process...');
+      
+      final result = await _authService.signInWithGoogleFirebase();
+      
+      if (!result['success']) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Google sign in failed'),
+              backgroundColor: Colors.red,
             ),
-          ),
-        );
+          );
+        }
+        return;
       }
+      
+      final userData = result['user'];
+      final firebaseUser = result['firebaseUser'];
+      
+      debugPrint('Google sign-in successful, checking Supabase authentication...');
+      
+      // When using accessToken function, Supabase automatically handles authentication
+      // No need to check currentUser or currentSession - they're not accessible
+      debugPrint('Supabase authentication handled automatically via Firebase JWT');
+      
+      // Now safely upsert user data into the database
+      try {
+        await SupabaseDatabaseService().upsertUserToUserAndUsersTables(
+          id: userData['id'],
+          email: userData['email'],
+          name: userData['name'],
+          photoUrl: userData['photoUrl'],
+        );
+        debugPrint('User data upserted successfully');
+      } catch (e) {
+        debugPrint('Error upserting user data: $e');
+        // Don't fail the sign-in if upsert fails, just log it
+      }
+      
+      // Show confirmation page
+      final displayName = userData['name'] ?? 'User';
+      final initial = displayName[0].toUpperCase();
+      
+      if (!context.mounted) return;
+      
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => GoogleConfirmationPage(
+            email: userData['email'],
+            displayName: displayName,
+            initial: initial,
+          ),
+        ),
+      );
+      
     } catch (e) {
+      debugPrint('Google sign-in error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -321,6 +354,16 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ],
                 ),
+                                  // Guest access
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            await AuthService.signInAsGuest();
+                            Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+                          },
+                    child: const Text('Continue as Guest'),
+                  ),
               ],
             ),
           ),

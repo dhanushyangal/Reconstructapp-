@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'supabase_database_service.dart';
 import 'package:flutter/material.dart';
+import 'auth_service.dart';
 
 class UserService {
   static UserService? _instance;
@@ -126,6 +127,31 @@ class UserService {
     return {'userName': userName, 'email': email};
   }
 
+  // Get current user info
+  Future<Map<String, String>> getCurrentUserInfo() async {
+    String email = '';
+    String userName = '';
+
+    try {
+      // Use AuthService instead of direct Supabase access when using accessToken function
+      final authService = AuthService.instance;
+      if (authService.hasAuthenticatedUser() && authService.currentUser != null) {
+        final currentUser = authService.currentUser;
+        email = currentUser.email ?? '';
+        userName = currentUser.userMetadata?['name'] ??
+            currentUser.userMetadata?['username'] ??
+            email.split('@')[0];
+      }
+    } catch (e) {
+      debugPrint('Error getting current user info: $e');
+    }
+
+    return {
+      'email': email,
+      'userName': userName,
+    };
+  }
+
   Future<void> clearUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_name');
@@ -196,29 +222,6 @@ class UserService {
       return {
         'success': false,
         'message': 'Sign in failed: $e',
-      };
-    }
-  }
-
-  // Method to sign in with Google
-  Future<Map<String, dynamic>> signInWithGoogle() async {
-    try {
-      final result = await _supabaseService.signInWithGoogle();
-
-      if (result['success'] == true && result['user'] != null) {
-        final userData = result['user'];
-        await saveUserInfo(
-          userName: userData['name'] ?? userData['username'] ?? '',
-          email: userData['email'] ?? '',
-        );
-      }
-
-      return result;
-    } catch (e) {
-      debugPrint('UserService: Error in Google sign in: $e');
-      return {
-        'success': false,
-        'message': 'Google sign in failed: $e',
       };
     }
   }

@@ -484,6 +484,8 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isGuest = AuthService.isGuest;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Activity Dashboard'),
@@ -498,17 +500,18 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
-          if (_isOffline)
+          if (_isOffline && !isGuest)
             IconButton(
               icon: const Icon(Icons.sync),
               tooltip: 'Sync with database',
               onPressed: _manualSync,
             ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh Data',
-            onPressed: _loadActivityData,
-          ),
+          if (!isGuest)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh Data',
+              onPressed: _loadActivityData,
+            ),
         ],
       ),
       body: _isLoading
@@ -519,7 +522,78 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (_isOffline)
+                    if (isGuest)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.person_outline,
+                                  color: Colors.orange.shade800,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Sign In Required',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.orange.shade800,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Sign in to view and track your activity data across all mind tools.',
+                                        style: TextStyle(
+                                          color: Colors.orange.shade700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Sign In',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (_isOffline)
                       Container(
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(12),
@@ -546,14 +620,121 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
                           ],
                         ),
                       ),
-                    // Tracker cards
-                    ..._trackerNames.keys.map((trackerId) {
-                      return _buildTrackerCard(trackerId);
-                    }),
+                    // Tracker cards - only show if not guest
+                    if (!isGuest)
+                      ..._trackerNames.keys.map((trackerId) {
+                        return _buildTrackerCard(trackerId);
+                      })
+                    else
+                      // Show placeholder cards for guest users
+                      ..._trackerNames.keys.map((trackerId) {
+                        return _buildGuestTrackerCard(trackerId);
+                      }),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildGuestTrackerCard(String trackerId) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.lock,
+                  color: Colors.grey[600],
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _trackerNames[trackerId] ?? 'Activity',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              height: 160,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 48,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Sign in to view activity',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Track your progress across all mind tools',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Sign In to View',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

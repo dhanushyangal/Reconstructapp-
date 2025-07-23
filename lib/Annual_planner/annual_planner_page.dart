@@ -114,14 +114,18 @@ class _AnnualPlannerPageState extends State<AnnualPlannerPage>
   }
 
   void _showPremiumDialog(BuildContext context) {
+    final bool isGuest = AuthService.isGuest;
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Premium Feature'),
-          content:
-              const Text('This template is only available for premium users. '
-                  'Upgrade to premium to unlock all templates.'),
+          title: Text(isGuest ? 'Sign In Required' : 'Premium Feature'),
+          content: Text(isGuest 
+            ? 'This template requires you to sign in or create an account. '
+              'Sign in to save your progress and access all templates.'
+            : 'This template is only available for premium users. '
+              'Upgrade to premium to unlock all templates.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -130,14 +134,19 @@ class _AnnualPlannerPageState extends State<AnnualPlannerPage>
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                // Call the direct payment method
-                _showPaymentPage();
+                if (isGuest) {
+                  // Navigate to login page for guest users
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                } else {
+                  // Call the direct payment method for regular users
+                  _showPaymentPage();
+                }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                backgroundColor: isGuest ? Colors.orange : Colors.blue,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Upgrade'),
+              child: Text(isGuest ? 'Sign In' : 'Upgrade'),
             ),
           ],
         );

@@ -4,6 +4,7 @@ import 'register_page.dart';
 import '../services/auth_service.dart';
 import 'google_confirmation_page.dart';
 import '../utils/platform_features.dart';
+import '../services/supabase_database_service.dart';
 
 class InitialAuthPage extends StatefulWidget {
   const InitialAuthPage({super.key});
@@ -16,54 +17,8 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
   final AuthService _authService = AuthService();
   bool _isLoading = false;
 
-  Future<void> _handleGoogleSignIn(BuildContext context) async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final userCredential = await _authService.signInWithGoogle();
-      if (userCredential == null) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Google sign in cancelled or failed')),
-        );
-      } else {
-        if (!context.mounted) return;
-
-        // Show confirmation page
-        final user = userCredential.user!;
-        final displayName = user.displayName ?? 'User';
-        final initial = displayName[0].toUpperCase();
-
-        if (!context.mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => GoogleConfirmationPage(
-              email: user.email!,
-              displayName: displayName,
-              initial: initial,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
+  // Remove any usage of _authService.signInWithGoogle
+  // If Google sign-in is needed, use signInWithGoogleFirebase instead
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +71,77 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
                       ),
                       onPressed: _isLoading
                           ? null
-                          : () => _handleGoogleSignIn(context),
+                          : () async {
+                              setState(() => _isLoading = true);
+                              try {
+                                debugPrint('Starting Google sign-in process...');
+                                
+                                final result = await _authService.signInWithGoogleFirebase();
+                                
+                                if (!result['success']) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(result['message'] ?? 'Google sign in failed'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                                
+                                final userData = result['user'];
+                                final firebaseUser = result['firebaseUser'];
+                                
+                                debugPrint('Google sign-in successful, checking Supabase authentication...');
+                                
+                                // When using accessToken function, Supabase automatically handles authentication
+                                // No need to check currentUser or currentSession - they're not accessible
+                                debugPrint('Supabase authentication handled automatically via Firebase JWT');
+                                
+                                // Now safely upsert user data into the database
+                                try {
+                                  await SupabaseDatabaseService().upsertUserToUserAndUsersTables(
+                                    id: userData['id'],
+                                    email: userData['email'],
+                                    name: userData['name'],
+                                    photoUrl: userData['photoUrl'],
+                                  );
+                                  debugPrint('User data upserted successfully');
+                                } catch (e) {
+                                  debugPrint('Error upserting user data: $e');
+                                  // Don't fail the sign-in if upsert fails, just log it
+                                }
+                                
+                                final displayName = userData['name'] ?? 'User';
+                                final initial = displayName[0].toUpperCase();
+                                
+                                if (!context.mounted) return;
+                                
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => GoogleConfirmationPage(
+                                      email: userData['email'],
+                                      displayName: displayName,
+                                      initial: initial,
+                                    ),
+                                  ),
+                                );
+                                
+                              } catch (e) {
+                                debugPrint('Google sign-in error: $e');
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error: ${e.toString()}'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              } finally {
+                                if (mounted) setState(() => _isLoading = false);
+                              }
+                            },
                       icon: Image.asset('assets/google_logo.png', height: 24),
                       label: const Text(
                         'Continue with Google',
@@ -185,6 +210,16 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
                         color: Colors.black87,
                       ),
                     ),
+                  ),
+                  // Guest access
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            await AuthService.signInAsGuest();
+                            Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+                        },
+                    child: const Text('Continue as Guest'),
                   ),
 
                   const Spacer(),
