@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/daily_notes_background"
+    android:padding="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Image preview if available -->
+        <ImageView
+            android:id="@+id/note_image"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:scaleType="centerCrop"
+            android:adjustViewBounds="true"
+            android:maxHeight="180dp"
+            android:layout_gravity="center_horizontal"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp"
+            android:contentDescription="Note image"
+            android:background="#F5F5F5"
+            android:padding="2dp"
+            android:elevation="2dp" />
+
+        <!-- Note title -->
+        <TextView
+            android:id="@+id/note_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:layout_marginBottom="12dp"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Main content or checklist indicator -->
+        <TextView
+            android:id="@+id/note_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:ellipsize="end"
+            android:maxLines="8"
+            android:lineSpacingExtra="6sp"
+            android:layout_marginBottom="16dp"
+            android:fontFamily="sans-serif" />
+
+        <!-- Checklist container -->
+        <LinearLayout
+            android:id="@+id/checklist_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp">
+            
+            <!-- Checklist items will be populated here programmatically -->
+            
+        </LinearLayout>
+
+        <!-- Bottom action button (only add note) -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp">
+
+            <ImageView
+                android:id="@+id/add_note_button"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@android:drawable/ic_input_add"
+                android:background="@drawable/circle_background"
+                android:padding="6dp"
+                android:layout_gravity="end"
+                android:tint="#2196F3"
+                android:elevation="2dp" />
+        </FrameLayout>
+    </LinearLayout>
+</LinearLayout> 
