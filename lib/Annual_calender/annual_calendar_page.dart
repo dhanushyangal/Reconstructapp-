@@ -128,7 +128,7 @@ class _AnnualCalenderPageState extends State<AnnualCalenderPage>
             ? 'This template requires you to sign in or create an account. '
               'Sign in to save your progress and access all templates.'
             : 'This template is only available for premium users. '
-              'Upgrade to premium to unlock all templates.'),
+                  'Upgrade to premium to unlock all templates.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -142,7 +142,7 @@ class _AnnualCalenderPageState extends State<AnnualCalenderPage>
                   Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
                 } else {
                   // Call the direct payment method for regular users
-                  _showPaymentPage();
+                _showPaymentPage();
                 }
               },
               style: ElevatedButton.styleFrom(

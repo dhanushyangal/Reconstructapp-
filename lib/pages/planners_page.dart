@@ -152,7 +152,7 @@ class _PlannersPageState extends State<PlannersPage> with ActivityTrackerMixin {
                   Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
                 } else {
                   // Call the direct payment method for regular users
-                  _showPaymentPage();
+                _showPaymentPage();
                 }
               },
               style: ElevatedButton.styleFrom(

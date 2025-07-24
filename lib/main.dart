@@ -1673,92 +1673,95 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadProfileData() async {
-    // Get MySQL user data (if available)
-    final mysqlUserData = _authService.userData;
-
     debugPrint('ProfilePage: Loading profile data');
-    debugPrint(
-        'MySQL user data: ${mysqlUserData != null ? 'Available' : 'Not available'}');
-    if (mysqlUserData != null) {
-      debugPrint('MySQL name: ${mysqlUserData['name']}');
+
+    // Check if user is guest
+    if (AuthService.isGuest) {
+      _userEmail = null;
+      _userId = 'guest';
+      _displayName = 'Guest';
+      _nameController.text = _displayName ?? '';
+      debugPrint('Using guest user data');
+      return;
     }
 
-    // Determine which user data to use
-    if (mysqlUserData != null) {
-      // Use MySQL user data
-      _userEmail = mysqlUserData['email'];
-      _userId = mysqlUserData['id']?.toString() ?? 'mysql_user';
+    // Get current user from AuthService (Firebase/Supabase)
+    final currentUser = AuthService.instance.currentUser;
+    
+    if (currentUser?.email != null) {
+      _userEmail = currentUser!.email;
+      _userId = currentUser.id;
 
-      // Set display name from MySQL data
-      final name = mysqlUserData['name'];
-      if (name != null && name.toString().trim().isNotEmpty) {
-        _displayName = name.toString().trim();
-        _nameController.text = _displayName ?? '';
-        debugPrint('Using MySQL name: $_displayName');
-      } else {
-        // If name is missing from MySQL data but we have an email, use a better name
-        if (_userEmail != null) {
-          // Use a properly formatted version of the email prefix
-          String emailPrefix = _userEmail!.split('@')[0];
-          // Capitalize the first letter and format with spaces
-          emailPrefix = emailPrefix
-              .replaceAllMapped(RegExp(r'[_\-.]'), (match) => ' ')
-              .split(' ')
-              .map((word) {
-                if (word.isNotEmpty) {
-                  return '${word[0].toUpperCase()}${word.substring(1)}';
-                }
-                return '';
-              })
-              .join(' ')
-              .trim();
-
-          _displayName = emailPrefix;
-          _nameController.text = _displayName ?? '';
-          debugPrint('Using formatted email prefix as name: $_displayName');
-        }
+      // Priority order for display name:
+      // 1. Firebase displayName (for Google sign-in users)
+      // 2. userMetadata name
+      // 3. userMetadata username  
+      // 4. Formatted email prefix
+      
+      String? displayName;
+      
+      // Check Firebase displayName first (for Google sign-in)
+      if (currentUser.userMetadata != null) {
+        displayName = currentUser.userMetadata!['name'] ??
+                     currentUser.userMetadata!['username'] ??
+                     currentUser.userMetadata!['displayName'];
+      }
+      
+      // If no name found in metadata, format email prefix
+      if (displayName == null || displayName.trim().isEmpty) {
+        String emailPrefix = currentUser.email!.split('@')[0];
+        displayName = emailPrefix
+            .replaceAllMapped(RegExp(r'[_\-.]'), (match) => ' ')
+            .split(' ')
+            .map((word) {
+              if (word.isNotEmpty) {
+                return '${word[0].toUpperCase()}${word.substring(1)}';
+              }
+              return '';
+            })
+            .join(' ')
+            .trim();
       }
 
-      debugPrint('Using MySQL user data: $_userEmail');
+      _displayName = displayName.trim();
+      _nameController.text = _displayName ?? '';
+      debugPrint('Using Firebase/Supabase user data: $_userEmail, name: $_displayName');
     } else {
-      // Fallback to current Supabase user if AuthService userData is not available
-      final currentUser = AuthService.instance.currentUser;
-      if (currentUser?.email != null) {
-        _userEmail = currentUser!.email;
-        _userId = currentUser.id;
+      // Fallback to MySQL user data if available
+      final mysqlUserData = _authService.userData;
+      if (mysqlUserData != null) {
+        _userEmail = mysqlUserData['email'];
+        _userId = mysqlUserData['id']?.toString() ?? 'mysql_user';
 
-        // Set display name from user metadata or email
-        final name = currentUser.userMetadata?['name'] ??
-            currentUser.userMetadata?['username'] ??
-            currentUser.email!.split('@')[0];
-
+        final name = mysqlUserData['name'];
         if (name != null && name.toString().trim().isNotEmpty) {
           _displayName = name.toString().trim();
           _nameController.text = _displayName ?? '';
-          debugPrint('Using Supabase user name: $_displayName');
+          debugPrint('Using MySQL name: $_displayName');
         } else {
-          // Format email prefix as name
-          String emailPrefix = currentUser.email!.split('@')[0];
-          emailPrefix = emailPrefix
-              .replaceAllMapped(RegExp(r'[_\-.]'), (match) => ' ')
-              .split(' ')
-              .map((word) {
-                if (word.isNotEmpty) {
-                  return '${word[0].toUpperCase()}${word.substring(1)}';
-                }
-                return '';
-              })
-              .join(' ')
-              .trim();
+          // Format email prefix as fallback
+          if (_userEmail != null) {
+            String emailPrefix = _userEmail!.split('@')[0];
+            emailPrefix = emailPrefix
+                .replaceAllMapped(RegExp(r'[_\-.]'), (match) => ' ')
+                .split(' ')
+                .map((word) {
+                  if (word.isNotEmpty) {
+                    return '${word[0].toUpperCase()}${word.substring(1)}';
+                  }
+                  return '';
+                })
+                .join(' ')
+                .trim();
 
-          _displayName = emailPrefix;
-          _nameController.text = _displayName ?? '';
-          debugPrint('Using formatted email prefix as name: $_displayName');
+            _displayName = emailPrefix;
+            _nameController.text = _displayName ?? '';
+            debugPrint('Using formatted email prefix as name: $_displayName');
+          }
         }
-
-        debugPrint('Using Supabase user data: $_userEmail');
+        debugPrint('Using MySQL user data: $_userEmail');
       } else {
-        debugPrint('No user email available');
+        debugPrint('No user data available');
       }
     }
 
@@ -2242,23 +2245,32 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (confirm) {
       try {
+        debugPrint('Starting sign out process...');
+        
         // Clear local data first
         await _clearProfileData();
+        debugPrint('Profile data cleared');
 
         // Clear database service cached data
         await DatabaseService.instance.clearUserData();
+        debugPrint('Database service data cleared');
 
         // Clear user service data
         await UserService.instance.clearUserInfo();
+        debugPrint('User service data cleared');
 
         // Use AuthService to properly sign out from both MySQL and Firebase
         await _authService.signOut();
-        debugPrint('User signed out successfully');
+        debugPrint('AuthService sign out completed');
 
-        // Navigate to auth wrapper
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil('/auth', (route) => false);
+        // Navigate to login page instead of auth wrapper
+        if (mounted) {
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/login', (route) => false);
+          debugPrint('Navigated to login page');
+        }
       } catch (e) {
+        debugPrint('Error during sign out: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

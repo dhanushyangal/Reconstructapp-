@@ -154,30 +154,87 @@ class AuthService extends ChangeNotifier {
         await signOutGuest();
       }
       
-      debugPrint('🔐 AuthService: Calling Supabase loginUser...');
-      final result = await _supabaseService.loginUser(
+      debugPrint('🔐 AuthService: Using Firebase for email/password sign-in...');
+      
+      // Use Firebase Auth for email/password sign-in
+      final userCredential = await fb_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      debugPrint('🔐 AuthService: Supabase loginUser completed');
-      debugPrint('🔐 AuthService: Login result: ${result['success']}');
-
-      if (result['success'] == true) {
-        _userData = result['user'];
-        debugPrint('🔐 AuthService: Email/password sign-in successful');
-        debugPrint('🔐 AuthService: User data: $_userData');
-        notifyListeners();
-      } else {
-        debugPrint(
-            '🔐 AuthService: Email/password sign-in failed: ${result['message']}');
+      
+      final firebaseUser = userCredential.user;
+      if (firebaseUser == null) {
+        debugPrint('🔐 AuthService: Firebase user is null after sign-in');
+        return {
+          'success': false,
+          'message': 'Firebase sign-in failed',
+        };
       }
-
-      return result;
+      
+      debugPrint('🔐 AuthService: Firebase email/password sign-in successful: ${firebaseUser.email}');
+      
+      // Force refresh the Firebase ID token to ensure it's fresh
+      final idToken = await firebaseUser.getIdToken(true);
+      if (idToken == null) {
+        debugPrint('🔐 AuthService: Failed to get Firebase ID token');
+        return {
+          'success': false,
+          'message': 'Failed to get authentication token',
+        };
+      }
+      
+      debugPrint('🔐 AuthService: Firebase ID token refreshed successfully');
+      
+      // Update user data
+      _userData = {
+        'id': firebaseUser.uid,
+        'email': firebaseUser.email,
+        'name': firebaseUser.displayName ?? 'User',
+        'photoUrl': firebaseUser.photoURL,
+        'firebase_uid': firebaseUser.uid,
+      };
+      
+      debugPrint('🔐 AuthService: Email/password sign-in successful');
+      debugPrint('🔐 AuthService: User data: $_userData');
+      notifyListeners();
+      
+      return {
+        'success': true,
+        'message': 'Email/password sign-in successful',
+        'user': _userData,
+        'firebaseUser': firebaseUser,
+      };
+      
     } catch (e) {
       debugPrint('🔐 AuthService: Email/password sign-in error: $e');
+      
+      // Handle specific Firebase auth errors
+      String errorMessage = 'Sign-in failed';
+      if (e is fb_auth.FirebaseAuthException) {
+        switch (e.code) {
+          case 'user-not-found':
+            errorMessage = 'No user found with this email address';
+            break;
+          case 'wrong-password':
+            errorMessage = 'Incorrect password';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Invalid email address';
+            break;
+          case 'user-disabled':
+            errorMessage = 'This account has been disabled';
+            break;
+          case 'too-many-requests':
+            errorMessage = 'Too many failed attempts. Please try again later';
+            break;
+          default:
+            errorMessage = 'Authentication failed: ${e.message}';
+        }
+      }
+      
       return {
         'success': false,
-        'message': 'Sign-in failed: $e',
+        'message': errorMessage,
       };
     }
   }
@@ -311,9 +368,10 @@ class AuthService extends ChangeNotifier {
         return;
       }
       
-      await _supabaseService.logout();
+      // Sign out from Firebase Auth
+      await fb_auth.FirebaseAuth.instance.signOut();
       _userData = null;
-      debugPrint('AuthService: User signed out successfully');
+      debugPrint('AuthService: User signed out successfully from Firebase');
       notifyListeners();
     } catch (e) {
       debugPrint('AuthService: Sign out error: $e');

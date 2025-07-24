@@ -507,11 +507,11 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
               onPressed: _manualSync,
             ),
           if (!isGuest)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh Data',
-              onPressed: _loadActivityData,
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh Data',
+            onPressed: _loadActivityData,
+          ),
         ],
       ),
       body: _isLoading
@@ -622,14 +622,14 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
                       ),
                     // Tracker cards - only show if not guest
                     if (!isGuest)
-                      ..._trackerNames.keys.map((trackerId) {
-                        return _buildTrackerCard(trackerId);
+                    ..._trackerNames.keys.map((trackerId) {
+                      return _buildTrackerCard(trackerId);
                       })
                     else
                       // Show placeholder cards for guest users
                       ..._trackerNames.keys.map((trackerId) {
                         return _buildGuestTrackerCard(trackerId);
-                      }),
+                    }),
                   ],
                 ),
               ),
@@ -733,8 +733,8 @@ class _DashboardTrackerPageState extends State<DashboardTrackerPage> {
               ),
             ),
           ],
-        ),
-      ),
+              ),
+            ),
     );
   }
 
