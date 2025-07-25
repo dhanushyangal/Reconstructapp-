@@ -14,6 +14,7 @@ import 'active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
 import '../utils/platform_features.dart';
 import 'active_tasks_page.dart';
+import '../services/auth_service.dart';
 
 class TodoItem {
   String id;
@@ -200,7 +201,6 @@ class _WinterWarmthThemeVisionBoardState
     Color.fromARGB(255, 37, 53, 63),
   ];
 
-  @override
   String get pageName => 'Winter Warmth Vision Board';
 
   @override
@@ -666,17 +666,18 @@ class _WinterWarmthThemeVisionBoardState
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
-                    );
+                    if (AuthService.isGuest) {
+                      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                    } else {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
+                      );
+                    }
                   },
-                  icon: const Icon(Icons.save, color: Colors.blue),
-                  label: const Text(
-                    'Save Vision Board',
-                    style: TextStyle(fontSize: 18, color: Colors.blue),
-                  ),
+                  icon: Icon(AuthService.isGuest ? Icons.login : Icons.save),
+                  label: Text(AuthService.isGuest ? 'Sign in to save vision board' : 'Save Vision Board'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                    backgroundColor: Colors.white,
                     minimumSize: const Size(double.infinity, 56),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

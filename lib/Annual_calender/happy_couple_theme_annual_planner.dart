@@ -16,6 +16,7 @@ import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
 import '../utils/platform_features.dart';
 import '../pages/active_tasks_page.dart';
+import '../services/auth_service.dart';
 
 class HappyCoupleThemeCalendarApp extends StatefulWidget {
   final int monthIndex;
@@ -1136,12 +1137,16 @@ class _HappyCoupleThemeCalendarAppState
                           left: 16.0, right: 16.0, bottom: 16.0),
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
-                          );
+                          if (AuthService.isGuest) {
+                            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                          } else {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
+                            );
+                          }
                         },
-                        icon: const Icon(Icons.save),
-                        label: const Text('Save Calendar'),
+                        icon: Icon(AuthService.isGuest ? Icons.login : Icons.save),
+                        label: Text(AuthService.isGuest ? 'Sign in to save calendar' : 'Save Calendar'),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 56),
                           shape: RoundedRectangleBorder(

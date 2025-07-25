@@ -14,6 +14,7 @@ import 'active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
 import '../utils/platform_features.dart';
 import 'active_tasks_page.dart';
+import '../services/auth_service.dart';
 
 // Add manual login dialog widget
 class ManualLoginDialog extends StatefulWidget {
@@ -180,7 +181,6 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
   DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
   bool _hasNetworkConnectivity = true;
 
-  @override
   String get pageName => 'Box Theme Vision Board';
 
   @override
@@ -343,6 +343,31 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
 
   // Improved to prioritize local storage
   Future<void> _saveTodoList(String category) async {
+    if (AuthService.isGuest) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Sign In Required'),
+            content: const Text('Please sign in to save your vision board.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                },
+                child: const Text('Sign In'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final encoded = json
         .encode(_todoLists[category]?.map((item) => item.toJson()).toList());
@@ -674,15 +699,16 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
-                    );
+                    if (AuthService.isGuest) {
+                      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                    } else {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
+                      );
+                    }
                   },
-                  icon: const Icon(Icons.save, color: Colors.blue),
-                  label: const Text(
-                    'Save Vision Board',
-                    style: TextStyle(fontSize: 18, color: Colors.blue),
-                  ),
+                  icon: Icon(AuthService.isGuest ? Icons.login : Icons.save),
+                  label: Text(AuthService.isGuest ? 'Sign in to save vision board' : 'Save Vision Board'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color.fromARGB(255, 255, 255, 255),
                     minimumSize: const Size(double.infinity, 56),

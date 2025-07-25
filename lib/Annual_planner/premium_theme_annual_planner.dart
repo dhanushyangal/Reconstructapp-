@@ -15,6 +15,7 @@ import '../services/user_service.dart';
 import 'dart:async';
 import '../utils/activity_tracker_mixin.dart';
 import '../utils/platform_features.dart';
+import '../services/auth_service.dart';
 
 class TodoItem {
   String text;
@@ -611,12 +612,16 @@ class _PremiumThemeAnnualPlannerState extends State<PremiumThemeAnnualPlanner>
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
-                    );
+                    if (AuthService.isGuest) {
+                      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                    } else {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
+                      );
+                    }
                   },
-                  icon: const Icon(Icons.save),
-                  label: const Text('Save Annual Planner'),
+                  icon: Icon(AuthService.isGuest ? Icons.login : Icons.save),
+                  label: Text(AuthService.isGuest ? 'Sign in to save annual planner' : 'Save Annual Planner'),
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 56),
                     shape: RoundedRectangleBorder(

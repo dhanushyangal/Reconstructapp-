@@ -23,6 +23,7 @@ import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
 import '../utils/platform_features.dart';
 import '../pages/active_tasks_page.dart';
+import '../services/auth_service.dart';
 
 class AnimalThemeCalendarApp extends StatefulWidget {
   final int monthIndex;
@@ -519,6 +520,31 @@ class _AnimalThemeCalendarAppState extends State<AnimalThemeCalendarApp>
   }
 
   Future<void> _saveDates() async {
+    if (AuthService.isGuest) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Sign In Required'),
+            content: const Text('Please sign in to save your calendar.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                },
+                child: const Text('Sign In'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final Map<String, dynamic> dataToSave = {};
@@ -2746,13 +2772,16 @@ class _AnimalThemeCalendarAppState extends State<AnimalThemeCalendarApp>
                       ),
                     ElevatedButton.icon(
                       onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
-                        );
+                        if (AuthService.isGuest) {
+                          Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                        } else {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
+                          );
+                        }
                       },
-                      icon: const Icon(Icons.save),
-                      label: const Text('Save Calendar'),
-                      
+                      icon: Icon(AuthService.isGuest ? Icons.login : Icons.save),
+                      label: Text(AuthService.isGuest ? 'Sign in to save calendar' : 'Save Calendar'),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 56),
                         shape: RoundedRectangleBorder(
