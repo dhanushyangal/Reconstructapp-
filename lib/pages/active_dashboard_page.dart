@@ -16,6 +16,7 @@ import 'dart:convert';
 import '../vision_journey/vision-board-travel-journey.dart';
 import '../district-my-mind/distract-my-mind-journey.dart';
 import '../utils/activity_tracker_mixin.dart';
+import '../services/auth_service.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -389,6 +390,8 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
 
   List<Widget> _buildToolCards() {
     final toolsList = _tools[_selectedCategory!] ?? [];
+    final isMindOrActivity = _selectedCategory == 'mind' || _selectedCategory == 'activity';
+    final isGuest = AuthService.isGuest;
 
     return [
       GridView.builder(
@@ -403,8 +406,14 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
         itemCount: toolsList.length,
         itemBuilder: (context, index) {
           final tool = toolsList[index];
+          final isLocked = isGuest && isMindOrActivity;
           return GestureDetector(
             onTap: () {
+              if (isLocked) {
+                // Redirect guest to sign in
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                return;
+              }
               // Navigate based on category and tool name
               if (_selectedCategory == 'vision') {
                 _handleVisionToolNavigation(tool['name'] as String);
@@ -414,44 +423,60 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
                 _handleActivityToolNavigation(tool['name'] as String);
               }
             },
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(9)),
-                      child: Image.asset(
-                        tool['image'] as String,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          print('Error loading image: ${tool['image']}');
-                          return Center(
-                            child: Icon(Icons.image_not_supported,
-                                size: 40, color: Colors.grey[400]),
-                          );
-                        },
+            child: Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(9)),
+                          child: Image.asset(
+                            tool['image'] as String,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              print('Error loading image: ${tool['image']}');
+                              return Center(
+                                child: Icon(Icons.image_not_supported,
+                                    size: 40, color: Colors.grey[400]),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          tool['name'] as String,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isLocked)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Icon(Icons.lock, color: Colors.white, size: 40),
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      tool['name'] as String,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
           );
         },
@@ -460,6 +485,10 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
   }
 
   Widget _buildRecentActivitySection() {
+    // Hide recent activity for guest users
+    if (AuthService.isGuest) {
+      return SizedBox.shrink();
+    }
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(20),
