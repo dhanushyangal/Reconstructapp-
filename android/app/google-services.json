@@ -1,63 +1,71 @@
 {
-  "project_info": {
-    "project_number": "633982729642",
-    "project_id": "recostrect3",
-    "storage_bucket": "recostrect3.firebasestorage.app"
-  },
-  "client": [
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:633982729642:android:5bc8eafe77d83923f93fd3",
-        "android_client_info": {
-          "package_name": "com.reconstrect.visionboard"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "633982729642-h1n9cc07ut6515sefpbtr7vbu74gh1vr.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.reconstrect.visionboard",
-            "certificate_hash": "8d919640bfb903c2373d5695cdda48b4e6a5d81d"
+    "project_info": {
+      "project_number": "633982729642",
+      "project_id": "recostrect3",
+      "storage_bucket": "recostrect3.firebasestorage.app"
+    },
+    "client": [
+      {
+        "client_info": {
+          "mobilesdk_app_id": "1:633982729642:android:5c64c7ba8d203865f93fd3",
+          "android_client_info": {
+            "package_name": "com.reconstrect.visionboard"
           }
         },
-        {
-          "client_id": "633982729642-jp8tevecj51c4su3lle2d9rnfvg6rifv.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.reconstrect.visionboard",
-            "certificate_hash": "dbb2bc2ed6e709eefc4549ed99ba8fee5b585bd1"
-          }
-        },
-        {
-          "client_id": "633982729642-scacsdhtoatiqil4r7ts40gku1sg467c.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.reconstrect.visionboard",
-            "certificate_hash": "143064b66b5786ac10e548c1a25c656a742a3bde"
-          }
-        },
-        {
-          "client_id": "633982729642-niovit44aiid4civdjtkotsb37shlqsa.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBpGN4Pv6bkh1pmoGSD0kQIjVfK6Ym_JwA"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "633982729642-l3rnsu8636ib9bf2gvbaqmahraomb9f0.apps.googleusercontent.com",
-              "client_type": 3
+        "oauth_client": [
+          {
+            "client_id": "633982729642-h1n9cc07ut6515sefpbtr7vbu74gh1vr.apps.googleusercontent.com",
+            "client_type": 1,
+            "android_info": {
+              "package_name": "com.reconstrect.visionboard",
+              "certificate_hash": "8d919640bfb903c2373d5695cdda48b4e6a5d81d"
             }
-          ]
+          },
+          {
+            "client_id": "633982729642-jp8tevecj51c4su3lle2d9rnfvg6rifv.apps.googleusercontent.com",
+            "client_type": 1,
+            "android_info": {
+              "package_name": "com.reconstrect.visionboard",
+              "certificate_hash": "dbb2bc2ed6e709eefc4549ed99ba8fee5b585bd1"
+            }
+          },
+          {
+            "client_id": "633982729642-scacsdhtoatiqil4r7ts40gku1sg467c.apps.googleusercontent.com",
+            "client_type": 1,
+            "android_info": {
+              "package_name": "com.reconstrect.visionboard",
+              "certificate_hash": "143064b66b5786ac10e548c1a25c656a742a3bde"
+            }
+          },
+          {
+            "client_id": "633982729642-niovit44aiid4civdjtkotsb37shlqsa.apps.googleusercontent.com",
+            "client_type": 3
+          }
+        ],
+        "api_key": [
+          {
+            "current_key": "AIzaSyAVphUfUW7vuzuUlkQrHpqgVcv8-ODfXso"
+          }
+        ],
+        "services": {
+          "appinvite_service": {
+            "other_platform_oauth_client": [
+              {
+                "client_id": "633982729642-4lotqibb3rnglifn79rt0ibjorg40oib.apps.googleusercontent.com",
+                "client_type": 3
+              },
+              {
+                "client_id": "633982729642-p8p5svhsbuu6g18kmk8agshb5j92amkf.apps.googleusercontent.com",
+                "client_type": 2,
+                "ios_info": {
+                  "bundle_id": "com.reconstrect.visionboard",
+                  "app_store_id": "123456789"
+                }
+              }
+            ]
+          }
         }
       }
-    }
-  ],
-  "configuration_version": "1"
-}
+    ],
+    "configuration_version": "1"
+  }

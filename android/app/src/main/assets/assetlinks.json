@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.reconstrect.visionboard",
+      "sha256_cert_fingerprints": ["A3:22:1B:C6:FE:7C:36:2C:72:8E:74:66:1C:EB:D6:2A:F2:39:28:77:50:75:53:DE:13:B1:A4:91:D5:DD:68:B4"]
+    }
+  }
+] 

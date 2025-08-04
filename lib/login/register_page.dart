@@ -453,6 +453,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                     email: userData['email'],
                                     displayName: displayName,
                                     initial: initial,
+                                    photoUrl: userData['photoUrl'],
                                   ),
                                 ),
                               );
@@ -652,6 +653,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   ],
                 ),
                 // Guest access
+                PlatformFeatureWidget(
+                    featureName: 'guest_sign_in',
+                    child: 
                 TextButton(
                   onPressed: _isLoading
                       ? null
@@ -661,7 +665,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         },
                   child: const Text('Continue as Guest'),
                 ),
-
+                ),
                 // Terms and Privacy
                 const SizedBox(height: 16),
                 const Text(

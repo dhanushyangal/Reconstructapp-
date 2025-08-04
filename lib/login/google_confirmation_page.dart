@@ -5,22 +5,20 @@ class GoogleConfirmationPage extends StatelessWidget {
   final String email;
   final String displayName;
   final String initial;
+  final String? photoUrl;
 
   const GoogleConfirmationPage({
     super.key,
     required this.email,
     required this.displayName,
     required this.initial,
+    this.photoUrl,
   });
 
   @override
   Widget build(BuildContext context) {
-    // When using accessToken function, we can't access supabase.auth
-    // Use the passed parameters instead
-
-    // When using accessToken function, we can't access supabase.auth
-    // Use a default image or the passed photoUrl if needed
-    String? profileImageUrl = null; // We'll use a default image for now
+    // Use the passed photoUrl parameter
+    String? profileImageUrl = photoUrl;
 
     return Scaffold(
       body: SafeArea(

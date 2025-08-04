@@ -1711,16 +1711,16 @@ class _ProfilePageState extends State<ProfilePage> {
       if (displayName == null || displayName.trim().isEmpty) {
         String emailPrefix = currentUser.email!.split('@')[0];
         displayName = emailPrefix
-            .replaceAllMapped(RegExp(r'[_\-.]'), (match) => ' ')
-            .split(' ')
-            .map((word) {
-              if (word.isNotEmpty) {
-                return '${word[0].toUpperCase()}${word.substring(1)}';
-              }
-              return '';
-            })
-            .join(' ')
-            .trim();
+              .replaceAllMapped(RegExp(r'[_\-.]'), (match) => ' ')
+              .split(' ')
+              .map((word) {
+                if (word.isNotEmpty) {
+                  return '${word[0].toUpperCase()}${word.substring(1)}';
+                }
+                return '';
+              })
+              .join(' ')
+              .trim();
       }
 
       _displayName = displayName.trim();
@@ -1742,22 +1742,22 @@ class _ProfilePageState extends State<ProfilePage> {
           // Format email prefix as fallback
           if (_userEmail != null) {
             String emailPrefix = _userEmail!.split('@')[0];
-            emailPrefix = emailPrefix
-                .replaceAllMapped(RegExp(r'[_\-.]'), (match) => ' ')
-                .split(' ')
-                .map((word) {
-                  if (word.isNotEmpty) {
-                    return '${word[0].toUpperCase()}${word.substring(1)}';
-                  }
-                  return '';
-                })
-                .join(' ')
-                .trim();
+          emailPrefix = emailPrefix
+              .replaceAllMapped(RegExp(r'[_\-.]'), (match) => ' ')
+              .split(' ')
+              .map((word) {
+                if (word.isNotEmpty) {
+                  return '${word[0].toUpperCase()}${word.substring(1)}';
+                }
+                return '';
+              })
+              .join(' ')
+              .trim();
 
-            _displayName = emailPrefix;
-            _nameController.text = _displayName ?? '';
-            debugPrint('Using formatted email prefix as name: $_displayName');
-          }
+          _displayName = emailPrefix;
+          _nameController.text = _displayName ?? '';
+          debugPrint('Using formatted email prefix as name: $_displayName');
+        }
         }
         debugPrint('Using MySQL user data: $_userEmail');
       } else {
@@ -2041,9 +2041,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                           'Sign in or create an account to save your progress, access premium features, '
                                           'and sync your data across devices. Enjoy exploring our free features!'
                                         : 'Thanks for creating your Reconstruct account.\n\n'
-                                          'Your personalised dashboard is getting ready and will be available shortly. '
-                                          'Save, edit and download calendars, coloring sheets and planners. '
-                                          'Use the daily activity tracker to build new habits and more!',
+                                      'Your personalised dashboard is getting ready and will be available shortly. '
+                                      'Save, edit and download calendars, coloring sheets and planners. '
+                                      'Use the daily activity tracker to build new habits and more!',
                                       style: TextStyle(
                                         fontSize: 14,
                                         height: 1.5,
@@ -2265,7 +2265,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
         // Navigate to login page instead of auth wrapper
         if (mounted) {
-          Navigator.of(context)
+        Navigator.of(context)
               .pushNamedAndRemoveUntil('/login', (route) => false);
           debugPrint('Navigated to login page');
         }

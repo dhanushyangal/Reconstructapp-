@@ -212,6 +212,9 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
                     ),
                   ),
                   // Guest access
+                  PlatformFeatureWidget(
+                    featureName: 'guest_sign_in',
+                    child: 
                   TextButton(
                     onPressed: _isLoading
                         ? null
@@ -221,7 +224,7 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
                         },
                     child: const Text('Continue as Guest'),
                   ),
-
+                  ),
                   const Spacer(),
 
                   // Terms and Privacy

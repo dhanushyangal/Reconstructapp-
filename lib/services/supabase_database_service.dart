@@ -93,14 +93,20 @@ class SupabaseDatabaseService {
     }
   }
 
-  // Method to check if email already exists in Supabase Auth
+  // Method to check if email already exists in user table
   Future<bool> _checkEmailExists(String email) async {
     try {
       debugPrint('🔍 Checking if email exists: $email');
 
-      // Check in auth.users table using admin query
-      final response = await _client
-          .from('auth.users')
+      // Create a public client for checking email availability (no auth required)
+      final publicClient = supabase.SupabaseClient(
+        'https://ruxsfzvrumqxsvanbbow.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1eHNmenZydW1xeHN2YW5iYm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NTIyNTQsImV4cCI6MjA2NDUyODI1NH0.v-sa-R8Ox8Qcwx6RhCydokwIm--pZytje5cuNyV0Oqg',
+      );
+
+      // Check in user table using public client
+      final response = await publicClient
+          .from('user')
           .select('id')
           .eq('email', email)
           .maybeSingle();
@@ -120,8 +126,14 @@ class SupabaseDatabaseService {
     try {
       debugPrint('🔍 Checking if username exists: $username');
 
-      // Check in public.user table
-      final response = await _client
+      // Create a public client for checking username availability (no auth required)
+      final publicClient = supabase.SupabaseClient(
+        'https://ruxsfzvrumqxsvanbbow.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1eHNmenZydW1xeHN2YW5iYm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NTIyNTQsImV4cCI6MjA2NDUyODI1NH0.v-sa-R8Ox8Qcwx6RhCydokwIm--pZytje5cuNyV0Oqg',
+      );
+
+      // Check in public.user table using public client
+      final response = await publicClient
           .from('user')
           .select('id')
           .eq('name', username)
@@ -1155,14 +1167,19 @@ class SupabaseDatabaseService {
     }
   }
 
-  /// Check if a user exists in auth.users by email
-  Future<bool> isUserInAuthUsers(String email) async {
+  /// Check if a user exists in user table by email
+  Future<bool> isUserInUserTable(String email) async {
     try {
-      // Correct: query 'auth.users' (not 'public.auth.users')
-      final result = await _client.from('auth.users').select('id').eq('email', email).maybeSingle();
+      // Create a public client for checking user existence (no auth required)
+      final publicClient = supabase.SupabaseClient(
+        'https://ruxsfzvrumqxsvanbbow.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1eHNmenZydW1xeHN2YW5iYm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NTIyNTQsImV4cCI6MjA2NDUyODI1NH0.v-sa-R8Ox8Qcwx6RhCydokwIm--pZytje5cuNyV0Oqg',
+      );
+      
+      final result = await publicClient.from('user').select('id').eq('email', email).maybeSingle();
       return result != null;
     } catch (e) {
-      debugPrint('Error checking auth.users: $e');
+      debugPrint('Error checking user table: $e');
       return false;
     }
   }

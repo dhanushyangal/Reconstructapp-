@@ -194,9 +194,9 @@ class AuthService extends ChangeNotifier {
         'firebase_uid': firebaseUser.uid,
       };
       
-      debugPrint('🔐 AuthService: Email/password sign-in successful');
-      debugPrint('🔐 AuthService: User data: $_userData');
-      notifyListeners();
+        debugPrint('🔐 AuthService: Email/password sign-in successful');
+        debugPrint('🔐 AuthService: User data: $_userData');
+        notifyListeners();
       
       return {
         'success': true,
@@ -323,39 +323,97 @@ class AuthService extends ChangeNotifier {
     required String password,
   }) async {
     try {
+      debugPrint('🔐 AuthService: Starting registration for: $email');
+      
       // Clear guest state when registering
       if (_isGuest) {
         await signOutGuest();
       }
       
-      // 1. Register with Firebase
+      // 1. Register with Firebase Auth
+      debugPrint('🔐 AuthService: Creating Firebase user...');
       final userCredential = await fb_auth.FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+      
       final firebaseUser = userCredential.user;
       if (firebaseUser == null) {
+        debugPrint('🔐 AuthService: Firebase user creation failed');
         return {'success': false, 'message': 'Firebase registration failed'};
       }
 
-      // 2. Upsert user info into Supabase
-      final upsertResult = await _supabaseService.upsertUserData(
-        username: username,
-        email: email,
-        firebaseUid: firebaseUser.uid,
-      );
-      if (!upsertResult['success']) return upsertResult;
+      debugPrint('🔐 AuthService: Firebase user created successfully: ${firebaseUser.uid}');
+
+      // 2. Update Firebase user profile with username
+      try {
+        await firebaseUser.updateDisplayName(username);
+        debugPrint('🔐 AuthService: Updated Firebase display name to: $username');
+      } catch (e) {
+        debugPrint('🔐 AuthService: Could not update display name: $e');
+        // Continue anyway, this is not critical
+      }
+
+      // 3. Insert user data into Supabase 'user' table
+      debugPrint('🔐 AuthService: Inserting user data into Supabase...');
+      try {
+        await _supabaseService.upsertUserToUserAndUsersTables(
+          id: firebaseUser.uid,
+          email: email,
+          name: username,
+          photoUrl: null,
+        );
+        debugPrint('🔐 AuthService: User data inserted into Supabase successfully');
+      } catch (e) {
+        debugPrint('🔐 AuthService: Supabase insertion error: $e');
+        // Don't fail registration if Supabase insertion fails
+        // The user is already created in Firebase
+      }
+
+      // 4. Update local user data
+      _userData = {
+        'id': firebaseUser.uid,
+        'email': firebaseUser.email,
+        'name': username,
+        'username': username,
+        'firebase_uid': firebaseUser.uid,
+      };
+
+      debugPrint('🔐 AuthService: Registration successful for: $email');
+      notifyListeners();
 
       return {
         'success': true,
-        'user': {
-          'id': firebaseUser.uid,
-          'email': firebaseUser.email,
-          'username': username,
-        }
+        'message': 'Registration successful! Please check your email for verification.',
+        'user': _userData,
+        'firebaseUser': firebaseUser,
       };
+      
     } catch (e) {
-      return {'success': false, 'message': 'Registration failed: $e'};
+      debugPrint('🔐 AuthService: Registration error: $e');
+      
+      // Handle specific Firebase auth errors
+      String errorMessage = 'Registration failed';
+      if (e is fb_auth.FirebaseAuthException) {
+        switch (e.code) {
+          case 'email-already-in-use':
+            errorMessage = 'An account with this email already exists';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Invalid email address';
+            break;
+          case 'weak-password':
+            errorMessage = 'Password is too weak. Please choose a stronger password';
+            break;
+          case 'operation-not-allowed':
+            errorMessage = 'Email/password accounts are not enabled';
+            break;
+          default:
+            errorMessage = 'Registration failed: ${e.message}';
+        }
+      }
+      
+      return {'success': false, 'message': errorMessage};
     }
   }
 

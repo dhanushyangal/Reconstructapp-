@@ -45,7 +45,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage>
     with ActivityTrackerMixin {
   final AuthService _authService = AuthService();
   final OfflineSyncService _syncService = OfflineSyncService();
-  String? _userId;
   bool _isLoading = true;
   bool _isOffline = false;
   bool _isCheckingConnectivity = false;
@@ -54,7 +53,6 @@ class _ActiveTasksPageState extends State<ActiveTasksPage>
   Timer? _connectivityCheckTimer;
   int _consecutiveFailedChecks = 0;
 
-  @override
   String get pageName => 'Active Tasks';
 
   @override
@@ -361,7 +359,7 @@ class _ActiveTasksPageState extends State<ActiveTasksPage>
     final mysqlUserData = _authService.userData;
 
     if (mysqlUserData != null) {
-      _userId = mysqlUserData['id']?.toString() ?? 'mysql_user';
+      // _userId = mysqlUserData['id']?.toString() ?? 'mysql_user'; // Removed unused field
     }
   }
 
@@ -1510,6 +1508,47 @@ class _ActiveTasksPageState extends State<ActiveTasksPage>
 
   @override
   Widget build(BuildContext context) {
+    if (AuthService.isGuest) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Active Boards')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_outline, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'Active boards are only available for signed-in users.',
+                style: Theme.of(context).textTheme.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Please sign in to use this feature.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                },
+                icon: Icon(Icons.login),
+                label: Text('Sign In'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Active Boards'),

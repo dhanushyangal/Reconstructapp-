@@ -1,9 +1,4 @@
 import 'package:flutter/material.dart';
-import 'angry.dart';
-import 'low.dart';
-import 'numb.dart';
-import 'overwhelmed.dart';
-import 'restless.dart';
 
 class ResetEmotionsDashboard extends StatelessWidget {
   const ResetEmotionsDashboard({super.key});

@@ -34,10 +34,10 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk 23 // This supports Android 5.0 and above (about 98% of active devices)
         targetSdk = 35
-        versionCode = 53
-        versionName = "1.2.34"
+        versionCode = 65
+        versionName = "1.2.45"
         multiDexEnabled true
-        resValue "string", "server_client_id", "633982729642-l3rnsu8636ib9bf2gvbaqmahraomb9f0.apps.googleusercontent.com"
+        resValue "string", "server_client_id", "633982729642-4lotqibb3rnglifn79rt0ibjorg40oib.apps.googleusercontent.com"
     }
 
     signingConfigs {
@@ -110,5 +110,17 @@ dependencies {
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'androidx.work:work-runtime-ktx:2.9.0'
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
+    
+    // Import the Firebase BoM
+    implementation platform('com.google.firebase:firebase-bom:34.0.0')
+    
+    // Add Firebase Analytics
+    implementation 'com.google.firebase:firebase-analytics'
+    
+    // Add other Firebase products as needed
+    implementation 'com.google.firebase:firebase-auth'
+    // implementation 'com.google.firebase:firebase-firestore'
+    // implementation 'com.google.firebase:firebase-storage'
+    // implementation 'com.google.firebase:firebase-messaging'
 }
 
