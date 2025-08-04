@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../services/supabase_database_service.dart';
+import '../services/subscription_manager.dart';
 import '../utils/platform_features.dart';
 import 'google_confirmation_page.dart';
 import 'login_page.dart';
-import 'verification_completion_page.dart';
 
 class RegisterPage extends StatefulWidget {
   final bool showGoogleSignIn;
@@ -245,82 +245,48 @@ class _RegisterPageState extends State<RegisterPage> {
       if (result['success']) {
         debugPrint('Registration successful: ${result['user']['email']}');
 
-        // Check if email confirmation is required
-        final requiresEmailConfirmation =
-            result['message']?.contains('check your email') ?? false;
-
-        if (requiresEmailConfirmation) {
-          // Navigate to verification completion page
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => VerificationCompletionPage(
-                email: _emailController.text.trim(),
-                username: _usernameController.text.trim(),
-                password: _passwordController.text, // Pass the password
-              ),
-            ),
-          );
-        } else {
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registration successful'),
-              backgroundColor: Colors.green,
-            ),
-          );
-
-          // Wait a moment for the user to see the success message
-          await Future.delayed(const Duration(milliseconds: 800));
-
-          // Check if the widget is still mounted before navigating
-          if (!mounted) return;
-
-          // Force AuthService to refresh user data
-          await _authService.initialize();
-
-          debugPrint('Navigating to home page after successful registration');
-          // Navigate to the home page directly
-          Navigator.of(context)
-              .pushNamedAndRemoveUntil('/home', (route) => false);
+        // Enable free trial for new user
+        try {
+          final subscriptionManager = SubscriptionManager();
+          await subscriptionManager.startFreeTrial();
+          debugPrint('Free trial enabled for new user');
+        } catch (e) {
+          debugPrint('Error enabling free trial: $e');
+          // Don't fail registration if free trial setup fails
         }
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created successfully! Your 7-day free trial has started. Please check your email for verification.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4),
+          ),
+        );
+
+        // Wait a moment for the user to see the success message
+        await Future.delayed(const Duration(milliseconds: 800));
+
+        // Check if the widget is still mounted before navigating
+        if (!mounted) return;
+
+        // Force AuthService to refresh user data
+        await _authService.initialize();
+
+        debugPrint('Navigating to home page after successful registration');
+        // Navigate directly to the home page
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil('/home', (route) => false);
       } else {
         debugPrint('Registration failed: ${result['message']}');
 
-        // Check if it's a timeout error but registration might have succeeded
-        if (result['message']?.contains('timed out') == true) {
-          // Navigate to verification completion page for timeout cases
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => VerificationCompletionPage(
-                email: _emailController.text.trim(),
-                username: _usernameController.text.trim(),
-                password: _passwordController.text, // Pass the password
-              ),
-            ),
-          );
-
-          // Show timeout message
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                    'Registration may have succeeded but took too long. Please check your email for verification link.'),
-                backgroundColor: Colors.orange,
-                duration: Duration(seconds: 6),
-              ),
-            );
-          });
-        } else {
-          // Show regular error message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message'] ?? 'Registration failed'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Registration failed'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Registration error: $e');
