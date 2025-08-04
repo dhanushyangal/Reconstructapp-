@@ -32,5 +32,11 @@
 	<!-- Development team and debugging -->
 	<key>get-task-allow</key>
 	<true/>
+	
+	<!-- Apple Sign-In capability -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
 </dict>
 </plist> 

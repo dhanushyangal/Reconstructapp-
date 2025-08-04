@@ -38,6 +38,7 @@ class PlatformFeatures {
     'ios_deep_links': true,
     'ios_home_widget': true,
     'ios_activity_tracker': true,
+    'apple_sign_in': true, // Apple Sign-In available on iOS
 
     // Features to hide on iOS (examples)
     'break_things_tool': true, // Set to false to hide on iOS
@@ -78,7 +79,6 @@ class PlatformFeatures {
 
       // Features hidden on Android
       case 'ios_specific_feature':
-      case 'guest_sign_in':
         return isIOS; // Only show on iOS
 
       // Android-specific features
@@ -97,6 +97,7 @@ class PlatformFeatures {
       case 'ios_deep_links':
       case 'ios_home_widget':
       case 'ios_activity_tracker':
+      case 'apple_sign_in':
         return isIOS;
 
       // Features available on both platforms

@@ -153,6 +153,101 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
                     ),
                   ),
 
+                  // Apple Sign In Button - Only show on iOS
+                  PlatformFeatureWidget(
+                    featureName: 'apple_sign_in',
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                        side: const BorderSide(color: Colors.grey, width: 1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: _isLoading
+                          ? null
+                          : () async {
+                              setState(() => _isLoading = true);
+                              try {
+                                debugPrint('Starting Apple sign-in process...');
+                                
+                                final result = await _authService.signInWithAppleFirebase();
+                                
+                                if (!result['success']) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(result['message'] ?? 'Apple sign in failed'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                                
+                                final userData = result['user'];
+                                final firebaseUser = result['firebaseUser'];
+                                
+                                debugPrint('Apple sign-in successful, checking Supabase authentication...');
+                                
+                                // When using accessToken function, Supabase automatically handles authentication
+                                // No need to check currentUser or currentSession - they're not accessible
+                                debugPrint('Supabase authentication handled automatically via Firebase JWT');
+                                
+                                // Now safely upsert user data into the database
+                                try {
+                                  await SupabaseDatabaseService().upsertUserToUserAndUsersTables(
+                                    id: userData['id'],
+                                    email: userData['email'],
+                                    name: userData['name'],
+                                    photoUrl: userData['photoUrl'],
+                                  );
+                                  debugPrint('User data upserted successfully');
+                                } catch (e) {
+                                  debugPrint('Error upserting user data: $e');
+                                  // Don't fail the sign-in if upsert fails, just log it
+                                }
+                                
+                                final displayName = userData['name'] ?? 'User';
+                                final initial = displayName[0].toUpperCase();
+                                
+                                if (!context.mounted) return;
+                                
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => GoogleConfirmationPage(
+                                      email: userData['email'],
+                                      displayName: displayName,
+                                      initial: initial,
+                                    ),
+                                  ),
+                                );
+                                
+                              } catch (e) {
+                                debugPrint('Apple sign-in error: $e');
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error: ${e.toString()}'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              } finally {
+                                if (mounted) setState(() => _isLoading = false);
+                              }
+                            },
+                      icon: const Icon(Icons.apple, size: 24, color: Colors.black),
+                      label: const Text(
+                        'Continue with Apple',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ),
+
                   // Show spacing only if Google Sign-In is available
                   PlatformFeatureWidget(
                     featureName: 'google_sign_in',
@@ -211,10 +306,6 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
                       ),
                     ),
                   ),
-                  // Guest access
-                  PlatformFeatureWidget(
-                    featureName: 'guest_sign_in',
-                    child: 
                   TextButton(
                     onPressed: _isLoading
                         ? null
@@ -223,7 +314,6 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
                             Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
                         },
                     child: const Text('Continue as Guest'),
-                  ),
                   ),
                   const Spacer(),
 

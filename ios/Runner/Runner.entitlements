@@ -24,5 +24,11 @@
 		<string>background-processing</string>
 		<string>background-fetch</string>
 	</array>
+	
+	<!-- Apple Sign-In capability -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
 </dict>
 </plist> 

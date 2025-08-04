@@ -3,6 +3,7 @@ import 'supabase_database_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService extends ChangeNotifier {
@@ -312,6 +313,103 @@ class AuthService extends ChangeNotifier {
       return {
         'success': false,
         'message': 'Google sign-in error: $e',
+      };
+    }
+  }
+
+  /// Sign in with Apple using Firebase Auth
+  Future<Map<String, dynamic>> signInWithAppleFirebase() async {
+    try {
+      // Clear guest state when signing in
+      if (_isGuest) {
+        await signOutGuest();
+      }
+      
+      debugPrint('Starting Firebase Apple sign-in...');
+      
+      // Check if Apple Sign-In is available
+      final isAvailable = await SignInWithApple.isAvailable();
+      if (!isAvailable) {
+        debugPrint('Apple Sign-In is not available on this device');
+        return {
+          'success': false,
+          'message': 'Apple Sign-In is not available on this device',
+        };
+      }
+      
+      // Request Apple Sign-In
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+      
+      if (credential.userIdentifier == null) {
+        debugPrint('Apple Sign-In cancelled by user');
+        return {
+          'success': false,
+          'message': 'Apple Sign-In cancelled',
+        };
+      }
+      
+      debugPrint('Apple Sign-In successful: ${credential.email}');
+      
+      // Create Firebase credential
+      final oauthCredential = fb_auth.OAuthProvider('apple.com').credential(
+        idToken: credential.identityToken,
+        accessToken: credential.authorizationCode,
+      );
+      
+      // Sign in to Firebase with Apple credential
+      final userCredential = await fb_auth.FirebaseAuth.instance.signInWithCredential(oauthCredential);
+      final firebaseUser = userCredential.user;
+      
+      if (firebaseUser == null) {
+        debugPrint('Firebase user is null after Apple sign-in');
+        return {
+          'success': false,
+          'message': 'Firebase sign-in failed',
+        };
+      }
+      
+      debugPrint('Firebase Apple sign-in successful: ${firebaseUser.email}');
+      
+      // Force refresh the Firebase ID token to ensure it's fresh
+      final idToken = await firebaseUser.getIdToken(true);
+      if (idToken == null) {
+        debugPrint('Failed to get Firebase ID token');
+        return {
+          'success': false,
+          'message': 'Failed to get authentication token',
+        };
+      }
+      
+      debugPrint('Firebase ID token refreshed successfully');
+      
+      // When using accessToken function, Supabase automatically handles authentication
+      // No need to check currentUser or currentSession - they're not accessible
+      debugPrint('Supabase authentication handled automatically via Firebase JWT');
+      
+      // Return success with user data
+      return {
+        'success': true,
+        'message': 'Apple sign-in successful',
+        'user': {
+          'id': firebaseUser.uid,
+          'email': firebaseUser.email,
+          'name': firebaseUser.displayName ?? 'Apple User',
+          'photoUrl': firebaseUser.photoURL,
+          'firebase_uid': firebaseUser.uid,
+        },
+        'firebaseUser': firebaseUser,
+      };
+      
+    } catch (e) {
+      debugPrint('Firebase Apple sign-in error: $e');
+      return {
+        'success': false,
+        'message': 'Apple sign-in error: $e',
       };
     }
   }

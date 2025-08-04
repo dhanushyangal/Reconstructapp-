@@ -445,16 +445,109 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
 
-                // Show divider only if Google Sign-In is available
+                // Apple Sign Up Button - Only show on iOS
                 PlatformFeatureWidget(
-                  featureName: 'google_sign_in',
-                  child: const SizedBox(height: 24),
+                  featureName: 'apple_sign_in',
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            setState(() => _isLoading = true);
+                            try {
+                              debugPrint('Starting Apple sign-in process...');
+                              
+                              final result = await _authService.signInWithAppleFirebase();
+                              
+                              if (!result['success']) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(result['message'] ?? 'Apple sign in failed'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                                return;
+                              }
+                              
+                              final userData = result['user'];
+                              
+                              debugPrint('Apple sign-in successful, checking Supabase authentication...');
+                              
+                              // When using accessToken function, Supabase automatically handles authentication
+                              // No need to check currentUser or currentSession - they're not accessible
+                              debugPrint('Supabase authentication handled automatically via Firebase JWT');
+                              
+                              // Now safely upsert user data into the database
+                              try {
+                                await SupabaseDatabaseService().upsertUserToUserAndUsersTables(
+                                  id: userData['id'],
+                                  email: userData['email'],
+                                  name: userData['name'],
+                                  photoUrl: userData['photoUrl'],
+                                );
+                                debugPrint('User data upserted successfully');
+                              } catch (e) {
+                                debugPrint('Error upserting user data: $e');
+                                // Don't fail the sign-in if upsert fails, just log it
+                              }
+                              
+                              final displayName = userData['name'] ?? 'User';
+                              final initial = displayName[0].toUpperCase();
+                              
+                              if (!context.mounted) return;
+                              
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => GoogleConfirmationPage(
+                                    email: userData['email'],
+                                    displayName: displayName,
+                                    initial: initial,
+                                    photoUrl: userData['photoUrl'],
+                                  ),
+                                ),
+                              );
+                              
+                            } catch (e) {
+                              debugPrint('Apple sign-in error: $e');
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: ${e.toString()}'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            } finally {
+                              if (mounted) setState(() => _isLoading = false);
+                            }
+                          },
+                    icon: const Icon(Icons.apple, size: 24, color: Colors.white),
+                    label: const Text(
+                      'Continue with Apple',
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                  ),
                 ),
 
-                // Divider - Only show if Google Sign-In is available
-                PlatformFeatureWidget(
-                  featureName: 'google_sign_in',
-                  child: const Row(
+                // Show divider only if any social sign-in is available
+                if (PlatformFeatures.isFeatureAvailable('google_sign_in') ||
+                    PlatformFeatures.isFeatureAvailable('apple_sign_in'))
+                  const SizedBox(height: 24),
+
+                // Divider - Only show if any social sign-in is available
+                if (PlatformFeatures.isFeatureAvailable('google_sign_in') ||
+                    PlatformFeatures.isFeatureAvailable('apple_sign_in'))
+                  const Row(
                     children: [
                       Expanded(child: Divider()),
                       Padding(
@@ -467,13 +560,11 @@ class _RegisterPageState extends State<RegisterPage> {
                       Expanded(child: Divider()),
                     ],
                   ),
-                ),
 
-                // Show spacing only if Google Sign-In is available
-                PlatformFeatureWidget(
-                  featureName: 'google_sign_in',
-                  child: const SizedBox(height: 24),
-                ),
+                // Show spacing only if any social sign-in is available
+                if (PlatformFeatures.isFeatureAvailable('google_sign_in') ||
+                    PlatformFeatures.isFeatureAvailable('apple_sign_in'))
+                  const SizedBox(height: 24),
 
                 // Registration Fields
                 TextField(
@@ -619,8 +710,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   ],
                 ),
                 // Guest access
-                PlatformFeatureWidget(
-                    featureName: 'guest_sign_in',
+                  PlatformFeatureWidget(
+                      featureName: 'guest_sign_in',
                     child: 
                 TextButton(
                   onPressed: _isLoading
