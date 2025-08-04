@@ -58,6 +58,7 @@ import 'services/database_service.dart';
 import 'services/user_service.dart';
 import 'services/supabase_database_service.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 // Constants
 const String _hasCompletedPaymentKey = 'has_completed_payment';
@@ -116,7 +117,18 @@ Future<void> _checkSupabaseReachability() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  
+  // Initialize Firebase with proper configuration
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint('Firebase initialized successfully');
+  } catch (e) {
+    debugPrint('Firebase initialization error: $e');
+    // Continue without Firebase if initialization fails
+  }
+  
   // Initialize core services
   await _initializeApp();
 
