@@ -19,11 +19,6 @@
 	</array>
 	
 	<!-- Background modes -->
-	<key>com.apple.developer.background-modes</key>
-	<array>
-		<string>background-processing</string>
-		<string>background-fetch</string>
-	</array>
 	
 	<!-- Apple Sign-In capability -->
 	<key>com.apple.developer.applesignin</key>

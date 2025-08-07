@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>633982729642-p8p5svhsbuu6g18kmk8agshb5j92amkf.apps.googleusercontent.com</string>
+	<string>633982729642-d6lvv51c28ahcr1g8820a83vka5pb5k9.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.633982729642-p8p5svhsbuu6g18kmk8agshb5j92amkf</string>
+	<string>com.googleusercontent.apps.633982729642-d6lvv51c28ahcr1g8820a83vka5pb5k9</string>
 	<key>ANDROID_CLIENT_ID</key>
 	<string>633982729642-00cnol8gbi90uic38lqjab8ad667aef9.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.reconstrect.visionboard</string>
+	<string>com.mentalfitness.reconstruct</string>
 	<key>PROJECT_ID</key>
 	<string>recostrect3</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:633982729642:ios:8f39016234c7df13f93fd3</string>
+	<string>1:633982729642:ios:b11c10f8917b6d92f93fd3</string>
 </dict>
 </plist>

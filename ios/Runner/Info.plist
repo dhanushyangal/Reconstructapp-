@@ -34,13 +34,6 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
@@ -65,7 +58,10 @@
 	<false/>
 	<key>NSSupportsSuddenTermination</key>
 	<false/>
-	
+	<key>UIDeviceFamily</key>
+<array>
+    <integer>1</integer> <!-- 1 = iPhone -->
+</array>
 	<!-- URL Schemes for Google Sign-In and Apple Sign-In -->
 	<key>CFBundleURLTypes</key>
 	<array>
@@ -93,6 +89,8 @@
 				<string>signinwithapple</string>
 			</array>
 		</dict>
+		<key>FirebaseScreenReportingEnabled</key>
+<true/>
 	</array>
 </dict>
 </plist>
