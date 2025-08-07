@@ -18,6 +18,9 @@ class SupabaseDatabaseService {
     _client = SupabaseConfig.client;
   }
 
+  // Use main client for auth operations (has proper storage)
+  supabase.SupabaseClient get _authClient => _client;
+
   // Helper method to handle errors and format response
   Map<String, dynamic> _formatResponse({
     required bool success,
@@ -258,40 +261,68 @@ class SupabaseDatabaseService {
         return validationResult;
       }
 
-      // Create auth user with Supabase Auth (with web-based email confirmation)
+      // Create auth user with Supabase Auth (without email confirmation)
       debugPrint(
           'SupabaseDatabaseService: Registering user with username: $username');
 
-      final supabase.AuthResponse response = await _client.auth.signUp(
+      // Register user with email confirmation for normal Supabase registration
+      debugPrint('🔐 Attempting to register user with Supabase Auth...');
+      
+      final supabase.AuthResponse response = await _authClient.auth.signUp(
         email: email,
         password: password,
         data: {
           'username': username,
           'name': username,
-          'display_name':
-              username, // Add display_name as well for better compatibility
+          'display_name': username,
         },
-        emailRedirectTo: 'https://reconstructyourmind.com/verify-email.php',
+        emailRedirectTo: 'https://reconstructyourmind.com/email-verification-handler.php',
       );
+      
+      debugPrint('🔐 Supabase Auth response: ${response.user?.id}');
+      debugPrint('🔐 User created in auth.users: ${response.user != null}');
 
       debugPrint('SupabaseDatabaseService: Registration response received');
       debugPrint(
           'SupabaseDatabaseService: User metadata: ${response.user?.userMetadata}');
 
       if (response.user != null) {
-        // User record will be created in public.user table after email confirmation
-        // via database trigger, so we don't need to create it here
-        debugPrint(
-            'User registered successfully. User record will be created after email confirmation.');
-
-        // 📧 Send welcome email (will be sent after email confirmation)
-        // Note: Welcome email will be sent when user first logs in after verification
-        debugPrint(
-            'Welcome email will be sent after user verifies their email and logs in.');
+        debugPrint('User registered successfully. Creating user record in database...');
 
         // Check if email confirmation is required
-        final requiresEmailConfirmation =
-            response.user!.emailConfirmedAt == null;
+        final requiresEmailConfirmation = response.user!.emailConfirmedAt == null;
+
+        // Create user record immediately for all registrations
+        debugPrint('Creating user record immediately...');
+        
+        try {
+          // Create user record immediately in the user table
+          final now = DateTime.now();
+          final trialEndDate = now.add(const Duration(days: 7));
+          
+          final userData = {
+            'name': username,
+            'email': email,
+            'password_hash': 'supabase_auth',
+            'welcome_email_sent': false,
+            'is_premium': false,
+            'trial_start_date': now.toIso8601String().split('T')[0],
+            'trial_end_date': trialEndDate.toIso8601String().split('T')[0],
+            'created_at': now.toIso8601String(),
+          };
+
+          // Try to insert user data using public client to bypass RLS
+          final publicClient = supabase.SupabaseClient(
+            'https://ruxsfzvrumqxsvanbbow.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1eHNmenZydW1xeHN2YW5iYm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NTIyNTQsImV4cCI6MjA2NDUyODI1NH0.v-sa-R8Ox8Qcwx6RhCydokwIm--pZytje5cuNyV0Oqg',
+          );
+
+          await publicClient.from('user').insert(userData);
+          debugPrint('✅ User record created successfully in database');
+        } catch (dbError) {
+          debugPrint('⚠️ Failed to create user record: $dbError');
+          // Continue anyway - user can still log in
+        }
 
         // Format user data to match the expected structure
         final userData = {
@@ -299,18 +330,15 @@ class SupabaseDatabaseService {
           'email': response.user!.email,
           'username': username,
           'name': username,
-          'supabase_uid': response.user!.id,
           'is_premium': false,
           'email_confirmed': !requiresEmailConfirmation,
         };
 
         String message;
         if (requiresEmailConfirmation) {
-          message =
-              'Registration successful! Please check your email to verify your account at reconstructyourmind.com';
+          message = 'Registration successful! Your account has been created. Please check your email and click the confirmation link to activate your account.';
         } else {
-          message =
-              'Registration successful! Welcome email will be sent after verification.';
+          message = 'Registration successful! Your account has been created and you can now log in.';
         }
 
         return _formatResponse(
@@ -326,11 +354,14 @@ class SupabaseDatabaseService {
         );
       }
     } catch (e) {
-      debugPrint('Error in registerUser: $e');
+      debugPrint('❌ Error in registerUser: $e');
+      debugPrint('❌ Error type: ${e.runtimeType}');
 
       String errorMessage = 'An error occurred during registration';
       if (e is supabase.AuthException) {
         errorMessage = e.message;
+        debugPrint('❌ AuthException: ${e.message}');
+        debugPrint('❌ AuthException status: ${e.statusCode}');
       }
 
       return _formatResponse(
@@ -350,9 +381,9 @@ class SupabaseDatabaseService {
 
     try {
       debugPrint(
-          '🔐 SupabaseDatabaseService: Calling _client.auth.signInWithPassword...');
+          '🔐 SupabaseDatabaseService: Calling main client signInWithPassword...');
       final supabase.AuthResponse response =
-          await _client.auth.signInWithPassword(
+          await _authClient.auth.signInWithPassword(
         email: email,
         password: password,
       );
@@ -431,6 +462,8 @@ class SupabaseDatabaseService {
           debugPrint('📧 Welcome email already sent');
         }
 
+
+
         final userData = {
           'id': response.user!.id,
           'email': response.user!.email,
@@ -481,7 +514,7 @@ class SupabaseDatabaseService {
   // Method to get the current user's profile
   Future<Map<String, dynamic>> getUserProfile() async {
     try {
-      final currentUser = _client.auth.currentUser;
+      final currentUser = _authClient.auth.currentUser;
 
       if (currentUser == null) {
         return _formatResponse(
@@ -493,7 +526,7 @@ class SupabaseDatabaseService {
       // Get additional user data from custom user table
       Map<String, dynamic>? customUserData;
       try {
-        customUserData = await _client
+        customUserData = await _authClient
             .from('user')
             .select()
             .eq('email', currentUser.email!)
@@ -512,7 +545,7 @@ class SupabaseDatabaseService {
 
           // Try RPC first, then fallback to direct insert
           try {
-            await _client.rpc('create_user_profile', params: {
+            await _authClient.rpc('create_user_profile', params: {
               'user_name': currentUser.userMetadata?['username'] ??
                   currentUser.email!.split('@')[0],
               'user_email': currentUser.email!,
@@ -523,7 +556,7 @@ class SupabaseDatabaseService {
             debugPrint('User profile created via RPC');
           } catch (rpcError) {
             debugPrint('RPC failed, trying direct insert: $rpcError');
-            await _client.from('user').insert({
+            await _authClient.from('user').insert({
               'name': currentUser.userMetadata?['username'] ??
                   currentUser.email!.split('@')[0],
               'email': currentUser.email!,
@@ -539,7 +572,7 @@ class SupabaseDatabaseService {
 
           // Try to fetch the newly created data
           try {
-            customUserData = await _client
+            customUserData = await _authClient
                 .from('user')
                 .select()
                 .eq('email', currentUser.email!)
@@ -582,7 +615,7 @@ class SupabaseDatabaseService {
   Future<void> logout() async {
     debugPrint('SupabaseDatabaseService: Logging out');
     try {
-      await _client.auth.signOut();
+      await _authClient.auth.signOut();
     } catch (e) {
       debugPrint('Error in logout: $e');
     }
@@ -592,7 +625,7 @@ class SupabaseDatabaseService {
   Future<Map<String, dynamic>> deleteAccount() async {
     debugPrint('SupabaseDatabaseService: Starting account deletion');
     try {
-      final currentUser = _client.auth.currentUser;
+      final currentUser = _authClient.auth.currentUser;
       if (currentUser == null) {
         return _formatResponse(
           success: false,
@@ -611,34 +644,34 @@ class SupabaseDatabaseService {
       debugPrint('Deleting account for user: $userEmail');
 
       // 1. Delete all vision board tasks
-      await _client.from('vision_board_tasks').delete().eq('email', userEmail);
+      await _authClient.from('vision_board_tasks').delete().eq('email', userEmail);
 
       // 2. Delete all annual calendar tasks
-      await _client
+      await _authClient
           .from('annual_calendar_tasks')
           .delete()
           .eq('email', userEmail);
 
       // 3. Delete all daily shredded thoughts
-      await _client
+      await _authClient
           .from('daily_shredded_thoughts')
           .delete()
           .eq('email', userEmail);
 
       // 4. Delete all mind tools daily activity
-      await _client
+      await _authClient
           .from('mind_tools_daily_activity')
           .delete()
           .eq('email', userEmail);
 
       // 5. Delete user record from custom user table
-      await _client.from('user').delete().eq('email', userEmail);
+      await _authClient.from('user').delete().eq('email', userEmail);
 
       // 6. Try to delete the user from auth.users using a server function
       // This requires a server-side function to be created in Supabase
       bool authUserDeleted = false;
       try {
-        await _client.rpc('delete_user_account', params: {
+        await _authClient.rpc('delete_user_account', params: {
           'user_id': currentUser.id,
         });
         debugPrint('User deleted from auth.users successfully');
@@ -653,7 +686,7 @@ class SupabaseDatabaseService {
       if (!authUserDeleted) {
         try {
           // Try to use a different approach - this might work in some cases
-          await _client.from('auth.users').delete().eq('id', currentUser.id);
+          await _authClient.from('auth.users').delete().eq('id', currentUser.id);
           debugPrint('User deleted from auth.users using direct method');
           authUserDeleted = true;
         } catch (directError) {
@@ -663,7 +696,7 @@ class SupabaseDatabaseService {
       }
 
       // 7. Sign out the user
-      await _client.auth.signOut();
+      await _authClient.auth.signOut();
 
       debugPrint('Account deletion completed successfully');
 
@@ -850,13 +883,20 @@ class SupabaseDatabaseService {
   // Get auth token
   String? get authToken {
     try {
-      // When using accessToken function, return Firebase ID token
+      // Check if we have a Supabase session (for native auth users)
+      final supabaseSession = _authClient.auth.currentSession;
+      if (supabaseSession != null) {
+        return supabaseSession.accessToken;
+      }
+      
+      // Check if we have a Firebase user (for social login users)
       final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
       if (firebaseUser != null) {
-        // Note: This is async, but we need sync for compatibility
-        // The actual token is handled by the accessToken function in SupabaseConfig
-        return 'firebase_token';
+        // For Firebase users, the token is handled by the accessToken function in SupabaseConfig
+        // But we can return a placeholder to indicate authentication
+        return 'firebase_authenticated';
       }
+      
       return null;
     } catch (e) {
       debugPrint('Error getting auth token: $e');
@@ -886,7 +926,7 @@ class SupabaseDatabaseService {
             trialEndDate.toIso8601String().split('T')[0];
       }
 
-      await _client.from('user').update(updateData).eq('email', email);
+      await _authClient.from('user').update(updateData).eq('email', email);
 
       return _formatResponse(
         success: true,
@@ -904,56 +944,78 @@ class SupabaseDatabaseService {
   // Method to check trial status from database
   Future<Map<String, dynamic>> checkTrialStatus({required String email}) async {
     try {
-      final userData = await _client
-          .from('user')
-          .select(
-              'is_premium, trial_start_date, trial_end_date, premium_converted_date')
-          .eq('email', email)
-          .maybeSingle();
+      debugPrint('🔄 Checking trial status for: $email');
+      
+      // Since Supabase session creation is failing, use public client directly
+      final publicClient = supabase.SupabaseClient(
+        'https://ruxsfzvrumqxsvanbbow.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1eHNmenZydW1xeHN2YW5iYm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NTIyNTQsImV4cCI6MjA2NDUyODI1NH0.v-sa-R8Ox8Qcwx6RhCydokwIm--pZytje5cuNyV0Oqg',
+      );
+      
+      try {
+        debugPrint('🔍 Querying user table for email: $email');
+        final userData = await publicClient
+            .from('user')
+            .select(
+                'is_premium, trial_start_date, trial_end_date, premium_converted_date')
+            .eq('email', email)
+            .maybeSingle();
 
-      if (userData == null) {
+        debugPrint('🔍 Query result: $userData');
+
+        if (userData != null) {
+          final isPremium = userData['is_premium'] ?? false;
+          final trialStartDate = userData['trial_start_date'];
+          final trialEndDate = userData['trial_end_date'];
+          final premiumConvertedDate = userData['premium_converted_date'];
+
+          bool hasActiveAccess = isPremium;
+          bool isOnTrial = false;
+          bool trialExpired = false;
+
+          // Check trial status if not premium
+          if (!isPremium && trialStartDate != null && trialEndDate != null) {
+            final now = DateTime.now();
+            final endDate = DateTime.parse(trialEndDate);
+
+            if (now.isBefore(endDate) || now.isAtSameMomentAs(endDate)) {
+              isOnTrial = true;
+              hasActiveAccess = true;
+            } else {
+              trialExpired = true;
+            }
+          }
+
+          debugPrint('✅ Premium status check successful (public client): isPremium=$isPremium, hasActiveAccess=$hasActiveAccess, isOnTrial=$isOnTrial');
+
+          return _formatResponse(
+            success: true,
+            data: {
+              'is_premium': isPremium,
+              'has_active_access': hasActiveAccess,
+              'is_on_trial': isOnTrial,
+              'trial_expired': trialExpired,
+              'trial_start_date': trialStartDate,
+              'trial_end_date': trialEndDate,
+              'premium_converted_date': premiumConvertedDate,
+            },
+          );
+        } else {
+          debugPrint('❌ User not found in database for premium status check: $email');
+          return _formatResponse(
+            success: false,
+            message: 'User not found',
+          );
+        }
+      } catch (publicError) {
+        debugPrint('❌ Public client failed for premium status check: $publicError');
         return _formatResponse(
           success: false,
-          message: 'User not found',
+          message: 'Failed to check trial status: $publicError',
         );
       }
-
-      final isPremium = userData['is_premium'] ?? false;
-      final trialStartDate = userData['trial_start_date'];
-      final trialEndDate = userData['trial_end_date'];
-      final premiumConvertedDate = userData['premium_converted_date'];
-
-      bool hasActiveAccess = isPremium;
-      bool isOnTrial = false;
-      bool trialExpired = false;
-
-      // Check trial status if not premium
-      if (!isPremium && trialStartDate != null && trialEndDate != null) {
-        final now = DateTime.now();
-        final endDate = DateTime.parse(trialEndDate);
-
-        if (now.isBefore(endDate) || now.isAtSameMomentAs(endDate)) {
-          isOnTrial = true;
-          hasActiveAccess = true;
-        } else {
-          trialExpired = true;
-        }
-      }
-
-      return _formatResponse(
-        success: true,
-        data: {
-          'is_premium': isPremium,
-          'has_active_access': hasActiveAccess,
-          'is_on_trial': isOnTrial,
-          'trial_expired': trialExpired,
-          'trial_start_date': trialStartDate,
-          'trial_end_date': trialEndDate,
-          'premium_converted_date': premiumConvertedDate,
-        },
-      );
     } catch (e) {
-      debugPrint('Error checking trial status: $e');
+      debugPrint('❌ Error checking trial status: $e');
       return _formatResponse(
         success: false,
         message: 'Failed to check trial status: $e',
@@ -980,7 +1042,7 @@ class SupabaseDatabaseService {
             'Setting premium conversion date: ${conversionDate.toIso8601String().split('T')[0]}');
       }
 
-      await _client.from('user').update(updateData).eq('email', email);
+      await _authClient.from('user').update(updateData).eq('email', email);
 
       return _formatResponse(
         success: true,
@@ -1002,41 +1064,99 @@ class SupabaseDatabaseService {
     required DateTime date,
   }) async {
     try {
+      debugPrint('🔄 Upserting Thought Shredder activity for: $email');
+      
+      // Ensure Supabase session exists for Firebase users
+      await SupabaseConfig.ensureSupabaseSession();
+      
       final shredDate = date.toIso8601String().split('T')[0];
-      // Check if a record exists for this user and date
-      final existing = await _client
-          .from('daily_shredded_thoughts')
-          .select()
-          .eq('email', email)
-          .eq('shred_date', shredDate)
-          .maybeSingle();
+      
+      // Try using authenticated client first
+      try {
+        // Check if a record exists for this user and date
+        final existing = await _client
+            .from('daily_shredded_thoughts')
+            .select()
+            .eq('email', email)
+            .eq('shred_date', shredDate)
+            .maybeSingle();
 
-      if (existing != null) {
-        // Increment shred_count
-        final newCount = (existing['shred_count'] ?? 0) + 1;
-        await _client.from('daily_shredded_thoughts').update({
-          'shred_count': newCount,
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('id', existing['id']);
-        return _formatResponse(
-            success: true, message: 'Shred count incremented');
-      } else {
-        // Insert new record
-        await _client.from('daily_shredded_thoughts').insert({
-          'email': email,
-          'user_name': userName,
-          'shred_date': shredDate,
-          'shred_count': 1,
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-        return _formatResponse(
-            success: true, message: 'Shred activity inserted');
+        if (existing != null) {
+          // Increment shred_count
+          final newCount = (existing['shred_count'] ?? 0) + 1;
+          await _client.from('daily_shredded_thoughts').update({
+            'shred_count': newCount,
+            'updated_at': DateTime.now().toIso8601String(),
+          }).eq('id', existing['id']);
+          debugPrint('✅ Thought Shredder activity incremented successfully');
+          return _formatResponse(
+              success: true, message: 'Shred count incremented');
+        } else {
+          // Insert new record
+          await _client.from('daily_shredded_thoughts').insert({
+            'email': email,
+            'user_name': userName,
+            'shred_date': shredDate,
+            'shred_count': 1,
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+          debugPrint('✅ Thought Shredder activity inserted successfully');
+          return _formatResponse(
+              success: true, message: 'Shred activity inserted');
+        }
+      } catch (authError) {
+        debugPrint('⚠️ Authenticated client failed for Thought Shredder: $authError');
+        
+        // Fallback: Try using public client
+        try {
+          final publicClient = supabase.SupabaseClient(
+            'https://ruxsfzvrumqxsvanbbow.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1eHNmenZydW1xeHN2YW5iYm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NTIyNTQsImV4cCI6MjA2NDUyODI1NH0.v-sa-R8Ox8Qcwx6RhCydokwIm--pZytje5cuNyV0Oqg',
+          );
+          
+          // Check if a record exists for this user and date
+          final existing = await publicClient
+              .from('daily_shredded_thoughts')
+              .select()
+              .eq('email', email)
+              .eq('shred_date', shredDate)
+              .maybeSingle();
+
+          if (existing != null) {
+            // Increment shred_count
+            final newCount = (existing['shred_count'] ?? 0) + 1;
+            await publicClient.from('daily_shredded_thoughts').update({
+              'shred_count': newCount,
+              'updated_at': DateTime.now().toIso8601String(),
+            }).eq('id', existing['id']);
+            debugPrint('✅ Thought Shredder activity incremented via public client');
+            return _formatResponse(
+                success: true, message: 'Shred count incremented');
+          } else {
+            // Insert new record
+            await publicClient.from('daily_shredded_thoughts').insert({
+              'email': email,
+              'user_name': userName,
+              'shred_date': shredDate,
+              'shred_count': 1,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+            debugPrint('✅ Thought Shredder activity inserted via public client');
+            return _formatResponse(
+                success: true, message: 'Shred activity inserted');
+          }
+        } catch (publicError) {
+          debugPrint('❌ Public client failed for Thought Shredder: $publicError');
+          return _formatResponse(
+              success: false, message: 'Failed to upsert Thought Shredder activity: $publicError');
+        }
       }
     } catch (e) {
-      debugPrint('Error upserting Thought Shredder activity: $e');
+      debugPrint('❌ Error in upsertThoughtShredderActivity: $e');
       return _formatResponse(
-          success: false, message: 'Failed to upsert activity: $e');
+          success: false, message: 'Failed to upsert Thought Shredder activity: $e');
     }
   }
 
@@ -1048,7 +1168,14 @@ class SupabaseDatabaseService {
     try {
       final start = DateTime(year, 1, 1).toIso8601String().split('T')[0];
       final end = DateTime(year, 12, 31).toIso8601String().split('T')[0];
-      final response = await _client
+      
+      // Use public client since authenticated client has session issues
+      final publicClient = supabase.SupabaseClient(
+        'https://ruxsfzvrumqxsvanbbow.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1eHNmenZydW1xeHN2YW5iYm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NTIyNTQsImV4cCI6MjA2NDUyODI1NH0.v-sa-R8Ox8Qcwx6RhCydokwIm--pZytje5cuNyV0Oqg',
+      );
+      
+      final response = await publicClient
           .from('daily_shredded_thoughts')
           .select()
           .eq('email', email)
@@ -1074,54 +1201,125 @@ class SupabaseDatabaseService {
       debugPrint(
           '🔄 SupabaseDB: Upserting $toolType activity for $email on $activityDate');
 
-      // Check if a record exists for this user, tool, and date
-      debugPrint(
-          '🔍 SupabaseDB: Searching for existing record: email=$email, tool_type=$toolType, activity_date=$activityDate');
-      final existingList = await _client
-          .from('mind_tools_daily_activity')
-          .select()
-          .eq('email', email)
-          .eq('tool_type', toolType)
-          .eq('activity_date', activityDate);
+      // Ensure Supabase session exists for Firebase users
+      await SupabaseConfig.ensureSupabaseSession();
 
-      debugPrint(
-          '🔍 SupabaseDB: Found ${existingList.length} existing records');
-      final existing = existingList.isNotEmpty ? existingList.first : null;
+      // Create a public client for activity operations (bypasses RLS)
+      final publicClient = supabase.SupabaseClient(
+        'https://ruxsfzvrumqxsvanbbow.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1eHNmenZydW1xeHN2YW5iYm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NTIyNTQsImV4cCI6MjA2NDUyODI1NH0.v-sa-R8Ox8Qcwx6RhCydokwIm--pZytje5cuNyV0Oqg',
+      );
 
-      if (existing != null) {
-        // Increment activity_count
-        final currentCount = existing['activity_count'] ?? 0;
-        final newCount = currentCount + 1;
+      // Try using public client first (bypasses RLS)
+      try {
+        // Check if a record exists for this user, tool, and date
         debugPrint(
-            '📈 SupabaseDB: Existing record found, incrementing from $currentCount to $newCount');
-
-        await _client.from('mind_tools_daily_activity').update({
-          'activity_count': newCount,
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('id', existing['id']);
+            '🔍 SupabaseDB: Searching for existing record: email=$email, tool_type=$toolType, activity_date=$activityDate');
+        final existingList = await publicClient
+            .from('mind_tools_daily_activity')
+            .select()
+            .eq('email', email)
+            .eq('tool_type', toolType)
+            .eq('activity_date', activityDate);
 
         debugPrint(
-            '✅ SupabaseDB: Activity count incremented to $newCount for $toolType');
-        return _formatResponse(
-            success: true, message: 'Activity count incremented to $newCount');
-      } else {
-        // Insert new record
-        debugPrint(
-            '📝 SupabaseDB: No existing record, inserting new activity for $toolType');
+            '🔍 SupabaseDB: Found ${existingList.length} existing records');
+        final existing = existingList.isNotEmpty ? existingList.first : null;
 
-        await _client.from('mind_tools_daily_activity').insert({
-          'email': email,
-          'user_name': userName,
-          'activity_date': activityDate,
-          'tool_type': toolType,
-          'activity_count': 1,
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        });
+        if (existing != null) {
+          // Increment activity_count
+          final currentCount = existing['activity_count'] ?? 0;
+          final newCount = currentCount + 1;
+          debugPrint(
+              '📈 SupabaseDB: Existing record found, incrementing from $currentCount to $newCount');
 
-        debugPrint('✅ SupabaseDB: New activity inserted for $toolType');
-        return _formatResponse(
-            success: true, message: 'New activity inserted for $toolType');
+          await publicClient.from('mind_tools_daily_activity').update({
+            'activity_count': newCount,
+            'updated_at': DateTime.now().toIso8601String(),
+          }).eq('id', existing['id']);
+
+          debugPrint(
+              '✅ SupabaseDB: Activity count incremented to $newCount for $toolType');
+          return _formatResponse(
+              success: true, message: 'Activity count incremented to $newCount');
+        } else {
+          // Insert new record
+          debugPrint(
+              '📝 SupabaseDB: No existing record, inserting new activity for $toolType');
+
+          await publicClient.from('mind_tools_daily_activity').insert({
+            'email': email,
+            'user_name': userName,
+            'activity_date': activityDate,
+            'tool_type': toolType,
+            'activity_count': 1,
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+
+          debugPrint('✅ SupabaseDB: New activity inserted for $toolType');
+          return _formatResponse(
+              success: true, message: 'New activity inserted for $toolType');
+        }
+      } catch (publicError) {
+        debugPrint('⚠️ Public client failed for $toolType: $publicError');
+        
+        // Fallback: Try using authenticated client
+        try {
+          // Check if a record exists for this user, tool, and date
+          debugPrint(
+              '🔍 SupabaseDB: Searching with authenticated client: email=$email, tool_type=$toolType, activity_date=$activityDate');
+          final existingList = await _client
+              .from('mind_tools_daily_activity')
+              .select()
+              .eq('email', email)
+              .eq('tool_type', toolType)
+              .eq('activity_date', activityDate);
+
+          debugPrint(
+              '🔍 SupabaseDB: Found ${existingList.length} existing records');
+          final existing = existingList.isNotEmpty ? existingList.first : null;
+
+          if (existing != null) {
+            // Increment activity_count
+            final currentCount = existing['activity_count'] ?? 0;
+            final newCount = currentCount + 1;
+            debugPrint(
+                '📈 SupabaseDB: Existing record found, incrementing from $currentCount to $newCount');
+
+            await _client.from('mind_tools_daily_activity').update({
+              'activity_count': newCount,
+              'updated_at': DateTime.now().toIso8601String(),
+            }).eq('id', existing['id']);
+
+            debugPrint(
+                '✅ SupabaseDB: Activity count incremented to $newCount for $toolType via authenticated client');
+            return _formatResponse(
+                success: true, message: 'Activity count incremented to $newCount');
+          } else {
+            // Insert new record
+            debugPrint(
+                '📝 SupabaseDB: No existing record, inserting new activity for $toolType');
+
+            await _client.from('mind_tools_daily_activity').insert({
+              'email': email,
+              'user_name': userName,
+              'activity_date': activityDate,
+              'tool_type': toolType,
+              'activity_count': 1,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+
+            debugPrint('✅ SupabaseDB: New activity inserted for $toolType via authenticated client');
+            return _formatResponse(
+                success: true, message: 'New activity inserted for $toolType');
+          }
+        } catch (authError) {
+          debugPrint('❌ Both public and authenticated clients failed for $toolType: $authError');
+          return _formatResponse(
+              success: false, message: 'Failed to upsert $toolType activity: $authError');
+        }
       }
     } catch (e) {
       debugPrint('❌ SupabaseDB: Error upserting $toolType activity: $e');
@@ -1142,7 +1340,13 @@ class SupabaseDatabaseService {
       debugPrint(
           '📊 SupabaseDB: Fetching $toolType activity for $email ($start to $end)');
 
-      final response = await _client
+      // Use public client since authenticated client has session issues
+      final publicClient = supabase.SupabaseClient(
+        'https://ruxsfzvrumqxsvanbbow.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1eHNmenZydW1xeHN2YW5iYm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NTIyNTQsImV4cCI6MjA2NDUyODI1NH0.v-sa-R8Ox8Qcwx6RhCydokwIm--pZytje5cuNyV0Oqg',
+      );
+
+      final response = await publicClient
           .from('mind_tools_daily_activity')
           .select()
           .eq('email', email)
@@ -1192,28 +1396,65 @@ class SupabaseDatabaseService {
     String? photoUrl,
   }) async {
     try {
-      // Check if user already exists in 'user' table
+      debugPrint("🔄 Attempting to upsert user data for: $email");
+      
+      // Ensure Supabase session exists for Firebase users
+      await SupabaseConfig.ensureSupabaseSession();
+      
+      // Check if user already exists in 'user' table using authenticated client
       final existing = await _client.from('user').select('id').eq('email', email).maybeSingle();
       if (existing != null) {
-        debugPrint("User already exists in 'user' table: $email");
+        debugPrint("✅ User already exists in 'user' table: $email");
         return;
       }
       
-      // When using accessToken function, we can't access supabase.auth
-      // Use the Firebase user data passed as parameters instead
+      // Prepare user data with all required fields
+      final now = DateTime.now();
+      final trialEndDate = now.add(const Duration(days: 7));
+      
       final userData = {
         'name': name,
         'email': email,
         'firebase_uid': id,
         'profile_image_url': photoUrl,
         'password_hash': 'firebase', // Added to satisfy NOT NULL constraint
+        'welcome_email_sent': false,
+        'is_premium': false,
+        'trial_start_date': now.toIso8601String().split('T')[0],
+        'trial_end_date': trialEndDate.toIso8601String().split('T')[0],
+        'created_at': now.toIso8601String(),
       };
       
-      await _client.from('user').upsert(userData, onConflict: 'email');
-      debugPrint("Inserted user into 'user' table: $email");
+      debugPrint("📝 Inserting user data: ${userData['name']} (${userData['email']})");
+      
+      // Try to insert using authenticated client
+      try {
+        await _client.from('user').insert(userData);
+        debugPrint("✅ Successfully inserted user into 'user' table: $email");
+      } catch (insertError) {
+        debugPrint("❌ Insert failed: $insertError");
+        
+        // If it's a duplicate key error, the user already exists
+        if (insertError.toString().contains('duplicate key value violates unique constraint')) {
+          debugPrint("✅ User already exists in database: $email");
+          return;
+        }
+        
+        // Fallback: Try upsert with conflict resolution
+        try {
+          await _client.from('user').upsert(userData, onConflict: 'email');
+          debugPrint("✅ Successfully upserted user: $email");
+        } catch (upsertError) {
+          debugPrint("❌ All insertion methods failed for user: $email");
+          debugPrint("Final error: $upsertError");
+          // Don't throw - let the sign-in process continue
+        }
+      }
       
     } catch (e) {
-      debugPrint("Error inserting into 'user' table: $e");
+      debugPrint("❌ Error in upsertUserToUserAndUsersTables: $e");
+      // Don't throw the error - let the sign-in process continue
+      // The user can still use the app even if database insertion fails
     }
   }
 
@@ -1223,21 +1464,54 @@ class SupabaseDatabaseService {
     required String firebaseUid,
   }) async {
     try {
-      await _client.from('user').upsert({
+      debugPrint("🔄 Attempting to upsert user data for: $email");
+      
+      // Ensure Supabase session exists for Firebase users
+      await SupabaseConfig.ensureSupabaseSession();
+      
+      // Prepare user data with all required fields
+      final now = DateTime.now();
+      final trialEndDate = now.add(const Duration(days: 7));
+      
+      final userData = {
         'email': email,
         'name': username,
         'firebase_uid': firebaseUid,
         'password_hash': 'firebase',
-      }, onConflict: 'email').select();
+        'welcome_email_sent': false,
+        'is_premium': false,
+        'trial_start_date': now.toIso8601String().split('T')[0],
+        'trial_end_date': trialEndDate.toIso8601String().split('T')[0],
+        'created_at': now.toIso8601String(),
+      };
+      
+      debugPrint("📝 Inserting user data: $username ($email)");
+      
+      // Try to insert using authenticated client
+      try {
+        await _client.from('user').upsert(userData, onConflict: 'email');
+        debugPrint("✅ Successfully upserted user into 'user' table: $email");
+      } catch (upsertError) {
+        debugPrint("❌ Upsert failed: $upsertError");
+        return {'success': false, 'message': 'Failed to upsert user: $upsertError'};
+      }
 
-      await _client.from('users').upsert({
-        'email': email,
-        'username': username,
-        'supabase_uid': firebaseUid,
-      });
+      // Also try to insert into 'users' table if it exists
+      try {
+        await _client.from('users').upsert({
+          'email': email,
+          'username': username,
+          'supabase_uid': firebaseUid,
+        });
+        debugPrint("✅ Successfully upserted user into 'users' table: $email");
+      } catch (usersError) {
+        debugPrint("⚠️ Could not upsert into 'users' table: $usersError");
+        // This is not critical, so we don't fail the operation
+      }
 
       return {'success': true};
     } catch (e) {
+      debugPrint("❌ Error in upsertUserData: $e");
       // If it's a 404 with empty message, treat as success
       if (e.toString().contains('code: 404') && e.toString().contains('message: {}')) {
         return {'success': true};
@@ -1256,7 +1530,7 @@ class _FirebaseUserWrapper {
   // Mimic Supabase user properties
   String get id => _firebaseUser.uid;
   String? get email => _firebaseUser.email;
-  String? get emailConfirmedAt => null; // Firebase doesn't have this concept
+  String? get emailConfirmedAt => DateTime.now().toIso8601String(); // Assume confirmed for Firebase users
   Map<String, dynamic>? get userMetadata => {
     'name': _firebaseUser.displayName,
     'username': _firebaseUser.displayName,

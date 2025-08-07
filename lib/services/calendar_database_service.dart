@@ -14,7 +14,7 @@ class CalendarDatabaseService {
 
   // Constructor
   CalendarDatabaseService({String? baseUrl}) {
-    _client = SupabaseConfig.client;
+    _client = SupabaseConfig.nativeAuthClient;
   }
 
   // Getters
@@ -333,7 +333,28 @@ class CalendarDatabaseService {
   }
 
   // Get auth token from Supabase
-  String? get authToken => _client.auth.currentSession?.accessToken;
+  String? get authToken {
+    try {
+      // Check if we have a Supabase session (for native auth users)
+      final supabaseSession = SupabaseConfig.nativeAuthClient.auth.currentSession;
+      if (supabaseSession != null) {
+        return supabaseSession.accessToken;
+      }
+      
+      // Check if we have a Firebase user (for social login users)
+      final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        // For Firebase users, the token is handled by the accessToken function in SupabaseConfig
+        // But we can return a placeholder to indicate authentication
+        return 'firebase_authenticated';
+      }
+      
+      return null;
+    } catch (e) {
+      debugPrint('Error getting auth token: $e');
+      return null;
+    }
+  }
 
   // Legacy getter for compatibility
   String? get baseUrl => 'supabase'; // Just for compatibility

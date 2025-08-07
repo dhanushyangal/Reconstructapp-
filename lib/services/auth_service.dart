@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/supabase_config.dart';
 
 class AuthService extends ChangeNotifier {
   static AuthService? _instance;
@@ -64,6 +65,30 @@ class AuthService extends ChangeNotifier {
   // Get current user data
   Map<String, dynamic>? get userData => _userData;
 
+  // Get user email
+  String? get userEmail {
+    if (_isGuest) return null;
+    if (_userData != null) return _userData!['email'];
+    final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+    return firebaseUser?.email;
+  }
+
+  // Get user name
+  String? get userName {
+    if (_isGuest) return 'Guest';
+    if (_userData != null) return _userData!['name'];
+    final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+    return firebaseUser?.displayName;
+  }
+
+  // Get user ID
+  String? get userId {
+    if (_isGuest) return 'guest';
+    if (_userData != null) return _userData!['id'];
+    final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+    return firebaseUser?.uid;
+  }
+
   // Get isInitializing state
   bool get isInitializing => _isInitializing;
 
@@ -72,13 +97,13 @@ class AuthService extends ChangeNotifier {
     _isInitializing = true;
     notifyListeners();
 
-    debugPrint('AuthService: Initializing with Firebase authentication');
+    debugPrint('AuthService: Initializing with hybrid authentication');
 
     try {
       // Load guest state first
       await loadGuestState();
       
-      // If guest, don't check Firebase auth
+      // If guest, don't check authentication
       if (_isGuest) {
         debugPrint('AuthService: Guest user detected');
         _isInitializing = false;
@@ -100,6 +125,17 @@ class AuthService extends ChangeNotifier {
         debugPrint('AuthService: User already authenticated with Firebase: ${firebaseUser.email}');
       } else {
         debugPrint('AuthService: No Firebase user found');
+        
+        // Check for existing Supabase session
+        final supabaseSession = SupabaseConfig.nativeAuthClient.auth.currentSession;
+        if (supabaseSession != null) {
+          debugPrint('AuthService: Supabase session found');
+          // Try to restore user data
+          await _restoreUserSession();
+        } else {
+          // Check for persisted session data
+          await _restoreUserSession();
+        }
       }
     } catch (e) {
       debugPrint('AuthService: Error during initialization: $e');
@@ -112,27 +148,169 @@ class AuthService extends ChangeNotifier {
   // Check if user is authenticated
   bool hasAuthenticatedUser() {
     if (_isGuest) return true;
-    // When using accessToken function, check Firebase auth instead of Supabase
+    
+    // Check if we have user data stored (for Supabase auth)
+    if (_userData != null && _userData!['id'] != null) {
+      return true;
+    }
+    
+    // Check Firebase auth (for social logins)
     final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
-    return firebaseUser != null;
+    if (firebaseUser != null) {
+      return true;
+    }
+    
+    // Check if we have a persisted session (for app restart scenarios)
+    return _hasPersistedSession();
   }
 
-  // Get current user (Firebase user object when using accessToken function)
+  // Get current user (supports both Supabase and Firebase auth)
   dynamic getCurrentUser() {
     if (_isGuest) {
       return _GuestUserWrapper();
     }
-    // When using accessToken function, return Firebase user
+    
+    // If we have stored user data (Supabase auth), return it
+    if (_userData != null && _userData!['id'] != null) {
+      return _SupabaseUserWrapper(_userData!);
+    }
+    
+    // Check Firebase auth (for social logins)
     final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
     if (firebaseUser != null) {
-      // Return a mock object that mimics Supabase user structure
       return _FirebaseUserWrapper(firebaseUser);
     }
+    
     return null;
   }
 
   // Add getter for currentUser for easier access
   dynamic get currentUser => getCurrentUser();
+
+  // Check if there's a persisted session
+  bool _hasPersistedSession() {
+    try {
+      // Check if we have stored user data
+      if (_userData != null && _userData!['id'] != null) {
+        return true;
+      }
+      
+      // Check Firebase auth
+      final firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        return true;
+      }
+      
+      // Check Supabase session
+      final supabaseSession = SupabaseConfig.nativeAuthClient.auth.currentSession;
+      if (supabaseSession != null) {
+        return true;
+      }
+      
+      // Check SharedPreferences for persisted data
+      // Note: This is async, so we'll handle it in initialize()
+      return false;
+    } catch (e) {
+      debugPrint('Error checking persisted session: $e');
+      return false;
+    }
+  }
+
+  // Persist user session data
+  Future<void> _persistUserSession(Map<String, dynamic> userData) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_id', userData['id'] ?? '');
+      await prefs.setString('user_email', userData['email'] ?? '');
+      await prefs.setString('user_name', userData['name'] ?? userData['username'] ?? '');
+      debugPrint('AuthService: User session persisted');
+    } catch (e) {
+      debugPrint('Error persisting user session: $e');
+    }
+  }
+
+  // Clear persisted session data
+  Future<void> _clearPersistedSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('user_id');
+      await prefs.remove('user_email');
+      await prefs.remove('user_name');
+      debugPrint('AuthService: User session cleared');
+    } catch (e) {
+      debugPrint('Error clearing persisted session: $e');
+    }
+  }
+
+  // Restore user session from persistence
+  Future<void> _restoreUserSession() async {
+    try {
+      debugPrint('AuthService: Attempting to restore user session...');
+      
+      // First, check if we have a valid Supabase session
+      final supabaseSession = SupabaseConfig.nativeAuthClient.auth.currentSession;
+      if (supabaseSession != null) {
+        debugPrint('AuthService: Found valid Supabase session');
+        final supabaseUser = SupabaseConfig.nativeAuthClient.auth.currentUser;
+        
+        if (supabaseUser != null) {
+          // Restore user data from Supabase session
+          _userData = {
+            'id': supabaseUser.id,
+            'email': supabaseUser.email,
+            'name': supabaseUser.userMetadata?['name'] ?? supabaseUser.email?.split('@')[0] ?? 'User',
+            'username': supabaseUser.userMetadata?['username'] ?? supabaseUser.email?.split('@')[0] ?? 'User',
+            'supabase_uid': supabaseUser.id,
+            'is_premium': false, // Will be fetched from database if needed
+          };
+          debugPrint('AuthService: User session restored from Supabase session: ${supabaseUser.email}');
+          notifyListeners();
+          return;
+        }
+      }
+      
+      // Fallback: Check SharedPreferences for persisted data
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      final userEmail = prefs.getString('user_email');
+      final userName = prefs.getString('user_name');
+      
+      if (userId != null && userId.isNotEmpty && userEmail != null) {
+        debugPrint('AuthService: Found persisted session data');
+        
+        // Try to restore user data from Supabase database
+        try {
+          final supabaseService = SupabaseDatabaseService();
+          final profileResult = await supabaseService.getUserProfile();
+          
+          if (profileResult['success'] == true && profileResult['user'] != null) {
+            _userData = Map<String, dynamic>.from(profileResult['user']);
+            debugPrint('AuthService: User session restored from database: ${_userData!['email']}');
+            notifyListeners();
+            return;
+          }
+        } catch (e) {
+          debugPrint('AuthService: Could not restore from database: $e');
+        }
+        
+        // Last resort: Use persisted data
+        _userData = {
+          'id': userId,
+          'email': userEmail,
+          'name': userName ?? userEmail.split('@')[0],
+          'username': userName ?? userEmail.split('@')[0],
+          'supabase_uid': userId,
+          'is_premium': false,
+        };
+        debugPrint('AuthService: User session restored from SharedPreferences: $userEmail');
+        notifyListeners();
+      } else {
+        debugPrint('AuthService: No persisted session data found');
+      }
+    } catch (e) {
+      debugPrint('Error restoring user session: $e');
+    }
+  }
 
   // Sign in with email and password (legacy method name for compatibility)
   Future<Map<String, dynamic>> loginWithEmailAndPassword({
@@ -142,100 +320,100 @@ class AuthService extends ChangeNotifier {
     return await signInWithEmailPassword(email: email, password: password);
   }
 
-  // Sign in with email and password
+  /// Sign in with email/password using Supabase Auth
   Future<Map<String, dynamic>> signInWithEmailPassword({
     required String email,
     required String password,
   }) async {
-    debugPrint('🔐 AuthService: Starting email/password sign-in for: $email');
-
     try {
       // Clear guest state when signing in
       if (_isGuest) {
         await signOutGuest();
       }
       
-      debugPrint('🔐 AuthService: Using Firebase for email/password sign-in...');
+      debugPrint('Starting Supabase email/password sign-in...');
       
-      // Use Firebase Auth for email/password sign-in
-      final userCredential = await fb_auth.FirebaseAuth.instance.signInWithEmailAndPassword(
+      final result = await SupabaseDatabaseService().loginUser(
         email: email,
         password: password,
       );
       
-      final firebaseUser = userCredential.user;
-      if (firebaseUser == null) {
-        debugPrint('🔐 AuthService: Firebase user is null after sign-in');
-        return {
-          'success': false,
-          'message': 'Firebase sign-in failed',
-        };
+      if (result['success']) {
+        debugPrint('Supabase email/password sign-in successful');
+        
+        // Store user data in AuthService for consistency
+        if (result['user'] != null) {
+          _userData = Map<String, dynamic>.from(result['user']);
+          debugPrint('AuthService: User data stored: $_userData');
+          // Persist the session
+          await _persistUserSession(_userData!);
+          notifyListeners();
+        }
+        
+        return result;
+      } else {
+        debugPrint('Supabase email/password sign-in failed: ${result['message']}');
+        return result;
       }
-      
-      debugPrint('🔐 AuthService: Firebase email/password sign-in successful: ${firebaseUser.email}');
-      
-      // Force refresh the Firebase ID token to ensure it's fresh
-      final idToken = await firebaseUser.getIdToken(true);
-      if (idToken == null) {
-        debugPrint('🔐 AuthService: Failed to get Firebase ID token');
-        return {
-          'success': false,
-          'message': 'Failed to get authentication token',
-        };
-      }
-      
-      debugPrint('🔐 AuthService: Firebase ID token refreshed successfully');
-      
-      // Update user data
-      _userData = {
-        'id': firebaseUser.uid,
-        'email': firebaseUser.email,
-        'name': firebaseUser.displayName ?? 'User',
-        'photoUrl': firebaseUser.photoURL,
-        'firebase_uid': firebaseUser.uid,
-      };
-      
-        debugPrint('🔐 AuthService: Email/password sign-in successful');
-        debugPrint('🔐 AuthService: User data: $_userData');
-        notifyListeners();
-      
-      return {
-        'success': true,
-        'message': 'Email/password sign-in successful',
-        'user': _userData,
-        'firebaseUser': firebaseUser,
-      };
       
     } catch (e) {
-      debugPrint('🔐 AuthService: Email/password sign-in error: $e');
-      
-      // Handle specific Firebase auth errors
-      String errorMessage = 'Sign-in failed';
-      if (e is fb_auth.FirebaseAuthException) {
-        switch (e.code) {
-          case 'user-not-found':
-            errorMessage = 'No user found with this email address';
-            break;
-          case 'wrong-password':
-            errorMessage = 'Incorrect password';
-            break;
-          case 'invalid-email':
-            errorMessage = 'Invalid email address';
-            break;
-          case 'user-disabled':
-            errorMessage = 'This account has been disabled';
-            break;
-          case 'too-many-requests':
-            errorMessage = 'Too many failed attempts. Please try again later';
-            break;
-          default:
-            errorMessage = 'Authentication failed: ${e.message}';
-        }
+      debugPrint('Supabase email/password sign-in error: $e');
+        return {
+          'success': false,
+        'message': 'Sign-in error: $e',
+      };
+    }
+  }
+
+  /// Register new user with email/password using Supabase Auth
+  Future<Map<String, dynamic>> registerWithEmailPassword({
+    required String email,
+    required String password,
+    required String username,
+  }) async {
+    try {
+      // Clear guest state when signing in
+      if (_isGuest) {
+        await signOutGuest();
       }
       
+      debugPrint('Starting Supabase email/password registration...');
+      
+      final result = await SupabaseDatabaseService().registerUser(
+        email: email,
+        password: password,
+        username: username,
+      );
+      
+      if (result['success']) {
+        debugPrint('Supabase email/password registration successful');
+        
+        // Store user data in AuthService for consistency
+        if (result['user'] != null) {
+          _userData = Map<String, dynamic>.from(result['user']);
+          debugPrint('AuthService: User data stored: $_userData');
+          // Persist the session
+          await _persistUserSession(_userData!);
+          
+          // Set new user flag for premium status refresh
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('is_new_user', true);
+          debugPrint('AuthService: Set new user flag for premium status refresh');
+          
+          notifyListeners();
+        }
+        
+        return result;
+      } else {
+        debugPrint('Supabase email/password registration failed: ${result['message']}');
+        return result;
+      }
+      
+    } catch (e) {
+      debugPrint('Supabase email/password registration error: $e');
       return {
         'success': false,
-        'message': errorMessage,
+        'message': 'Registration error: $e',
       };
     }
   }
@@ -290,9 +468,25 @@ class AuthService extends ChangeNotifier {
       
       debugPrint('Firebase ID token refreshed successfully');
       
-      // When using accessToken function, Supabase automatically handles authentication
-      // No need to check currentUser or currentSession - they're not accessible
-      debugPrint('Supabase authentication handled automatically via Firebase JWT');
+      // Create Supabase session from Firebase JWT
+      debugPrint('AuthService: Creating Supabase session from Firebase JWT');
+      final supabaseSessionCreated = await SupabaseConfig.ensureSupabaseSession();
+      
+      if (supabaseSessionCreated) {
+        debugPrint('AuthService: Supabase session created successfully');
+      } else {
+        debugPrint('AuthService: Failed to create Supabase session, but continuing with Firebase auth');
+      }
+      
+      // Check if this is a new user by checking if they exist in the database
+      final supabaseService = SupabaseDatabaseService();
+      final isNewUser = !(await supabaseService.isUserInUserTable(firebaseUser.email!));
+      
+      if (isNewUser) {
+        debugPrint('AuthService: New Google user detected, setting new user flag');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('is_new_user', true);
+      }
       
       // Return success with user data
       return {
@@ -306,6 +500,7 @@ class AuthService extends ChangeNotifier {
           'firebase_uid': firebaseUser.uid,
         },
         'firebaseUser': firebaseUser,
+        'isNewUser': isNewUser,
       };
       
     } catch (e) {
@@ -524,10 +719,17 @@ class AuthService extends ChangeNotifier {
         return;
       }
       
+      // Clear persisted session
+      await _clearPersistedSession();
+      
       // Sign out from Firebase Auth
       await fb_auth.FirebaseAuth.instance.signOut();
+      
+      // Sign out from Supabase Auth
+      await SupabaseConfig.nativeAuthClient.auth.signOut();
+      
       _userData = null;
-      debugPrint('AuthService: User signed out successfully from Firebase');
+      debugPrint('AuthService: User signed out successfully');
       notifyListeners();
     } catch (e) {
       debugPrint('AuthService: Sign out error: $e');
@@ -592,6 +794,7 @@ class _FirebaseUserWrapper {
   // Mimic Supabase user properties
   String get id => _firebaseUser.uid;
   String? get email => _firebaseUser.email;
+  String? get emailConfirmedAt => DateTime.now().toIso8601String(); // Assume confirmed for Firebase users
   Map<String, dynamic>? get userMetadata => {
     'name': _firebaseUser.displayName,
     'username': _firebaseUser.displayName,
@@ -611,5 +814,37 @@ class _GuestUserWrapper {
     'avatar_url': null,
     'picture': null,
     'profile_image_url': null,
+  };
+}
+
+// Wrapper class for Supabase user data
+class _SupabaseUserWrapper {
+  final Map<String, dynamic> _userData;
+
+  _SupabaseUserWrapper(this._userData);
+
+  // Mimic Supabase user properties
+  String get id => _userData['id'] ?? '';
+  String? get email => _userData['email'];
+  String? get emailConfirmedAt {
+    // Check if user is verified in Supabase Auth
+    try {
+      final supabaseUser = SupabaseConfig.client.auth.currentUser;
+      if (supabaseUser != null && supabaseUser.emailConfirmedAt != null) {
+        return supabaseUser.emailConfirmedAt;
+      }
+    } catch (e) {
+      debugPrint('Error checking Supabase Auth email confirmation: $e');
+    }
+    
+    // Fallback to database field
+    return _userData['email_confirmed'] == true ? DateTime.now().toIso8601String() : null;
+  }
+  Map<String, dynamic>? get userMetadata => {
+    'name': _userData['name'],
+    'username': _userData['username'],
+    'avatar_url': _userData['photoUrl'],
+    'picture': _userData['photoUrl'],
+    'profile_image_url': _userData['photoUrl'],
   };
 }

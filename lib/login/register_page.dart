@@ -6,6 +6,7 @@ import '../services/subscription_manager.dart';
 import '../utils/platform_features.dart';
 import 'google_confirmation_page.dart';
 import 'login_page.dart';
+import 'verification_completion_page.dart';
 
 class RegisterPage extends StatefulWidget {
   final bool showGoogleSignIn;
@@ -223,7 +224,7 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       // Add a timeout to prevent hanging indefinitely (increased to 45 seconds)
       final result = await _authService
-          .registerUser(
+          .registerWithEmailPassword(
         username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -258,9 +259,9 @@ class _RegisterPageState extends State<RegisterPage> {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Account created successfully! Your 7-day free trial has started. Please check your email for verification.'),
+            content: Text('Account created successfully! Please check your email for verification.'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 4),
+            duration: Duration(seconds: 3),
           ),
         );
 
@@ -270,13 +271,17 @@ class _RegisterPageState extends State<RegisterPage> {
         // Check if the widget is still mounted before navigating
         if (!mounted) return;
 
-        // Force AuthService to refresh user data
-        await _authService.initialize();
-
-        debugPrint('Navigating to home page after successful registration');
-        // Navigate directly to the home page
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil('/home', (route) => false);
+        debugPrint('Navigating to verification completion page after successful registration');
+        // Navigate to verification completion page
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => VerificationCompletionPage(
+              email: _emailController.text.trim(),
+              username: _usernameController.text.trim(),
+              password: _passwordController.text,
+            ),
+          ),
+        );
       } else {
         debugPrint('Registration failed: ${result['message']}');
 

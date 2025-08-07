@@ -13,7 +13,7 @@ class JourneyDatabaseService {
   late final CalendarDatabaseService _calendarService;
 
   JourneyDatabaseService._internal() {
-    _client = SupabaseConfig.client;
+    _client = SupabaseConfig.nativeAuthClient;
     _calendarService = CalendarDatabaseService();
   }
 

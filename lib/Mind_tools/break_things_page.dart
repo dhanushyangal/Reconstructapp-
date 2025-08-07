@@ -293,16 +293,17 @@ class _BreakThingsPageState extends State<BreakThingsPage>
                                           breakableItems[index].assetPath,
                                           fit: BoxFit.contain,
                                         ),
-                                        if (breakableItems[index].isBroken)
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              image: DecorationImage(
-                                                image: AssetImage(
-                                                    'assets/break_things/${breakableItems[index].type}_broken.png'),
-                                                fit: BoxFit.contain,
-                                              ),
-                                            ),
-                                          ),
+                                                                                 // TODO: Add broken assets when available
+                                         // if (breakableItems[index].isBroken)
+                                         //   Container(
+                                         //     decoration: BoxDecoration(
+                                         //       image: DecorationImage(
+                                         //         image: AssetImage(
+                                         //             'assets/Mind_tools/${breakableItems[index].type}_broken.png'),
+                                         //         fit: BoxFit.contain,
+                                         //       ),
+                                         //     ),
+                                         //   ),
                                       ],
                                     ),
                                   ),

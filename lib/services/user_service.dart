@@ -89,13 +89,13 @@ class UserService {
       return _cachedUserInfo!;
     }
 
-    // If no valid data, check Supabase authentication
+    // If no valid data, check authentication via AuthService
     if (!_manualUserInfoSet) {
       try {
-        // Check Supabase authentication
-        if (_supabaseService.isAuthenticated &&
-            _supabaseService.currentUser != null) {
-          final currentUser = _supabaseService.currentUser!;
+        // Use AuthService for consistent authentication checking
+        final authService = AuthService.instance;
+        if (authService.hasAuthenticatedUser() && authService.currentUser != null) {
+          final currentUser = authService.currentUser;
           email = currentUser.email ?? '';
           userName = currentUser.userMetadata?['name'] ??
               currentUser.userMetadata?['username'] ??
@@ -107,7 +107,7 @@ class UserService {
           }
         }
 
-        // Try to get user profile from Supabase service
+        // Try to get user profile from Supabase service as fallback
         final profileResult = await _supabaseService.getUserProfile();
         if (profileResult['success'] == true && profileResult['user'] != null) {
           final userData = profileResult['user'];
@@ -120,7 +120,7 @@ class UserService {
           }
         }
       } catch (e) {
-        debugPrint('UserService: Error getting user info from Supabase: $e');
+        debugPrint('UserService: Error getting user info from AuthService/Supabase: $e');
       }
     }
 
@@ -133,14 +133,11 @@ class UserService {
     String userName = '';
 
     try {
-      // Use AuthService instead of direct Supabase access when using accessToken function
+      // Use AuthService helper getters for consistent access
       final authService = AuthService.instance;
-      if (authService.hasAuthenticatedUser() && authService.currentUser != null) {
-        final currentUser = authService.currentUser;
-        email = currentUser.email ?? '';
-        userName = currentUser.userMetadata?['name'] ??
-            currentUser.userMetadata?['username'] ??
-            email.split('@')[0];
+      if (authService.hasAuthenticatedUser()) {
+        email = authService.userEmail ?? '';
+        userName = authService.userName ?? email.split('@')[0];
       }
     } catch (e) {
       debugPrint('Error getting current user info: $e');
@@ -168,12 +165,13 @@ class UserService {
       await initialize();
     }
 
-    // Check Supabase authentication first as it's the source of truth
-    if (_supabaseService.isAuthenticated) {
-      // If Supabase says user is logged in, ensure we have the user info
+    // Check authentication via AuthService first as it's the source of truth
+    final authService = AuthService.instance;
+    if (authService.hasAuthenticatedUser()) {
+      // If AuthService says user is logged in, ensure we have the user info
       final userInfo = await getUserInfo();
       if (userInfo['userName']!.isNotEmpty && userInfo['email']!.isNotEmpty) {
-        debugPrint('UserService: User is logged in (Supabase verified)');
+        debugPrint('UserService: User is logged in (AuthService verified)');
         return true;
       }
     }

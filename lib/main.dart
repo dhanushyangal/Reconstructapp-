@@ -334,28 +334,37 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _initializeAuth() async {
-    if (!_authService.isAuthenticated) {
-      setState(() => _isInitializing = false);
-      return;
-    }
-
     try {
-      // Save auth token and check premium status
-      final token = _authService.authToken;
-      if (token != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', token);
+      // Initialize the AuthService first
+      await _authService.initialize();
+      
+      debugPrint('AuthWrapper: AuthService initialized');
+      debugPrint('AuthWrapper: isAuthenticated = ${_authService.isAuthenticated}');
+      debugPrint('AuthWrapper: hasAuthenticatedUser = ${_authService.hasAuthenticatedUser()}');
+      
+      // Check if user is authenticated after initialization
+      if (_authService.isAuthenticated || _authService.hasAuthenticatedUser()) {
+        debugPrint('AuthWrapper: User is authenticated, proceeding with premium check');
+        
+        // Save auth token and check premium status
+        final token = _authService.authToken;
+        if (token != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('auth_token', token);
 
-        // Fast premium status check using cache first
-        final hasAccess = await _fastPremiumCheck();
+          // Fast premium status check using cache first
+          final hasAccess = await _fastPremiumCheck();
 
-        // Update local storage
-        await _updatePremiumFlags(prefs, hasAccess);
+          // Update local storage
+          await _updatePremiumFlags(prefs, hasAccess);
 
-        debugPrint('Premium access status: $hasAccess');
+          debugPrint('Premium access status: $hasAccess');
 
-        // Refresh premium status in background for accuracy
-        _refreshPremiumStatusInBackground();
+          // Refresh premium status in background for accuracy
+          _refreshPremiumStatusInBackground();
+        }
+      } else {
+        debugPrint('AuthWrapper: User not authenticated');
       }
     } catch (e) {
       debugPrint('Error during auth initialization: $e');
@@ -480,7 +489,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
       return const HomePage();
     }
 
-    return _authService.isAuthenticated ? const HomePage() : const LoginPage();
+    // Check authentication status
+    final isAuthenticated = _authService.isAuthenticated || _authService.hasAuthenticatedUser();
+    debugPrint('AuthWrapper: Final auth check - isAuthenticated: $isAuthenticated');
+    
+    return isAuthenticated ? const HomePage() : const LoginPage();
   }
 
   Widget _buildErrorScreen() {
@@ -608,47 +621,70 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       final prefs = await SharedPreferences.getInstance();
 
-      // Check cache first for immediate response
+      // Check if this is a new user (after registration)
+      final isNewUser = prefs.getBool('is_new_user') ?? false;
       final lastCheckTime = prefs.getInt('last_premium_check') ?? 0;
       final currentTime = DateTime.now().millisecondsSinceEpoch;
       final timeSinceLastCheck = currentTime - lastCheckTime;
       final cacheExpired = timeSinceLastCheck > (5 * 60 * 1000); // 5 minutes
 
-      if (!cacheExpired && lastCheckTime > 0) {
-        final cachedIsPremium = prefs.getBool('is_premium') ?? false;
-        final cachedTrialStart = prefs.getString('trial_start_date');
-        final cachedTrialEnd = prefs.getString('trial_end_date');
-
-        if (cachedIsPremium) {
-          debugPrint('HomePage: Premium status (cached): true');
-          if (mounted) {
-            setState(() {
-              _isPremium = true;
-            });
-            _initPages();
-          }
-          return;
+      // Force fresh check for new users or if cache is expired
+      if (isNewUser || cacheExpired || lastCheckTime == 0) {
+        debugPrint('HomePage: Force refreshing premium status (new user or cache expired)');
+        
+        // Clear new user flag
+        if (isNewUser) {
+          await prefs.setBool('is_new_user', false);
         }
+        
+        // Do a fresh database check
+        final subscriptionManager = SubscriptionManager();
+        final hasAccess = await subscriptionManager.hasAccess();
 
-        if (cachedTrialStart != null && cachedTrialEnd != null) {
-          final trialEndDate = DateTime.parse(cachedTrialEnd);
-          final now = DateTime.now();
-          final hasActiveTrial =
-              now.isBefore(trialEndDate) || now.isAtSameMomentAs(trialEndDate);
-
-          debugPrint(
-              'HomePage: Trial status (cached): ${hasActiveTrial ? "Active" : "Expired"}');
-          if (mounted) {
-            setState(() {
-              _isPremium = hasActiveTrial;
-            });
-            _initPages();
-          }
-          return;
+        debugPrint('HomePage: Premium status (fresh): $hasAccess');
+        if (mounted) {
+          setState(() {
+            _isPremium = hasAccess;
+          });
+          _initPages();
         }
+        return;
       }
 
-      // If no cache or expired, do a quick database check
+      // Use cached data for existing users
+      final cachedIsPremium = prefs.getBool('is_premium') ?? false;
+      final cachedTrialStart = prefs.getString('trial_start_date');
+      final cachedTrialEnd = prefs.getString('trial_end_date');
+
+      if (cachedIsPremium) {
+        debugPrint('HomePage: Premium status (cached): true');
+        if (mounted) {
+          setState(() {
+            _isPremium = true;
+          });
+          _initPages();
+        }
+        return;
+      }
+
+      if (cachedTrialStart != null && cachedTrialEnd != null) {
+        final trialEndDate = DateTime.parse(cachedTrialEnd);
+        final now = DateTime.now();
+        final hasActiveTrial =
+            now.isBefore(trialEndDate) || now.isAtSameMomentAs(trialEndDate);
+
+        debugPrint(
+            'HomePage: Trial status (cached): ${hasActiveTrial ? "Active" : "Expired"}');
+        if (mounted) {
+          setState(() {
+            _isPremium = hasActiveTrial;
+          });
+          _initPages();
+        }
+        return;
+      }
+
+      // Fallback: do a fresh check if no cached data
       final subscriptionManager = SubscriptionManager();
       final hasAccess = await subscriptionManager.hasAccess();
 

@@ -55,7 +55,7 @@ class _LoginPageState extends State<LoginPage> {
 
       // Add a timeout to prevent hanging indefinitely
       final result = await _authService
-          .loginWithEmailAndPassword(
+          .signInWithEmailPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       )

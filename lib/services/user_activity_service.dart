@@ -19,7 +19,7 @@ class UserActivityService {
   String? _cachedUserName;
 
   UserActivityService._internal() {
-    _client = SupabaseConfig.client;
+    _client = SupabaseConfig.nativeAuthClient;
   }
 
   // Helper method to format response

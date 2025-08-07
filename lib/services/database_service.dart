@@ -198,7 +198,7 @@ class DatabaseService {
         // Test basic Supabase connection without user-specific data
         try {
           // Just check if we can connect to Supabase
-          final client = SupabaseConfig.client;
+          final client = SupabaseConfig.nativeAuthClient;
           // Make a simple query to test connection
           await client.from('user').select('count').limit(1);
 
