@@ -276,7 +276,6 @@ class SupabaseDatabaseService {
           'name': username,
           'display_name': username,
         },
-        emailRedirectTo: 'https://reconstructyourmind.com/email-verification-handler.php',
       );
       
       debugPrint('🔐 Supabase Auth response: ${response.user?.id}');
