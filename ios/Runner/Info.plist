@@ -52,6 +52,9 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs photo library access to select images for notes and vision boards.</string>
 	
+	<!-- Local Network permission for debugging -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app uses local network for development debugging and Google Sign-In functionality.</string>
 	
 	<!-- Prevent automatic backup of sensitive data -->
 	<key>NSSupportsAutomaticTermination</key>
@@ -70,7 +73,7 @@
 			<string>GoogleSignIn</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.633982729642-p8p5svhsbuu6g18kmk8agshb5j92amkf</string>
+				<string>com.googleusercontent.apps.633982729642-d6lvv51c28ahcr1g8820a83vka5pb5k9</string>
 			</array>
 		</dict>
 		<dict>
@@ -89,8 +92,8 @@
 				<string>signinwithapple</string>
 			</array>
 		</dict>
-		<key>FirebaseScreenReportingEnabled</key>
-<true/>
 	</array>
+	<key>FirebaseScreenReportingEnabled</key>
+	<true/>
 </dict>
 </plist>
