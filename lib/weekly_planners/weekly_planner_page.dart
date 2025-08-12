@@ -49,7 +49,6 @@ class _WeeklyPlannerPageState extends State<WeeklyPlannerPage>
 
       if (mounted) {
         setState(() {
-          // User has premium access if any of these flags are true
           _isPremium =
               hasCompletedPayment || premiumFeaturesEnabled || hasAccess;
           _isLoading = false;

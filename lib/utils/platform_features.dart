@@ -56,8 +56,8 @@ class PlatformFeatures {
     'export_features': true,
     'cloud_sync': true,
 
-    // iOS free access - all features free for iOS users
-    'ios_free_access': true,
+    // iOS free access - disable to require subscription on iOS as well
+    'ios_free_access': false,
   };
 
   /// Check if a feature is available on the current platform

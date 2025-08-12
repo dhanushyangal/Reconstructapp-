@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../utils/platform_features.dart';
 import '../services/subscription_manager.dart';
 import '../services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -251,7 +253,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               children: [
                 _buildTitle(),
                 _buildTrialTimeline(),
-                _buildGooglePlaySection(),
+                 _buildStoreSection(),
                 _buildButton(),
                 if (widget.onRedeemCode != null) _buildRedeemOption(),
                 _buildRatings(),
@@ -419,38 +421,43 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  Widget _buildGooglePlaySection() {
+  Widget _buildStoreSection() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Google Play',
-            style: TextStyle(
+          Text(
+            PlatformFeatures.isAndroid ? 'Google Play' : 'Apple (App Store)',
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Add payment method to your Google Account',
-            style: TextStyle(
+          Text(
+            PlatformFeatures.isAndroid
+                ? 'Add a payment method to your Google Account'
+                : 'Add a payment method to your Apple ID',
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            widget.email,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
+          if (PlatformFeatures.isAndroid)
+            Text(
+              widget.email,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
             ),
-          ),
           const SizedBox(height: 16),
           Text(
-            'Add a payment method to your Google Account to start your free trial. You won\'t be charged if you cancel before the trial ends.',
+            PlatformFeatures.isAndroid
+                ? 'Add a payment method to your Google Account to start your free trial. You won\'t be charged if you cancel before the trial ends.'
+                : 'Add a payment method to your Apple ID to start your free trial. You won\'t be charged if you cancel before the trial ends.',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey.shade700,
@@ -503,6 +510,21 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               fontStyle: FontStyle.italic,
             ),
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () async {
+              final uri = PlatformFeatures.isAndroid
+                  ? Uri.parse('https://play.google.com/store/account/subscriptions')
+                  : Uri.parse('https://apps.apple.com/account/subscriptions');
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            },
+            child: Text(
+              PlatformFeatures.isAndroid
+                  ? 'Manage subscription in Google Play'
+                  : 'Manage subscription in App Store',
+              style: const TextStyle(fontSize: 14),
+            ),
           ),
         ],
       ),

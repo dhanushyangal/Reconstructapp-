@@ -296,18 +296,13 @@ class SupabaseDatabaseService {
         
         try {
           // Create user record immediately in the user table
-          final now = DateTime.now();
-          final trialEndDate = now.add(const Duration(days: 7));
-          
           final userData = {
             'name': username,
             'email': email,
             'password_hash': 'supabase_auth',
             'welcome_email_sent': false,
             'is_premium': false,
-            'trial_start_date': now.toIso8601String().split('T')[0],
-            'trial_end_date': trialEndDate.toIso8601String().split('T')[0],
-            'created_at': now.toIso8601String(),
+            'created_at': DateTime.now().toIso8601String(),
           };
 
           // Try to insert user data using public client to bypass RLS
@@ -539,35 +534,17 @@ class SupabaseDatabaseService {
         debugPrint(
             'Custom user data not found, attempting to create profile...');
         try {
-          final now = DateTime.now();
-          final trialEndDate = now.add(const Duration(days: 7));
-
-          // Try RPC first, then fallback to direct insert
-          try {
-            await _authClient.rpc('create_user_profile', params: {
-              'user_name': currentUser.userMetadata?['username'] ??
-                  currentUser.email!.split('@')[0],
-              'user_email': currentUser.email!,
-              'user_id': currentUser.id,
-              'trial_start': now.toIso8601String().split('T')[0],
-              'trial_end': trialEndDate.toIso8601String().split('T')[0],
-            });
-            debugPrint('User profile created via RPC');
-          } catch (rpcError) {
-            debugPrint('RPC failed, trying direct insert: $rpcError');
-            await _authClient.from('user').insert({
-              'name': currentUser.userMetadata?['username'] ??
-                  currentUser.email!.split('@')[0],
-              'email': currentUser.email!,
-              'password_hash': 'supabase_auth',
-              'firebase_uid': currentUser.id,
-              'welcome_email_sent': false,
-              'is_premium': false,
-              'trial_start_date': now.toIso8601String().split('T')[0],
-              'trial_end_date': trialEndDate.toIso8601String().split('T')[0],
-            });
-            debugPrint('User profile created via direct insert');
-          }
+          // Create a minimal user profile directly (no trial fields)
+          await _authClient.from('user').insert({
+            'name': currentUser.userMetadata?['username'] ??
+                currentUser.email!.split('@')[0],
+            'email': currentUser.email!,
+            'password_hash': 'supabase_auth',
+            'firebase_uid': currentUser.id,
+            'welcome_email_sent': false,
+            'is_premium': false,
+          });
+          debugPrint('User profile created via direct insert');
 
           // Try to fetch the newly created data
           try {
@@ -907,23 +884,12 @@ class SupabaseDatabaseService {
   Future<Map<String, dynamic>> updateUserPremiumStatus({
     required String email,
     required bool isPremium,
-    DateTime? trialStartDate,
-    DateTime? trialEndDate,
+    DateTime? trialStartDate, // deprecated
+    DateTime? trialEndDate, // deprecated
   }) async {
     try {
-      final updateData = <String, dynamic>{
-        'is_premium': isPremium,
-      };
-
-      if (trialStartDate != null) {
-        updateData['trial_start_date'] =
-            trialStartDate.toIso8601String().split('T')[0];
-      }
-
-      if (trialEndDate != null) {
-        updateData['trial_end_date'] =
-            trialEndDate.toIso8601String().split('T')[0];
-      }
+      // Only maintain premium state here; trial fields are no longer used
+      final updateData = <String, dynamic>{'is_premium': isPremium};
 
       await _authClient.from('user').update(updateData).eq('email', email);
 
@@ -956,47 +922,51 @@ class SupabaseDatabaseService {
         final userData = await publicClient
             .from('user')
             .select(
-                'is_premium, trial_start_date, trial_end_date, premium_converted_date')
+                'is_premium, premium_converted_date, premium_ended_date')
             .eq('email', email)
             .maybeSingle();
 
         debugPrint('🔍 Query result: $userData');
 
         if (userData != null) {
-          final isPremium = userData['is_premium'] ?? false;
-          final trialStartDate = userData['trial_start_date'];
-          final trialEndDate = userData['trial_end_date'];
+          final isPremiumFlag = userData['is_premium'] ?? false;
           final premiumConvertedDate = userData['premium_converted_date'];
+          final premiumEndedDate = userData['premium_ended_date'];
 
-          bool hasActiveAccess = isPremium;
-          bool isOnTrial = false;
-          bool trialExpired = false;
+          // Access requires both dates to be present and not expired
+          final now = DateTime.now();
+          final hasDates = premiumConvertedDate != null && premiumEndedDate != null;
+          DateTime? premiumEnd;
+          if (premiumEndedDate != null) {
+            try {
+              premiumEnd = DateTime.parse(premiumEndedDate);
+            } catch (_) {}
+          }
+          final withinEnd = premiumEnd != null && (now.isBefore(premiumEnd) || now.isAtSameMomentAs(premiumEnd));
+          final hasActiveAccess = isPremiumFlag && hasDates && withinEnd;
 
-          // Check trial status if not premium
-          if (!isPremium && trialStartDate != null && trialEndDate != null) {
-            final now = DateTime.now();
-            final endDate = DateTime.parse(trialEndDate);
-
-            if (now.isBefore(endDate) || now.isAtSameMomentAs(endDate)) {
-              isOnTrial = true;
-              hasActiveAccess = true;
-            } else {
-              trialExpired = true;
+          // Auto-downgrade if marked premium but missing required dates or expired
+          if (isPremiumFlag && (!hasDates || !withinEnd)) {
+            try {
+              await _authClient
+                  .from('user')
+                  .update({'is_premium': false})
+                  .eq('email', email);
+              debugPrint('✅ Auto-downgraded user: missing/expired premium dates');
+            } catch (e) {
+              debugPrint('⚠️ Auto-downgrade failed: $e');
             }
           }
 
-          debugPrint('✅ Premium status check successful (public client): isPremium=$isPremium, hasActiveAccess=$hasActiveAccess, isOnTrial=$isOnTrial');
+          debugPrint('✅ Premium status check: isPremium=$isPremiumFlag, hasActiveAccess=$hasActiveAccess, premiumConvertedDate=$premiumConvertedDate, premiumEndedDate=$premiumEndedDate');
 
           return _formatResponse(
             success: true,
             data: {
-              'is_premium': isPremium,
+              'is_premium': isPremiumFlag,
               'has_active_access': hasActiveAccess,
-              'is_on_trial': isOnTrial,
-              'trial_expired': trialExpired,
-              'trial_start_date': trialStartDate,
-              'trial_end_date': trialEndDate,
               'premium_converted_date': premiumConvertedDate,
+              'premium_ended_date': premiumEndedDate,
             },
           );
         } else {
@@ -1040,6 +1010,11 @@ class SupabaseDatabaseService {
         debugPrint(
             'Setting premium conversion date: ${conversionDate.toIso8601String().split('T')[0]}');
       }
+      // Set premium ended date to conversionDate + 365 + 7 days (grace)
+      final startDate = conversionDate ?? DateTime.now();
+      final endDate = startDate.add(const Duration(days: 372));
+      updateData['premium_ended_date'] = endDate.toIso8601String().split('T')[0];
+      debugPrint('Setting premium ended date: ${updateData['premium_ended_date']}');
 
       await _authClient.from('user').update(updateData).eq('email', email);
 
@@ -1409,8 +1384,7 @@ class SupabaseDatabaseService {
       
       // Prepare user data with all required fields
       final now = DateTime.now();
-      final trialEndDate = now.add(const Duration(days: 7));
-      
+
       final userData = {
         'name': name,
         'email': email,
@@ -1419,8 +1393,6 @@ class SupabaseDatabaseService {
         'password_hash': 'firebase', // Added to satisfy NOT NULL constraint
         'welcome_email_sent': false,
         'is_premium': false,
-        'trial_start_date': now.toIso8601String().split('T')[0],
-        'trial_end_date': trialEndDate.toIso8601String().split('T')[0],
         'created_at': now.toIso8601String(),
       };
       
@@ -1470,7 +1442,6 @@ class SupabaseDatabaseService {
       
       // Prepare user data with all required fields
       final now = DateTime.now();
-      final trialEndDate = now.add(const Duration(days: 7));
       
       final userData = {
         'email': email,
@@ -1479,8 +1450,6 @@ class SupabaseDatabaseService {
         'password_hash': 'firebase',
         'welcome_email_sent': false,
         'is_premium': false,
-        'trial_start_date': now.toIso8601String().split('T')[0],
-        'trial_end_date': trialEndDate.toIso8601String().split('T')[0],
         'created_at': now.toIso8601String(),
       };
       

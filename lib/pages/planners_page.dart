@@ -48,7 +48,7 @@ class _PlannersPageState extends State<PlannersPage> with ActivityTrackerMixin {
       final premiumFeaturesEnabled =
           prefs.getBool('premium_features_enabled') ?? false;
 
-      // Check if we have an active trial through the subscription manager
+      // Unified premium check via SubscriptionManager
       final subscriptionManager = SubscriptionManager();
       final hasAccess = await subscriptionManager.hasAccess();
 
@@ -60,8 +60,7 @@ class _PlannersPageState extends State<PlannersPage> with ActivityTrackerMixin {
       if (mounted) {
         setState(() {
           // User has premium access if any of these flags are true
-          _isPremium =
-              hasCompletedPayment || premiumFeaturesEnabled || hasAccess;
+          _isPremium = hasCompletedPayment || premiumFeaturesEnabled || hasAccess;
         });
       }
 

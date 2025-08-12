@@ -249,7 +249,7 @@ class AnnualCalendarService {
     }
   }
 
-  Future<void> setAuthToken(String token) async {
+   Future<void> setAuthToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', token);
   }
@@ -259,7 +259,7 @@ class AnnualCalendarService {
     await prefs.remove('auth_token');
   }
 
-  // Check if user is authenticated (use Firebase when using accessToken function)
+   // Check if user is authenticated (use Firebase when using accessToken function)
   bool get isAuthenticated {
     try {
       // When using accessToken function, check Firebase auth instead
@@ -286,7 +286,7 @@ class AnnualCalendarService {
     }
   }
 
-  // Get auth token from Supabase
+   // Get auth token from Supabase
   String? get authToken {
     try {
       // Check if we have a Supabase session (for native auth users)

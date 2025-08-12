@@ -3,6 +3,7 @@ import '../services/subscription_manager.dart';
 import '../services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/platform_features.dart';
 import 'package:flutter/gestures.dart';
 
 class SubscriptionModal extends StatefulWidget {
@@ -415,7 +416,7 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildDetailRow('Product ID', 'reconstruct'),
+                _buildDetailRow('Product ID', 're_599_1yr'),
                 const SizedBox(height: 16),
 
                 // Benefits
@@ -585,15 +586,17 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
               style: TextStyle(fontSize: 13, color: Colors.grey[600]),
               children: [
                 TextSpan(
-                  text: "Cancel",
+                  text: PlatformFeatures.isAndroid ? "Cancel in Play Store" : "Cancel in App Store",
                   style: TextStyle(
                     color: Colors.blue,
                     decoration: TextDecoration.underline,
                   ),
                   recognizer: TapGestureRecognizer()
                     ..onTap = () {
-                      launchUrl(Uri.parse(
-                          "https://play.google.com/store/account/subscriptions"));
+                      final uri = PlatformFeatures.isAndroid
+                          ? Uri.parse("https://play.google.com/store/account/subscriptions")
+                          : Uri.parse("https://apps.apple.com/account/subscriptions");
+                      launchUrl(uri);
                     },
                 ),
                 TextSpan(

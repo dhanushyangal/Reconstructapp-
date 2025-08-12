@@ -12,13 +12,15 @@ class SubscriptionManager extends ChangeNotifier {
 
   // Simplified keys - only what we need
   static const String _isPremiumKey = 'is_premium';
-  static const String _trialStartDateKey = 'trial_start_date';
-  static const String _trialEndDateKey = 'trial_end_date';
+  // Trial keys removed - no longer used
+  static const String _trialStartDateKey = 'trial_start_date'; // deprecated
+  static const String _trialEndDateKey = 'trial_end_date'; // deprecated
   static const String _lastCheckKey = 'last_premium_check';
   static const String _premiumConvertedDateKey = 'premium_converted_date';
+  static const String _premiumEndedDateKey = 'premium_ended_date';
 
   // Subscription product IDs
-  static const String yearlySubscriptionId = 'reconstruct';
+  static const String yearlySubscriptionId = 're_599_1yr';
 
   // Cache expiration (5 minutes for better UX)
   static const int _cacheMinutes = 5;
@@ -171,27 +173,25 @@ class SubscriptionManager extends ChangeNotifier {
       // Use cache if available and not expired
       if (!cacheExpired && lastCheckTime > 0) {
         final cachedIsPremium = prefs.getBool(_isPremiumKey) ?? false;
-        final cachedTrialStart = prefs.getString(_trialStartDateKey);
-        final cachedTrialEnd = prefs.getString(_trialEndDateKey);
+        final cachedPremiumEnd = prefs.getString(_premiumEndedDateKey);
 
         if (cachedIsPremium) {
-          debugPrint('User is premium (cached)');
-          return true;
+          // Require a valid end date when using cached premium
+          if (cachedPremiumEnd != null) {
+            final endDate = DateTime.tryParse(cachedPremiumEnd);
+            if (endDate != null) {
+              final now = DateTime.now();
+              final active = now.isBefore(endDate) || now.isAtSameMomentAs(endDate);
+              debugPrint('Premium (cached) active=$active due to end date');
+              return active;
+            }
+          }
+          // Missing or invalid end date → ignore cache and fetch fresh below
+          debugPrint('Cached premium missing/invalid end date, fetching fresh');
+        } else {
+          debugPrint('No premium access (cached)');
+          return false;
         }
-
-        if (cachedTrialStart != null && cachedTrialEnd != null) {
-          final trialEndDate = DateTime.parse(cachedTrialEnd);
-          final now = DateTime.now();
-          final hasActiveTrial =
-              now.isBefore(trialEndDate) || now.isAtSameMomentAs(trialEndDate);
-
-          debugPrint(
-              'Trial status (cached): ${hasActiveTrial ? "Active" : "Expired"}');
-          return hasActiveTrial;
-        }
-
-        debugPrint('No premium access (cached)');
-        return false;
       }
 
       // Only fetch fresh data if cache is expired or doesn't exist
@@ -214,27 +214,17 @@ class SubscriptionManager extends ChangeNotifier {
 
       if (response['success'] == true) {
         final data = response['data'];
-        final isPremium = data['is_premium'] ?? false;
-        final trialStartDate = data['trial_start_date'];
-        final trialEndDate = data['trial_end_date'];
         final hasActiveAccess = data['has_active_access'] ?? false;
         final premiumConvertedDate = data['premium_converted_date'];
+        final premiumEndedDate = data['premium_ended_date'];
 
         // Update local cache
         await prefs.setInt(_lastCheckKey, currentTime);
-        await prefs.setBool(_isPremiumKey, isPremium);
+        await prefs.setBool(_isPremiumKey, hasActiveAccess);
 
-        if (trialStartDate != null) {
-          await prefs.setString(_trialStartDateKey, trialStartDate);
-        } else {
-          await prefs.remove(_trialStartDateKey);
-        }
-
-        if (trialEndDate != null) {
-          await prefs.setString(_trialEndDateKey, trialEndDate);
-        } else {
-          await prefs.remove(_trialEndDateKey);
-        }
+        // Clear any old trial data
+        await prefs.remove(_trialStartDateKey);
+        await prefs.remove(_trialEndDateKey);
 
         // Cache premium conversion date if available
         if (premiumConvertedDate != null) {
@@ -244,8 +234,16 @@ class SubscriptionManager extends ChangeNotifier {
           await prefs.remove(_premiumConvertedDateKey);
         }
 
+        // Cache premium ended date
+        if (premiumEndedDate != null) {
+          await prefs.setString(_premiumEndedDateKey, premiumEndedDate);
+          debugPrint('Premium ended date cached: $premiumEndedDate');
+        } else {
+          await prefs.remove(_premiumEndedDateKey);
+        }
+
         debugPrint(
-            'Premium status updated from Supabase: isPremium=$isPremium, hasActiveAccess=$hasActiveAccess, conversionDate=$premiumConvertedDate');
+            'Premium status updated from Supabase: hasActiveAccess=$hasActiveAccess, conversionDate=$premiumConvertedDate, endedDate=$premiumEndedDate');
         return hasActiveAccess;
       } else {
         debugPrint(
@@ -265,70 +263,9 @@ class SubscriptionManager extends ChangeNotifier {
 
   /// Start a free trial for new users
   Future<bool> startFreeTrial() async {
-    try {
-      final currentUser = AuthService.instance.currentUser;
-      if (currentUser?.email == null) {
-        debugPrint('No user email available for trial');
-        return false;
-      }
-
-      final email = currentUser!.email!;
-      final databaseService = SupabaseDatabaseService();
-
-      // Check if user already has trial or premium
-      final response = await databaseService.checkTrialStatus(email: email);
-      if (response['success'] == true) {
-        final data = response['data'];
-        final isPremium = data['is_premium'] ?? false;
-        final hasActiveAccess = data['has_active_access'] ?? false;
-
-        if (isPremium) {
-          debugPrint('User is already premium, no trial needed');
-          return true;
-        }
-
-        if (hasActiveAccess) {
-          debugPrint('User already has active trial');
-          return true;
-        }
-
-        // Check if trial was already used
-        final trialStartDate = data['trial_start_date'];
-        if (trialStartDate != null) {
-          debugPrint('User already used their trial');
-          return false;
-        }
-      }
-
-      // Start new trial
-      final now = DateTime.now();
-      final trialEndDate = now.add(const Duration(days: 7));
-
-      final updateResponse = await databaseService.updateUserPremiumStatus(
-        email: email,
-        isPremium: false,
-        trialStartDate: now,
-        trialEndDate: trialEndDate,
-      );
-
-      if (updateResponse['success'] == true) {
-        // Update local cache
-        await _updateLocalTrialStatus(
-          trialStartDate: now.toIso8601String().split('T')[0],
-          trialEndDate: trialEndDate.toIso8601String().split('T')[0],
-        );
-
-        debugPrint(
-            'Free trial started successfully: ${now.toIso8601String().split('T')[0]} to ${trialEndDate.toIso8601String().split('T')[0]}');
-        return true;
-      } else {
-        debugPrint('Failed to start trial: ${updateResponse['message']}');
-        return false;
-      }
-    } catch (e) {
-      debugPrint('Error starting free trial: $e');
-      return false;
-    }
+    // Free trial has been removed
+    debugPrint('startFreeTrial called but trials are disabled.');
+    return false;
   }
 
   /// Check if user is premium (not including trial)
@@ -363,20 +300,8 @@ class SubscriptionManager extends ChangeNotifier {
 
   /// Check if trial has ended
   Future<bool> hasTrialEnded() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final trialEndDateStr = prefs.getString(_trialEndDateKey);
-
-      if (trialEndDateStr == null) return false;
-
-      final trialEndDate = DateTime.parse(trialEndDateStr);
-      final now = DateTime.now();
-
-      return now.isAfter(trialEndDate);
-    } catch (e) {
-      debugPrint('Error checking if trial ended: $e');
-      return false;
-    }
+    // Trials removed
+    return false;
   }
 
   /// Update local premium status
@@ -406,18 +331,7 @@ class SubscriptionManager extends ChangeNotifier {
   }
 
   /// Update local trial status
-  Future<void> _updateLocalTrialStatus({
-    required String trialStartDate,
-    required String trialEndDate,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final currentTime = DateTime.now().millisecondsSinceEpoch;
-
-    await prefs.setInt(_lastCheckKey, currentTime);
-    await prefs.setBool(_isPremiumKey, false);
-    await prefs.setString(_trialStartDateKey, trialStartDate);
-    await prefs.setString(_trialEndDateKey, trialEndDate);
-  }
+  // _updateLocalTrialStatus deprecated - removed
 
   /// Start subscription flow
   Future<void> startSubscriptionFlow(BuildContext context,
@@ -504,6 +418,7 @@ class SubscriptionManager extends ChangeNotifier {
     await prefs.remove(_trialEndDateKey);
     await prefs.remove(_lastCheckKey);
     await prefs.remove(_premiumConvertedDateKey);
+    await prefs.remove(_premiumEndedDateKey);
     debugPrint('Premium data cleared');
   }
 

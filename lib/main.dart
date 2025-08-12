@@ -387,24 +387,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
       final cacheExpired = timeSinceLastCheck > (5 * 60 * 1000); // 5 minutes
 
       if (!cacheExpired && lastCheckTime > 0) {
-        final cachedIsPremium = prefs.getBool('is_premium') ?? false;
-        final cachedTrialStart = prefs.getString('trial_start_date');
-        final cachedTrialEnd = prefs.getString('trial_end_date');
-
-        if (cachedIsPremium) {
-          debugPrint('Premium status (cached): true');
+        final hasCompletedPayment =
+            prefs.getBool(_hasCompletedPaymentKey) ?? false;
+        final premiumFeaturesEnabled =
+            prefs.getBool('premium_features_enabled') ?? false;
+        final cachedComposite = hasCompletedPayment || premiumFeaturesEnabled;
+        if (cachedComposite) {
+          debugPrint('Premium status (cached composite): true');
           return true;
-        }
-
-        if (cachedTrialStart != null && cachedTrialEnd != null) {
-          final trialEndDate = DateTime.parse(cachedTrialEnd);
-          final now = DateTime.now();
-          final hasActiveTrial =
-              now.isBefore(trialEndDate) || now.isAtSameMomentAs(trialEndDate);
-
-          debugPrint(
-              'Trial status (cached): ${hasActiveTrial ? "Active" : "Expired"}');
-          return hasActiveTrial;
         }
       }
 
@@ -412,13 +402,23 @@ class _AuthWrapperState extends State<AuthWrapper> {
       final subscriptionManager = SubscriptionManager();
       final hasAccess = await subscriptionManager.hasAccess();
 
-      debugPrint('Premium status (fresh): $hasAccess');
-      return hasAccess;
+      // Align with PlannersPage: composite decision
+      final hasCompletedPayment =
+          prefs.getBool(_hasCompletedPaymentKey) ?? false;
+      final premiumFeaturesEnabled =
+          prefs.getBool('premium_features_enabled') ?? false;
+      final composite = hasCompletedPayment || premiumFeaturesEnabled || hasAccess;
+      debugPrint('Premium status (fresh composite): $composite');
+      return composite;
     } catch (e) {
       debugPrint('Error in fast premium check: $e');
       // Fallback to cached value
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool('is_premium') ?? false;
+      final hasCompletedPayment =
+          prefs.getBool(_hasCompletedPaymentKey) ?? false;
+      final premiumFeaturesEnabled =
+          prefs.getBool('premium_features_enabled') ?? false;
+      return hasCompletedPayment || premiumFeaturesEnabled;
     }
   }
 
@@ -653,31 +653,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       // Use cached data for existing users
       final cachedIsPremium = prefs.getBool('is_premium') ?? false;
-      final cachedTrialStart = prefs.getString('trial_start_date');
-      final cachedTrialEnd = prefs.getString('trial_end_date');
-
       if (cachedIsPremium) {
         debugPrint('HomePage: Premium status (cached): true');
         if (mounted) {
           setState(() {
             _isPremium = true;
-          });
-          _initPages();
-        }
-        return;
-      }
-
-      if (cachedTrialStart != null && cachedTrialEnd != null) {
-        final trialEndDate = DateTime.parse(cachedTrialEnd);
-        final now = DateTime.now();
-        final hasActiveTrial =
-            now.isBefore(trialEndDate) || now.isAtSameMomentAs(trialEndDate);
-
-        debugPrint(
-            'HomePage: Trial status (cached): ${hasActiveTrial ? "Active" : "Expired"}');
-        if (mounted) {
-          setState(() {
-            _isPremium = hasActiveTrial;
           });
           _initPages();
         }
@@ -773,7 +753,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       // For iOS users, always return true (free access)
       if (PlatformFeatures.isIOSFreeAccess) {
         debugPrint(
-            'HomePage: iOS user - trial status check returns true (free access)');
+            'HomePage: iOS user - premium check returns true (free access)');
         if (mounted) {
           setState(() {
             _isPremium = true;
@@ -783,66 +763,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         return true;
       }
 
-      final prefs = await SharedPreferences.getInstance();
-
-      // Check cache first
-      final lastCheckTime = prefs.getInt('last_premium_check') ?? 0;
-      final currentTime = DateTime.now().millisecondsSinceEpoch;
-      final timeSinceLastCheck = currentTime - lastCheckTime;
-      final cacheExpired = timeSinceLastCheck > (5 * 60 * 1000); // 5 minutes
-
-      if (!cacheExpired && lastCheckTime > 0) {
-        final cachedIsPremium = prefs.getBool('is_premium') ?? false;
-        final cachedTrialStart = prefs.getString('trial_start_date');
-        final cachedTrialEnd = prefs.getString('trial_end_date');
-
-        if (cachedIsPremium) {
-          if (mounted) {
-            setState(() {
-              _isPremium = true;
-            });
-            _updatePages();
-          }
-          return true;
-        }
-
-        if (cachedTrialStart != null && cachedTrialEnd != null) {
-          final trialEndDate = DateTime.parse(cachedTrialEnd);
-          final now = DateTime.now();
-          final hasActiveTrial =
-              now.isBefore(trialEndDate) || now.isAtSameMomentAs(trialEndDate);
-
-          if (mounted) {
-            setState(() {
-              _isPremium = hasActiveTrial;
-            });
-            _updatePages();
-          }
-          return hasActiveTrial;
-        }
-      }
-
-      // Only fetch from database if cache is expired
+      // Only fetch from database if cache is expired handled inside hasAccess
       final subscriptionManager = SubscriptionManager();
       final hasAccess = await subscriptionManager.hasAccess();
-      final trialEnded = await subscriptionManager.hasTrialEnded();
 
       if (mounted) {
+        // Align with PlannersPage composite
+        final prefs = await SharedPreferences.getInstance();
+        final hasCompletedPayment =
+            prefs.getBool(_hasCompletedPaymentKey) ?? false;
+        final premiumFeaturesEnabled =
+            prefs.getBool('premium_features_enabled') ?? false;
         setState(() {
-          _isPremium = hasAccess;
+          _isPremium = hasCompletedPayment || premiumFeaturesEnabled || hasAccess;
         });
         _updatePages();
-
-        if (!hasAccess && trialEnded) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _showTrialExpiredDialog();
-          });
-        }
       }
 
-      return hasAccess;
+      // Persist last check time only; flags updated elsewhere
+      final prefs2 = await SharedPreferences.getInstance();
+      await prefs2.setInt('last_premium_check', DateTime.now().millisecondsSinceEpoch);
+
+      return _isPremium;
     } catch (e) {
-      debugPrint('Error checking trial status: $e');
+      debugPrint('Error checking premium status: $e');
       return false;
     }
   }
@@ -863,69 +807,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _updatePages();
       return;
     }
-
-    // Check if user already has premium or active trial
-    final currentUser = AuthService.instance.currentUser;
-    final userEmail = currentUser?.email;
-
-    if (userEmail == null) return;
-
-    final databaseService = SupabaseDatabaseService();
-    final trialStatusResponse =
-        await databaseService.checkTrialStatus(email: userEmail);
-
-    if (trialStatusResponse['success'] == true) {
-      final trialData = trialStatusResponse['data'];
-      final isPremiumUser = trialData['is_premium'] ?? false;
-      final hasActiveAccess = trialData['has_active_access'] ?? false;
-      final hasTrialHistory = trialData['trial_start_date'] != null;
-
-      // Skip trial setup for premium users or users with active access
-      if (isPremiumUser || hasActiveAccess) {
-        await _updatePremiumFlags(prefs, hasActiveAccess);
-        setState(() => _isPremium = hasActiveAccess);
-        _updatePages();
-        return;
-      }
-
-      // Start trial for new users without trial history
-      if (!hasTrialHistory) {
-        await _startNewUserTrial();
-      }
-    }
+    // Check if user has premium access
+    final subscriptionManager = SubscriptionManager();
+    final hasAccess = await subscriptionManager.hasAccess();
+    await _updatePremiumFlags(prefs, hasAccess);
+    setState(() => _isPremium = hasAccess);
+    _updatePages();
   }
 
-  Future<void> _startNewUserTrial() async {
-    try {
-      final subscriptionManager = SubscriptionManager();
-      await subscriptionManager.startFreeTrial();
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('needs_trial_sync', true);
-
-      // Sync with server if auth token available
-      final authToken = prefs.getString('auth_token') ?? '';
-      if (authToken.isNotEmpty) {
-        await subscriptionManager.checkAndSyncPremiumStatus(authToken);
-      }
-
-      setState(() => _isPremium = true);
-      _updatePages();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Your 7-day free trial has started! Enjoy all premium features.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 5),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error starting free trial: $e');
-    }
-  }
+  // Trial flow removed
 
   Future<void> loadPremiumStatus() async {
     await _loadPremiumStatus();
@@ -1010,44 +900,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
   }
 
-  void _showTrialExpiredDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Trial Period Ended'),
-          content: const Text(
-            'Your 7-day free trial has ended. Subscribe now to continue using all premium features.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Maybe Later'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _showPaymentPage();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Subscribe Now'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showPaymentPage() async {
-    final email = supabaseUser?.email ?? 'user@example.com';
-    final subscriptionManager = SubscriptionManager();
-    await subscriptionManager.startSubscriptionFlow(context, email: email);
-    await _loadPremiumStatus();
-  }
+  // Trial dialog removed (no trials)
 }
 
 class HomeContent extends StatefulWidget {
@@ -1891,6 +1744,9 @@ class _ProfilePageState extends State<ProfilePage> {
           await prefs.setBool('is_subscribed', hasActiveAccess);
           await prefs.setBool('premium_features_enabled', hasActiveAccess);
           await prefs.setBool('is_premium_user', isPremiumUser);
+          // Also set canonical premium cache keys used by Home/App
+          await prefs.setBool('is_premium', hasActiveAccess);
+          await prefs.setInt('last_premium_check', DateTime.now().millisecondsSinceEpoch);
 
           // Update trial dates if available
           if (trialData['trial_start_date'] != null &&
@@ -2979,7 +2835,14 @@ class _ProfilePageState extends State<ProfilePage> {
                     if (!_isPremium)
                       Flexible(
                         child: ElevatedButton(
-                          onPressed: () => _showPaymentPage(),
+                          onPressed: () async {
+                            final email = _userEmail ??
+                                AuthService.instance.currentUser?.email ??
+                                'user@example.com';
+                            final subscriptionManager = SubscriptionManager();
+                            await subscriptionManager.startSubscriptionFlow(context, email: email);
+                            await _checkPremiumStatusFromDatabase();
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue,
                             foregroundColor: Colors.white,
@@ -3046,63 +2909,8 @@ class _ProfilePageState extends State<ProfilePage> {
         });
   }
 
-  // Helper method to check if user is on trial - checks database first
-  Future<bool> _isUserOnTrial() async {
-    try {
-      // For iOS users, always return false (no trial needed for free access)
-      if (PlatformFeatures.isIOSFreeAccess) {
-        debugPrint(
-            'ProfilePage: iOS user - trial check returns false (free access)');
-        return false;
-      }
-
-      // Get current user email for database check
-      final currentUser = AuthService.instance.currentUser;
-      final userEmail = currentUser?.email;
-
-      if (userEmail != null) {
-        // Check database first for authoritative trial status
-        final databaseService = SupabaseDatabaseService();
-        final trialStatusResponse =
-            await databaseService.checkTrialStatus(email: userEmail);
-
-        if (trialStatusResponse['success'] == true) {
-          final trialData = trialStatusResponse['data'];
-          final isOnTrial = trialData['is_on_trial'] ?? false;
-          debugPrint('Database trial check: isOnTrial=$isOnTrial');
-          return isOnTrial;
-        }
-      }
-
-      // Fallback to local storage check
-      final prefs = await SharedPreferences.getInstance();
-      final trialStarted = prefs.getBool('trial_started') ?? false;
-
-      if (trialStarted) {
-        final trialEndDateStr = prefs.getString('trial_end_date');
-        if (trialEndDateStr != null) {
-          // Handle both database format (YYYY-MM-DD) and ISO format
-          DateTime trialEndDate;
-          if (trialEndDateStr.contains('T')) {
-            // ISO format
-            trialEndDate = DateTime.parse(trialEndDateStr);
-          } else {
-            // Database format (YYYY-MM-DD)
-            trialEndDate = DateTime.parse('${trialEndDateStr}T23:59:59');
-          }
-
-          final now = DateTime.now();
-          return now.isBefore(trialEndDate) ||
-              now.isAtSameMomentAs(trialEndDate);
-        }
-      }
-
-      return false;
-    } catch (e) {
-      debugPrint('Error checking trial status: $e');
-      return false;
-    }
-  }
+  // Trials removed
+  Future<bool> _isUserOnTrial() async => false;
 
   // Helper method to get formatted trial end date - checks database first
   Future<String> _getTrialEndDate() async {
@@ -3183,77 +2991,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return monthNames[month - 1];
   }
 
-  // Method to show payment page when user wants to upgrade
-  Future<void> _showPaymentPage() async {
-    try {
-      // For iOS users, show message that all features are already free
-      if (PlatformFeatures.isIOSFreeAccess) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('All features are already free for iOS users!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
-        return;
-      }
-
-      final email = _userEmail ??
-          AuthService.instance.currentUser?.email ??
-          'user@example.com';
-
-      debugPrint('Profile: Starting upgrade flow for user: $email');
-
-      // Store the initial premium status before payment flow
-      final initialPremiumStatus = _isPremium;
-
-      final subscriptionManager = SubscriptionManager();
-
-      // Use the new upgrade flow that always shows payment options
-      await subscriptionManager.startUpgradeFlow(context, email: email);
-
-      debugPrint('Profile: Payment flow completed, checking new status...');
-
-      // After the payment flow completes, check the database for the updated premium status
-      await _checkPremiumStatusFromDatabase();
-
-      // Only show success message if premium status actually changed from database
-      if (!initialPremiumStatus && _isPremium) {
-        debugPrint('Profile: User successfully upgraded to premium');
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content:
-                  Text('Welcome to Premium! All features are now unlocked.'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 4),
-            ),
-          );
-        }
-
-        // Refresh the home page to reflect new premium status
-        final homePageState = context.findAncestorStateOfType<_HomePageState>();
-        if (homePageState != null) {
-          await homePageState.loadPremiumStatus();
-        }
-      }
-    } catch (e) {
-      debugPrint('Error in payment flow: $e');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Payment flow error: $e'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
+  // Payment handler inlined in the Upgrade button
 
   // Method to check premium status from database and update local state
   Future<void> _checkPremiumStatusFromDatabase() async {
@@ -3291,6 +3029,12 @@ class _ProfilePageState extends State<ProfilePage> {
             });
             debugPrint(
                 'Profile: Premium status updated from database: $_isPremium');
+          }
+
+          // Notify Home to refresh badge and gated features
+          final homePageState = context.findAncestorStateOfType<_HomePageState>();
+          if (homePageState != null) {
+            await homePageState.loadPremiumStatus();
           }
         } else {
           debugPrint('Profile: Failed to get updated status from database');
