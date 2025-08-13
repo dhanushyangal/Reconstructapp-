@@ -50,7 +50,6 @@ import 'weekly_planners/watercolor_theme_weekly_planner.dart';
 import 'weekly_planners/japanese_theme_weekly_planner.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'utils/platform_features.dart';
-
 import 'dart:developer';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'config/supabase_config.dart';
@@ -59,6 +58,7 @@ import 'services/user_service.dart';
 import 'services/supabase_database_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
 // Constants
 const String _hasCompletedPaymentKey = 'has_completed_payment';
@@ -117,6 +117,13 @@ Future<void> _checkSupabaseReachability() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize StoreKit (iOS) / Billing (Android) as early as possible for emulator/simulator testing
+  try {
+    final bool iapAvailable = await InAppPurchase.instance.isAvailable();
+    debugPrint('In-app purchases available: $iapAvailable');
+  } catch (e) {
+    debugPrint('IAP availability check failed: $e');
+  }
   
   // Initialize Firebase with proper configuration
   try {

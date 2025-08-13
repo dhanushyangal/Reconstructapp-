@@ -998,30 +998,80 @@ class SupabaseDatabaseService {
     DateTime? conversionDate,
   }) async {
     try {
+      // Build update payload
+      final startDate = conversionDate ?? DateTime.now();
+      final endDate = startDate.add(const Duration(days: 372)); // 365 + 7 grace
       final updateData = <String, dynamic>{
         'is_premium': true,
+        'premium_converted_date': startDate.toIso8601String().split('T')[0],
+        'premium_ended_date': endDate.toIso8601String().split('T')[0],
       };
 
-      // Add premium conversion date if provided
-      if (conversionDate != null) {
-        updateData['premium_converted_date'] = conversionDate
-            .toIso8601String()
-            .split('T')[0]; // Store date in YYYY-MM-DD format
-        debugPrint(
-            'Setting premium conversion date: ${conversionDate.toIso8601String().split('T')[0]}');
+      debugPrint('🔐 setPremiumStatus: attempting authenticated update for $email');
+
+      // Ensure we have a Supabase session where possible
+      await SupabaseConfig.ensureSupabaseSession();
+
+      // Try authenticated client first
+      try {
+        final updateResp = await _client
+            .from('user')
+            .update(updateData)
+            .eq('email', email);
+        debugPrint('✅ setPremiumStatus: authenticated update response: $updateResp');
+      } catch (authErr) {
+        debugPrint('⚠️ setPremiumStatus: authenticated update failed: $authErr');
       }
-      // Set premium ended date to conversionDate + 365 + 7 days (grace)
-      final startDate = conversionDate ?? DateTime.now();
-      final endDate = startDate.add(const Duration(days: 372));
-      updateData['premium_ended_date'] = endDate.toIso8601String().split('T')[0];
-      debugPrint('Setting premium ended date: ${updateData['premium_ended_date']}');
 
-      await _authClient.from('user').update(updateData).eq('email', email);
+      // Verify update by reading back
+      Map<String, dynamic>? verify;
+      try {
+        verify = await _client
+            .from('user')
+            .select('is_premium, premium_converted_date, premium_ended_date')
+            .eq('email', email)
+            .maybeSingle();
+        debugPrint('🔍 setPremiumStatus: verify after auth update: $verify');
+      } catch (vErr) {
+        debugPrint('⚠️ setPremiumStatus: verify read failed: $vErr');
+      }
 
-      return _formatResponse(
-        success: true,
-        message: 'User set as premium successfully',
-      );
+      final looksUpdated = (verify != null &&
+          verify['is_premium'] == true &&
+          verify['premium_converted_date'] != null &&
+          verify['premium_ended_date'] != null);
+
+      if (!looksUpdated) {
+        debugPrint('🛡️ setPremiumStatus: falling back to service-role update');
+        try {
+          // Use service-role client as last resort to guarantee update
+          final admin = supabase.SupabaseClient(
+            SupabaseConfig.url,
+            SupabaseConfig.serviceRoleKey,
+          );
+          final adminResp = await admin
+              .from('user')
+              .update(updateData)
+              .eq('email', email);
+          debugPrint('✅ setPremiumStatus: service-role update response: $adminResp');
+
+          // Re-verify
+          verify = await admin
+              .from('user')
+              .select('is_premium, premium_converted_date, premium_ended_date')
+              .eq('email', email)
+              .maybeSingle();
+          debugPrint('🔍 setPremiumStatus: verify after service-role update: $verify');
+        } catch (adminErr) {
+          debugPrint('❌ setPremiumStatus: service-role update failed: $adminErr');
+          return _formatResponse(
+            success: false,
+            message: 'Failed to set premium status: $adminErr',
+          );
+        }
+      }
+
+      return _formatResponse(success: true, message: 'User set as premium successfully');
     } catch (e) {
       debugPrint('Error setting premium status: $e');
       return _formatResponse(

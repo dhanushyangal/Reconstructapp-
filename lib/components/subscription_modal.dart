@@ -220,7 +220,7 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 40, 16, 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -236,14 +236,14 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
                 child: const Icon(
                   Icons.lock_open,
                   color: Colors.amber,
-                  size: 24,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               const Text(
-                'Unlock the Reconstruct Circle',
+                'Unlock Premium Features',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
@@ -254,7 +254,7 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
             icon: const Text(
               'X',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -269,60 +269,55 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
     return const Padding(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Text(
-        'Welcome to the Circle. Reconstruct Circle is your all-access membership to tools that help you build everyday mental strength.',
+        'Get your all-access membership to premium planners & tools for everyday mental strength.',
         style: TextStyle(
-          fontSize: 16,
+          fontSize: 14,
           color: Colors.black87,
         ),
-        textAlign: TextAlign.center,
+        textAlign: TextAlign.left,
       ),
     );
   }
 
-  Widget _buildFeaturesList() {
-    final features = [
-      'Full access — from vision boards to planners & tools',
-      'A personal dashboard to track your growth and mental routines',
-      'Save and return to your boards, planners, and reflections',
-      'Smart reminders and gentle nudges to help you stay consistent',
-      'Tools to stay consistent and build lasting mental strength',
-      'First access to new features and exclusive Circle-only drops',
-    ];
+Widget _buildFeaturesList() {
+  List<String> features = [
+    "Subscribe now and get access instantly",
+  ];
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        children: features.map((feature) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 2),
-                  child: const Icon(
-                    Icons.check,
-                    color: Colors.teal,
-                    size: 18,
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Column(
+      children: features.map((feature) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.teal,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  feature,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black87,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    feature,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ),
+  );
+}
 
   Widget _buildPricingOptions() {
     return Padding(
@@ -341,11 +336,11 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
               ),
             ),
             child: const Text(
-              'Reconstruct Circle',
+              'Reconstruct Subscription',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue,
+                color: Colors.black,
               ),
               textAlign: TextAlign.center,
             ),
@@ -375,16 +370,16 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
                         Text(
-                          'Annual Plan',
+                          'Annual Pro Plan',
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         SizedBox(height: 4),
                         Text(
                           '₹49.92/month billed yearly at ₹599',
-                          style: TextStyle(fontSize: 15),
+                          style: TextStyle(fontSize: 12),
                         ),
                       ],
                     ),
@@ -397,7 +392,7 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
                       child: const Icon(
                         Icons.check,
                         color: Colors.white,
-                        size: 24,
+                        size: 10,
                       ),
                     ),
                   ],
@@ -427,11 +422,12 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8),
-                _buildBulletPoint('Full access to all digital mind tools'),
-                _buildBulletPoint('Personal dashboard & progress trackers'),
+                const SizedBox(height: 6),
+                _buildBulletPoint('Full access to premium planner & mind tools'),
+                _buildBulletPoint('Unlock personal dashboard & progress trackers'),
                 _buildBulletPoint('Save, edit & download planners and lists'),
                 _buildBulletPoint('Set smart reminders and gentle nudges'),
+                _buildBulletPoint('Enjoy new pro features at no extra cost'),
 
                 const SizedBox(height: 12),
                 const Divider(),
@@ -441,7 +437,7 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
                 const Text(
                   'Tax and policy settings',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -495,7 +491,7 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
             child: Text(
               text,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 color: Colors.grey.shade800,
               ),
             ),
@@ -556,16 +552,16 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
           }
         },
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.cyan,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          backgroundColor: Colors.blue,
+          padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
         ),
         child: const Text(
-          'Upgrade',
+          'Subscribe Now',
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
@@ -600,7 +596,7 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
                     },
                 ),
                 TextSpan(
-                  text: " anytime, no charges after current billing cycle.",
+                  text: " anytime, no extra charges.",
                 ),
               ],
             ),
@@ -620,7 +616,7 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
             child: Text(
               'Your subscription supports a hard-working team trying to improve the everyday lives of millions of people. ',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 9,
                 color: Colors.grey,
               ),
               textAlign: TextAlign.center,
