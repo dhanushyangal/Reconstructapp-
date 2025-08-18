@@ -23,6 +23,8 @@ struct CalendarEntry: TimelineEntry {
 }
 
 struct CalendarProvider: TimelineProvider {
+    typealias Entry = CalendarEntry
+    
     func placeholder(in context: Context) -> CalendarEntry {
         let monthFormatter = DateFormatter()
         monthFormatter.dateFormat = "MMMM"
@@ -47,7 +49,7 @@ struct CalendarProvider: TimelineProvider {
         completion(entry)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<CalendarEntry>) -> ()) {
         let currentDate = Date()
         let sharedData = SharedDataModel.getCalendarData()
         let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "CalendarWidget")
@@ -68,7 +70,7 @@ struct CalendarProvider: TimelineProvider {
 }
 
 struct CalendarWidgetView: View {
-    var entry: CalendarProvider.Entry
+    var entry: CalendarEntry
     @Environment(\.widgetFamily) var family
 
     var body: some View {
@@ -115,7 +117,7 @@ struct CalendarWidgetView: View {
                 Spacer()
                 Button(action: {
                     if let url = URL(string: "reconstrect://calendar") {
-                        WidgetCenter.shared.openURL(url)
+                        WidgetCenter.shared.reloadAllTimelines()
                     }
                 }) {
                     Image(systemName: "calendar")

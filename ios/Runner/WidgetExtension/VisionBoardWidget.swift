@@ -22,6 +22,8 @@ struct VisionBoardEntry: TimelineEntry {
 }
 
 struct VisionBoardProvider: TimelineProvider {
+    typealias Entry = VisionBoardEntry
+    
     func placeholder(in context: Context) -> VisionBoardEntry {
         VisionBoardEntry(date: Date(), goals: ["Define your dreams"], motivation: "Keep dreaming big", theme: .default)
     }
@@ -41,7 +43,7 @@ struct VisionBoardProvider: TimelineProvider {
         completion(entry)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<VisionBoardEntry>) -> ()) {
         let currentDate = Date()
         let sharedData = SharedDataModel.getVisionBoardData()
         let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "VisionBoardWidget")
@@ -61,7 +63,7 @@ struct VisionBoardProvider: TimelineProvider {
 }
 
 struct VisionBoardWidgetView: View {
-    var entry: VisionBoardProvider.Entry
+    var entry: VisionBoardEntry
     @Environment(\.widgetFamily) var family
 
     var body: some View {
@@ -107,9 +109,7 @@ struct VisionBoardWidgetView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
-                    if let url = URL(string: "reconstrect://visionboard") {
-                        WidgetCenter.shared.openURL(url)
-                    }
+                    WidgetCenter.shared.reloadAllTimelines()
                 }) {
                     Image(systemName: "star.fill")
                         .foregroundColor(entry.theme.color)

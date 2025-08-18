@@ -22,6 +22,8 @@ struct DailyNotesEntry: TimelineEntry {
 }
 
 struct DailyNotesProvider: TimelineProvider {
+    typealias Entry = DailyNotesEntry
+    
     func placeholder(in context: Context) -> DailyNotesEntry {
         DailyNotesEntry(date: Date(), noteText: "Your daily notes will appear here", noteCount: 0, theme: .default)
     }
@@ -41,7 +43,7 @@ struct DailyNotesProvider: TimelineProvider {
         completion(entry)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<DailyNotesEntry>) -> ()) {
         let currentDate = Date()
         let sharedData = SharedDataModel.getDailyNotesData()
         let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "DailyNotesWidget")
@@ -61,7 +63,7 @@ struct DailyNotesProvider: TimelineProvider {
 }
 
 struct DailyNotesWidgetView: View {
-    var entry: DailyNotesProvider.Entry
+    var entry: DailyNotesEntry
     @Environment(\.widgetFamily) var family
 
     var body: some View {
@@ -105,9 +107,7 @@ struct DailyNotesWidgetView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
-                    if let url = URL(string: "reconstrect://dailynotes") {
-                        WidgetCenter.shared.openURL(url)
-                    }
+                    WidgetCenter.shared.reloadAllTimelines()
                 }) {
                     Image(systemName: "plus.circle.fill")
                         .foregroundColor(entry.theme.color)

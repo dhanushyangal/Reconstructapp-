@@ -23,6 +23,8 @@ struct AnnualPlannerEntry: TimelineEntry {
 }
 
 struct AnnualPlannerProvider: TimelineProvider {
+    typealias Entry = AnnualPlannerEntry
+    
     func placeholder(in context: Context) -> AnnualPlannerEntry {
         AnnualPlannerEntry(date: Date(), yearGoals: ["Set your year goals"], completedMilestones: 0, totalMilestones: 0, theme: .default)
     }
@@ -43,7 +45,7 @@ struct AnnualPlannerProvider: TimelineProvider {
         completion(entry)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<AnnualPlannerEntry>) -> ()) {
         let currentDate = Date()
         let sharedData = SharedDataModel.getAnnualPlannerData()
         let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "AnnualPlannerWidget")
@@ -64,7 +66,7 @@ struct AnnualPlannerProvider: TimelineProvider {
 }
 
 struct AnnualPlannerWidgetView: View {
-    var entry: AnnualPlannerProvider.Entry
+    var entry: AnnualPlannerEntry
     @Environment(\.widgetFamily) var family
 
     var body: some View {
@@ -114,9 +116,7 @@ struct AnnualPlannerWidgetView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
-                    if let url = URL(string: "reconstrect://annualplanner") {
-                        WidgetCenter.shared.openURL(url)
-                    }
+                    WidgetCenter.shared.reloadAllTimelines()
                 }) {
                     Image(systemName: "target")
                         .foregroundColor(entry.theme.color)

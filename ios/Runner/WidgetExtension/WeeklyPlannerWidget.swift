@@ -23,6 +23,8 @@ struct WeeklyPlannerEntry: TimelineEntry {
 }
 
 struct WeeklyPlannerProvider: TimelineProvider {
+    typealias Entry = WeeklyPlannerEntry
+    
     func placeholder(in context: Context) -> WeeklyPlannerEntry {
         WeeklyPlannerEntry(date: Date(), weekGoals: ["Set your weekly goals"], completedTasks: 0, totalTasks: 0, theme: .default)
     }
@@ -43,7 +45,7 @@ struct WeeklyPlannerProvider: TimelineProvider {
         completion(entry)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<WeeklyPlannerEntry>) -> ()) {
         let currentDate = Date()
         let sharedData = SharedDataModel.getWeeklyPlannerData()
         let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "WeeklyPlannerWidget")
@@ -64,7 +66,7 @@ struct WeeklyPlannerProvider: TimelineProvider {
 }
 
 struct WeeklyPlannerWidgetView: View {
-    var entry: WeeklyPlannerProvider.Entry
+    var entry: WeeklyPlannerEntry
     @Environment(\.widgetFamily) var family
 
     var body: some View {
@@ -114,9 +116,7 @@ struct WeeklyPlannerWidgetView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
-                    if let url = URL(string: "reconstrect://weeklyplanner") {
-                        WidgetCenter.shared.openURL(url)
-                    }
+                    WidgetCenter.shared.reloadAllTimelines()
                 }) {
                     Image(systemName: "list.bullet")
                         .foregroundColor(entry.theme.color)
