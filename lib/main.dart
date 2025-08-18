@@ -50,6 +50,7 @@ import 'weekly_planners/watercolor_theme_weekly_planner.dart';
 import 'weekly_planners/japanese_theme_weekly_planner.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'utils/platform_features.dart';
+
 import 'dart:developer';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'config/supabase_config.dart';

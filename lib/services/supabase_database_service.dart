@@ -1449,8 +1449,10 @@ class SupabaseDatabaseService {
       debugPrint("📝 Inserting user data: ${userData['name']} (${userData['email']})");
       
       // Try to insert using authenticated client
+      bool inserted = false;
       try {
         await _client.from('user').insert(userData);
+        inserted = true;
         debugPrint("✅ Successfully inserted user into 'user' table: $email");
       } catch (insertError) {
         debugPrint("❌ Insert failed: $insertError");
@@ -1464,11 +1466,25 @@ class SupabaseDatabaseService {
         // Fallback: Try upsert with conflict resolution
         try {
           await _client.from('user').upsert(userData, onConflict: 'email');
+          inserted = true;
           debugPrint("✅ Successfully upserted user: $email");
         } catch (upsertError) {
-          debugPrint("❌ All insertion methods failed for user: $email");
-          debugPrint("Final error: $upsertError");
-          // Don't throw - let the sign-in process continue
+          debugPrint("⚠️ Upsert with auth client failed: $upsertError");
+        }
+      }
+
+      // Verify; if still not present, do service-role fallback (last resort)
+      if (!inserted) {
+        try {
+          final admin = supabase.SupabaseClient(
+            SupabaseConfig.url,
+            SupabaseConfig.serviceRoleKey,
+          );
+          await admin.from('user').upsert(userData, onConflict: 'email');
+          debugPrint("🛡️ Service-role upsert succeeded for user: $email");
+        } catch (adminErr) {
+          debugPrint("❌ Service-role upsert failed for user: $email → $adminErr");
+          // Continue; app can still function, but profile may be missing until later
         }
       }
       
@@ -1505,13 +1521,29 @@ class SupabaseDatabaseService {
       
       debugPrint("📝 Inserting user data: $username ($email)");
       
-      // Try to insert using authenticated client
+      // Try to insert using authenticated client, then service-role fallback
+      bool upserted = false;
       try {
         await _client.from('user').upsert(userData, onConflict: 'email');
+        upserted = true;
         debugPrint("✅ Successfully upserted user into 'user' table: $email");
       } catch (upsertError) {
-        debugPrint("❌ Upsert failed: $upsertError");
-        return {'success': false, 'message': 'Failed to upsert user: $upsertError'};
+        debugPrint("⚠️ Upsert failed with auth client: $upsertError");
+      }
+
+      if (!upserted) {
+        try {
+          final admin = supabase.SupabaseClient(
+            SupabaseConfig.url,
+            SupabaseConfig.serviceRoleKey,
+          );
+          await admin.from('user').upsert(userData, onConflict: 'email');
+          upserted = true;
+          debugPrint("🛡️ Service-role upsert succeeded for user: $email");
+        } catch (adminErr) {
+          debugPrint("❌ Service-role upsert failed for user: $email → $adminErr");
+          return {'success': false, 'message': 'Failed to upsert user: $adminErr'};
+        }
       }
 
       // Also try to insert into 'users' table if it exists

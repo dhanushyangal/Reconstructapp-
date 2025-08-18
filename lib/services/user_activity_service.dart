@@ -19,7 +19,8 @@ class UserActivityService {
   String? _cachedUserName;
 
   UserActivityService._internal() {
-    _client = SupabaseConfig.nativeAuthClient;
+    // Use the main client so it can carry the authenticated session
+    _client = SupabaseConfig.client;
   }
 
   // Helper method to format response
@@ -118,6 +119,8 @@ class UserActivityService {
     bool skipThrottling = false,
   }) async {
     try {
+      // Ensure we have a Supabase session so RLS policies can authorize the user
+      await SupabaseConfig.ensureSupabaseSession();
       // Skip throttling check if explicitly requested
       if (!skipThrottling && _isThrottled()) {
         debugPrint('Activity throttled: $actionType on $pageName');
@@ -146,7 +149,9 @@ class UserActivityService {
         // Update existing record - increment count and update timestamp
         final newCount = (existingRecord['count'] as int? ?? 1) + 1;
 
-        final response = await _client
+        Map<String, dynamic>? response;
+        try {
+          response = await _client
             .from('user_activity')
             .update({
               'action_type': actionType,
@@ -157,7 +162,21 @@ class UserActivityService {
             })
             .eq('id', existingRecord['id'])
             .select()
-            .single();
+            .maybeSingle();
+        } catch (e) {
+          // Some RLS setups disallow returning rows; fall back to minimal update
+          await _client
+              .from('user_activity')
+              .update({
+                'action_type': actionType,
+                'last_time': DateTime.now().toIso8601String(),
+                'count': newCount,
+                'details': details ?? actionType,
+                'updated_at': DateTime.now().toIso8601String(),
+              })
+              .eq('id', existingRecord['id']);
+          response = existingRecord;
+        }
 
         debugPrint(
             '✅ Activity updated: $actionType on $pageName (count: $newCount)');
@@ -168,21 +187,45 @@ class UserActivityService {
         );
       } else {
         // Create new record
-        final response = await _client
-            .from('user_activity')
-            .insert({
-              'email': email,
-              'user_name': userName,
-              'page_name': pageName,
-              'action_type': actionType,
-              'last_time': DateTime.now().toIso8601String(),
-              'count': 1,
-              'details': details ?? actionType,
-              'created_at': DateTime.now().toIso8601String(),
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .select()
-            .single();
+        Map<String, dynamic>? response;
+        try {
+          response = await _client
+              .from('user_activity')
+              .insert({
+                'email': email,
+                'user_name': userName,
+                'page_name': pageName,
+                'action_type': actionType,
+                'last_time': DateTime.now().toIso8601String(),
+                'count': 1,
+                'details': details ?? actionType,
+                'created_at': DateTime.now().toIso8601String(),
+                'updated_at': DateTime.now().toIso8601String(),
+              })
+              .select()
+              .maybeSingle();
+        } catch (e) {
+          // Fall back to insert without returning representation
+          await _client
+              .from('user_activity')
+              .insert({
+                'email': email,
+                'user_name': userName,
+                'page_name': pageName,
+                'action_type': actionType,
+                'last_time': DateTime.now().toIso8601String(),
+                'count': 1,
+                'details': details ?? actionType,
+                'created_at': DateTime.now().toIso8601String(),
+                'updated_at': DateTime.now().toIso8601String(),
+              });
+          response = {
+            'email': email,
+            'user_name': userName,
+            'page_name': pageName,
+            'action_type': actionType,
+          };
+        }
 
         debugPrint(
             '✅ Activity recorded: $actionType on $pageName (new record)');

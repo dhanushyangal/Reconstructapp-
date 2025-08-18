@@ -95,5 +95,11 @@
 	</array>
 	<key>FirebaseScreenReportingEnabled</key>
 	<true/>
+	
+	<!-- Widget Extension Support -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
 </dict>
 </plist>
