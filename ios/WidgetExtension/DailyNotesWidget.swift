@@ -9,8 +9,40 @@ struct DailyNotesWidget: Widget {
             DailyNotesWidgetView(entry: entry)
         }
         .configurationDisplayName("Daily Notes")
-        .description("Track your daily thoughts and notes.")
+        .description("Quick access to your daily notes and thoughts.")
         .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+struct DailyNotesProvider: TimelineProvider {
+    func placeholder(in context: Context) -> DailyNotesEntry {
+        DailyNotesEntry(date: Date(), noteText: "Loading your daily notes...", noteCount: 0, theme: .default)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (DailyNotesEntry) -> ()) {
+        let entry = DailyNotesEntry(date: Date(), noteText: "Today's thoughts and reflections...", noteCount: 3, theme: .default)
+        completion(entry)
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
+        let currentDate = Date()
+        
+        // Get data from shared storage
+        let sharedData = SharedDataModel.getDailyNotesData()
+        let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "DailyNotesWidget")
+        let theme = WidgetTheme(rawValue: widgetConfig?.theme ?? "default") ?? .default
+        
+        let entry = DailyNotesEntry(
+            date: currentDate,
+            noteText: sharedData?.noteText ?? "Your daily notes will appear here",
+            noteCount: sharedData?.noteCount ?? 0,
+            theme: theme
+        )
+        
+        // Update every 30 minutes
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: currentDate)!
+        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        completion(timeline)
     }
 }
 
@@ -21,51 +53,13 @@ struct DailyNotesEntry: TimelineEntry {
     let theme: WidgetTheme
 }
 
-struct DailyNotesProvider: TimelineProvider {
-    func placeholder(in context: Context) -> DailyNotesEntry {
-        DailyNotesEntry(date: Date(), noteText: "Your daily notes will appear here", noteCount: 0, theme: .default)
-    }
-
-    func getSnapshot(in context: Context, completion: @escaping (DailyNotesEntry) -> ()) {
-        let currentDate = Date()
-        let sharedData = SharedDataModel.getDailyNotesData()
-        let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "DailyNotesWidget")
-        let theme = WidgetTheme(rawValue: widgetConfig?.theme ?? "default") ?? .default
-        
-        let entry = DailyNotesEntry(
-            date: currentDate,
-            noteText: sharedData?.noteText ?? "Your daily notes will appear here",
-            noteCount: sharedData?.noteCount ?? 0,
-            theme: theme
-        )
-        completion(entry)
-    }
-
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
-        let currentDate = Date()
-        let sharedData = SharedDataModel.getDailyNotesData()
-        let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "DailyNotesWidget")
-        let theme = WidgetTheme(rawValue: widgetConfig?.theme ?? "default") ?? .default
-        
-        let entry = DailyNotesEntry(
-            date: currentDate,
-            noteText: sharedData?.noteText ?? "Your daily notes will appear here",
-            noteCount: sharedData?.noteCount ?? 0,
-            theme: theme
-        )
-
-        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: currentDate)!
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
-        completion(timeline)
-    }
-}
-
 struct DailyNotesWidgetView: View {
     var entry: DailyNotesProvider.Entry
     @Environment(\.widgetFamily) var family
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // Header
             HStack {
                 Image(systemName: "note.text")
                     .foregroundColor(entry.theme.color)
@@ -83,28 +77,29 @@ struct DailyNotesWidgetView: View {
                     .cornerRadius(8)
             }
             
-            if family == .systemMedium {
+            // Content
+            if family == .systemSmall {
                 Text(entry.noteText)
                     .font(.body)
                     .lineLimit(4)
                     .foregroundColor(.secondary)
-                    .multilineTextAlignment(.leading)
             } else {
                 Text(entry.noteText)
-                    .font(.caption)
-                    .lineLimit(2)
+                    .font(.body)
+                    .lineLimit(6)
                     .foregroundColor(.secondary)
-                    .multilineTextAlignment(.leading)
             }
             
             Spacer()
             
+            // Footer
             HStack {
                 Text(entry.date, style: .date)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
+                    // Deep link to daily notes
                     if let url = URL(string: "reconstrect://dailynotes") {
                         WidgetCenter.shared.openURL(url)
                     }
@@ -117,6 +112,8 @@ struct DailyNotesWidgetView: View {
         }
         .padding()
         .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(radius: 2)
     }
 }
 

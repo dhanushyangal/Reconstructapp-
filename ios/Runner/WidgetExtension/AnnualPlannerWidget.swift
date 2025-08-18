@@ -9,37 +9,8 @@ struct AnnualPlannerWidget: Widget {
             AnnualPlannerWidgetView(entry: entry)
         }
         .configurationDisplayName("Annual Planner")
-        .description("Plan your year with goals and milestones.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
-    }
-}
-
-struct AnnualPlannerProvider: TimelineProvider {
-    func placeholder(in context: Context) -> AnnualPlannerEntry {
-        AnnualPlannerEntry(date: Date(), yearGoals: ["Goal 1", "Goal 2"], completedMilestones: 2, totalMilestones: 8)
-    }
-
-    func getSnapshot(in context: Context, completion: @escaping (AnnualPlannerEntry) -> ()) {
-        let entry = AnnualPlannerEntry(date: Date(), yearGoals: ["Career Growth", "Health Goals"], completedMilestones: 5, totalMilestones: 12)
-        completion(entry)
-    }
-
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
-        let currentDate = Date()
-        
-        // Get data from shared storage
-        let sharedData = SharedDataModel.getAnnualPlannerData()
-        let entry = AnnualPlannerEntry(
-            date: currentDate,
-            yearGoals: sharedData?.yearGoals ?? ["Your annual goals"],
-            completedMilestones: sharedData?.completedMilestones ?? 0,
-            totalMilestones: sharedData?.totalMilestones ?? 0
-        )
-        
-        // Update weekly
-        let nextUpdate = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: currentDate)!
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
-        completion(timeline)
+        .description("Track your year goals and milestones.")
+        .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
 
@@ -48,6 +19,48 @@ struct AnnualPlannerEntry: TimelineEntry {
     let yearGoals: [String]
     let completedMilestones: Int
     let totalMilestones: Int
+    let theme: WidgetTheme
+}
+
+struct AnnualPlannerProvider: TimelineProvider {
+    func placeholder(in context: Context) -> AnnualPlannerEntry {
+        AnnualPlannerEntry(date: Date(), yearGoals: ["Set your year goals"], completedMilestones: 0, totalMilestones: 0, theme: .default)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (AnnualPlannerEntry) -> ()) {
+        let currentDate = Date()
+        let sharedData = SharedDataModel.getAnnualPlannerData()
+        let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "AnnualPlannerWidget")
+        let theme = WidgetTheme(rawValue: widgetConfig?.theme ?? "default") ?? .default
+        
+        let entry = AnnualPlannerEntry(
+            date: currentDate,
+            yearGoals: sharedData?.yearGoals ?? ["Set your year goals"],
+            completedMilestones: sharedData?.completedMilestones ?? 0,
+            totalMilestones: sharedData?.totalMilestones ?? 0,
+            theme: theme
+        )
+        completion(entry)
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
+        let currentDate = Date()
+        let sharedData = SharedDataModel.getAnnualPlannerData()
+        let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "AnnualPlannerWidget")
+        let theme = WidgetTheme(rawValue: widgetConfig?.theme ?? "default") ?? .default
+        
+        let entry = AnnualPlannerEntry(
+            date: currentDate,
+            yearGoals: sharedData?.yearGoals ?? ["Set your year goals"],
+            completedMilestones: sharedData?.completedMilestones ?? 0,
+            totalMilestones: sharedData?.totalMilestones ?? 0,
+            theme: theme
+        )
+
+        let nextUpdate = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: currentDate)!
+        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        completion(timeline)
+    }
 }
 
 struct AnnualPlannerWidgetView: View {
@@ -56,10 +69,9 @@ struct AnnualPlannerWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Header
             HStack {
                 Image(systemName: "calendar.badge.plus")
-                    .foregroundColor(.red)
+                    .foregroundColor(entry.theme.color)
                     .font(.title2)
                 Text("Annual Planner")
                     .font(.headline)
@@ -67,81 +79,62 @@ struct AnnualPlannerWidgetView: View {
                 Spacer()
                 Text("\(entry.completedMilestones)/\(entry.totalMilestones)")
                     .font(.caption)
-                    .foregroundColor(.red)
+                    .foregroundColor(entry.theme.color)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
-                    .background(Color.red.opacity(0.2))
+                    .background(entry.theme.color.opacity(0.2))
                     .cornerRadius(8)
             }
             
-            // Progress Bar
-            ProgressView(value: Double(entry.completedMilestones), total: Double(entry.totalMilestones))
-                .progressViewStyle(LinearProgressViewStyle(tint: .red))
-                .scaleEffect(y: 2)
-            
-            // Year display
-            Text("\(Calendar.current.component(.year, from: entry.date))")
-                .font(.title3)
-                .fontWeight(.semibold)
-                .foregroundColor(.red)
-            
-            // Goals based on widget size
-            if family == .systemSmall {
-                if let firstGoal = entry.yearGoals.first {
-                    Text(firstGoal)
-                        .font(.body)
-                        .lineLimit(3)
-                        .foregroundColor(.secondary)
-                }
-            } else {
+            if family == .systemMedium {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(entry.yearGoals.prefix(3), id: \.self) { goal in
-                        HStack {
-                            Image(systemName: "target")
-                                .foregroundColor(.red)
-                                .font(.caption)
-                            Text(goal)
-                                .font(.body)
-                                .lineLimit(1)
-                                .foregroundColor(.secondary)
-                        }
+                        Text("• \(goal)")
+                            .font(.caption)
+                            .lineLimit(1)
+                            .foregroundColor(.secondary)
                     }
                 }
+            } else {
+                Text(entry.yearGoals.first ?? "Set your year goals")
+                    .font(.caption)
+                    .lineLimit(2)
+                    .foregroundColor(.secondary)
             }
             
             Spacer()
             
-            // Footer
+            ProgressView(value: entry.totalMilestones > 0 ? Double(entry.completedMilestones) / Double(entry.totalMilestones) : 0)
+                .progressViewStyle(LinearProgressViewStyle(tint: entry.theme.color))
+                .scaleEffect(x: 1, y: 0.5, anchor: .center)
+            
             HStack {
                 Text("Year Goals")
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
-                    // Deep link to annual planner
                     if let url = URL(string: "reconstrect://annualplanner") {
                         WidgetCenter.shared.openURL(url)
                     }
                 }) {
-                    Image(systemName: "target.circle.fill")
-                        .foregroundColor(.red)
+                    Image(systemName: "target")
+                        .foregroundColor(entry.theme.color)
                         .font(.title3)
                 }
             }
         }
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(radius: 2)
     }
 }
 
 struct AnnualPlannerWidget_Previews: PreviewProvider {
     static var previews: some View {
-        AnnualPlannerWidgetView(entry: AnnualPlannerEntry(date: Date(), yearGoals: ["Career Growth", "Health Goals", "Financial Freedom"], completedMilestones: 5, totalMilestones: 12))
+        AnnualPlannerWidgetView(entry: AnnualPlannerEntry(date: Date(), yearGoals: ["Learn new language", "Save money"], completedMilestones: 3, totalMilestones: 10, theme: .sport))
             .previewContext(WidgetPreviewContext(family: .systemSmall))
         
-        AnnualPlannerWidgetView(entry: AnnualPlannerEntry(date: Date(), yearGoals: ["Career Growth", "Health Goals", "Financial Freedom"], completedMilestones: 5, totalMilestones: 12))
+        AnnualPlannerWidgetView(entry: AnnualPlannerEntry(date: Date(), yearGoals: ["Learn new language", "Save money", "Travel abroad"], completedMilestones: 3, totalMilestones: 10, theme: .animal))
             .previewContext(WidgetPreviewContext(family: .systemMedium))
     }
 }

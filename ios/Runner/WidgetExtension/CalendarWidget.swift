@@ -8,47 +8,63 @@ struct CalendarWidget: Widget {
         StaticConfiguration(kind: kind, provider: CalendarProvider()) { entry in
             CalendarWidgetView(entry: entry)
         }
-        .configurationDisplayName("Annual Calendar")
-        .description("Interactive calendar with events and reminders.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
-    }
-}
-
-struct CalendarProvider: TimelineProvider {
-    func placeholder(in context: Context) -> CalendarEntry {
-        CalendarEntry(date: Date(), currentMonth: "January", events: ["Event 1"], daysInMonth: 31)
-    }
-
-    func getSnapshot(in context: Context, completion: @escaping (CalendarEntry) -> ()) {
-        let entry = CalendarEntry(date: Date(), currentMonth: "December", events: ["Meeting", "Birthday"], daysInMonth: 31)
-        completion(entry)
-    }
-
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
-        let currentDate = Date()
-        let calendar = Calendar.current
-        
-        // Get data from shared storage
-        let sharedData = SharedDataModel.getCalendarData()
-        let entry = CalendarEntry(
-            date: currentDate,
-            currentMonth: sharedData?.currentMonth ?? "December",
-            events: sharedData?.events ?? ["Calendar events"],
-            daysInMonth: sharedData?.daysInMonth ?? 30
-        )
-        
-        // Update daily at midnight
-        let nextUpdate = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: currentDate)!)
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
-        completion(timeline)
+        .configurationDisplayName("Calendar")
+        .description("View your calendar and events.")
+        .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
 
 struct CalendarEntry: TimelineEntry {
     let date: Date
-    let currentMonth: String
     let events: [String]
+    let currentMonth: String
     let daysInMonth: Int
+    let theme: WidgetTheme
+}
+
+struct CalendarProvider: TimelineProvider {
+    func placeholder(in context: Context) -> CalendarEntry {
+        let monthFormatter = DateFormatter()
+        monthFormatter.dateFormat = "MMMM"
+        let currentMonth = monthFormatter.string(from: Date())
+        
+        return CalendarEntry(date: Date(), events: ["No events"], currentMonth: currentMonth, daysInMonth: 30, theme: .default)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (CalendarEntry) -> ()) {
+        let currentDate = Date()
+        let sharedData = SharedDataModel.getCalendarData()
+        let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "CalendarWidget")
+        let theme = WidgetTheme(rawValue: widgetConfig?.theme ?? "default") ?? .default
+        
+        let entry = CalendarEntry(
+            date: currentDate,
+            events: sharedData?.events ?? ["No events"],
+            currentMonth: sharedData?.currentMonth ?? "January",
+            daysInMonth: sharedData?.daysInMonth ?? 30,
+            theme: theme
+        )
+        completion(entry)
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
+        let currentDate = Date()
+        let sharedData = SharedDataModel.getCalendarData()
+        let widgetConfig = SharedDataModel.getWidgetConfiguration(widgetId: "CalendarWidget")
+        let theme = WidgetTheme(rawValue: widgetConfig?.theme ?? "default") ?? .default
+        
+        let entry = CalendarEntry(
+            date: currentDate,
+            events: sharedData?.events ?? ["No events"],
+            currentMonth: sharedData?.currentMonth ?? "January",
+            daysInMonth: sharedData?.daysInMonth ?? 30,
+            theme: theme
+        )
+
+        let nextUpdate = Calendar.current.date(byAdding: .day, value: 1, to: currentDate)!
+        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        completion(timeline)
+    }
 }
 
 struct CalendarWidgetView: View {
@@ -57,115 +73,68 @@ struct CalendarWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Header
             HStack {
                 Image(systemName: "calendar.badge.clock")
-                    .foregroundColor(.orange)
+                    .foregroundColor(entry.theme.color)
                     .font(.title2)
-                Text("Annual Calendar")
+                Text("Calendar")
                     .font(.headline)
                     .foregroundColor(.primary)
                 Spacer()
                 Text("\(entry.events.count)")
                     .font(.caption)
-                    .foregroundColor(.orange)
+                    .foregroundColor(entry.theme.color)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
-                    .background(Color.orange.opacity(0.2))
+                    .background(entry.theme.color.opacity(0.2))
                     .cornerRadius(8)
             }
             
-            // Month and Year
-            Text(entry.currentMonth)
-                .font(.title3)
-                .fontWeight(.semibold)
-                .foregroundColor(.orange)
-            
-            // Calendar Grid for larger widgets
-            if family == .systemLarge {
-                CalendarGridView(entry: entry)
-            } else {
-                // Simple view for smaller widgets
+            if family == .systemMedium {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Today: \(entry.date, style: .date)")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                    
-                    if let firstEvent = entry.events.first {
-                        HStack {
-                            Image(systemName: "circle.fill")
-                                .foregroundColor(.orange)
-                                .font(.caption)
-                            Text(firstEvent)
-                                .font(.body)
-                                .lineLimit(1)
-                                .foregroundColor(.secondary)
-                        }
+                    ForEach(entry.events.prefix(3), id: \.self) { event in
+                        Text("• \(event)")
+                            .font(.caption)
+                            .lineLimit(1)
+                            .foregroundColor(.secondary)
                     }
                 }
+            } else {
+                Text(entry.currentMonth)
+                    .font(.caption)
+                    .lineLimit(1)
+                    .foregroundColor(.secondary)
             }
             
             Spacer()
             
-            // Footer
             HStack {
-                Text("\(entry.daysInMonth) days")
-                    .font(.caption)
+                Text(entry.date, style: .date)
+                    .font(.caption2)
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
-                    // Deep link to calendar
                     if let url = URL(string: "reconstrect://calendar") {
                         WidgetCenter.shared.openURL(url)
                     }
                 }) {
-                    Image(systemName: "calendar.circle.fill")
-                        .foregroundColor(.orange)
+                    Image(systemName: "calendar")
+                        .foregroundColor(entry.theme.color)
                         .font(.title3)
                 }
             }
         }
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(radius: 2)
-    }
-}
-
-struct CalendarGridView: View {
-    var entry: CalendarProvider.Entry
-    
-    var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 4) {
-            // Day headers
-            ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
-                Text(day)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .frame(height: 20)
-            }
-            
-            // Calendar days (simplified)
-            ForEach(1...entry.daysInMonth, id: \.self) { day in
-                Text("\(day)")
-                    .font(.caption2)
-                    .foregroundColor(.primary)
-                    .frame(width: 25, height: 25)
-                    .background(
-                        Circle()
-                            .fill(day == Calendar.current.component(.day, from: entry.date) ? Color.orange.opacity(0.3) : Color.clear)
-                    )
-            }
-        }
     }
 }
 
 struct CalendarWidget_Previews: PreviewProvider {
     static var previews: some View {
-        CalendarWidgetView(entry: CalendarEntry(date: Date(), currentMonth: "December", events: ["Team Meeting", "Birthday Party"], daysInMonth: 31))
+        CalendarWidgetView(entry: CalendarEntry(date: Date(), events: ["Team meeting", "Doctor appointment"], currentMonth: "December", daysInMonth: 31, theme: .japanese))
             .previewContext(WidgetPreviewContext(family: .systemSmall))
         
-        CalendarWidgetView(entry: CalendarEntry(date: Date(), currentMonth: "December", events: ["Team Meeting", "Birthday Party"], daysInMonth: 31))
-            .previewContext(WidgetPreviewContext(family: .systemLarge))
+        CalendarWidgetView(entry: CalendarEntry(date: Date(), events: ["Team meeting", "Doctor appointment", "Dinner with friends"], currentMonth: "December", daysInMonth: 31, theme: .coffee))
+            .previewContext(WidgetPreviewContext(family: .systemMedium))
     }
 }
