@@ -174,4 +174,3 @@ struct SharedDataModel {
         }
     }
 }
-
