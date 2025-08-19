@@ -107,7 +107,9 @@ struct DailyNotesWidgetView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
-                    WidgetCenter.shared.reloadAllTimelines()
+                    if let url = URL(string: "mentalfitness://dailynotes") {
+                        WidgetCenter.shared.reloadAllTimelines()
+                    }
                 }) {
                     Image(systemName: "plus.circle.fill")
                         .foregroundColor(entry.theme.color)

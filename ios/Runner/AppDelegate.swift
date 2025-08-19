@@ -122,8 +122,8 @@ import WidgetKit
       return true
     }
     
-    // Handle deep links (e.g., reconstrect://dailynotes)
-    if url.scheme == "reconstrect" {
+    // Handle deep links (e.g., mentalfitness://dailynotes)
+    if url.scheme == "mentalfitness" {
       print("Received deep link: \(url)")
       return true
     }

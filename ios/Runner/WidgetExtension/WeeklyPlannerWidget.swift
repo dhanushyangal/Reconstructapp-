@@ -116,7 +116,9 @@ struct WeeklyPlannerWidgetView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
-                    WidgetCenter.shared.reloadAllTimelines()
+                    if let url = URL(string: "mentalfitness://weeklyplanner") {
+                        WidgetCenter.shared.reloadAllTimelines()
+                    }
                 }) {
                     Image(systemName: "list.bullet")
                         .foregroundColor(entry.theme.color)

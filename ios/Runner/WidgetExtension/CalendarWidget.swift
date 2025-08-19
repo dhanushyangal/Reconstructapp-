@@ -116,7 +116,7 @@ struct CalendarWidgetView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
-                    if let url = URL(string: "reconstrect://calendar") {
+                    if let url = URL(string: "mentalfitness://calendar") {
                         WidgetCenter.shared.reloadAllTimelines()
                     }
                 }) {

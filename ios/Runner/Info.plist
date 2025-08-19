@@ -81,7 +81,7 @@
 			<string>AppDeepLinks</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>reconstrect</string>
+				<string>mentalfitness</string>
 			</array>
 		</dict>
 		<dict>

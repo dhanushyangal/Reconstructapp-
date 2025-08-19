@@ -2,7 +2,7 @@ import Foundation
 import WidgetKit
 
 struct SharedDataModel {
-    static let appGroupIdentifier = "group.com.reconstrect.visionboard.widgets"
+    static let appGroupIdentifier = "group.com.mentalfitness.reconstruct.widgets"
     
     // MARK: - Daily Notes
     struct DailyNotesData: Codable {

@@ -109,7 +109,9 @@ struct VisionBoardWidgetView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
-                    WidgetCenter.shared.reloadAllTimelines()
+                    if let url = URL(string: "mentalfitness://visionboard") {
+                        WidgetCenter.shared.reloadAllTimelines()
+                    }
                 }) {
                     Image(systemName: "star.fill")
                         .foregroundColor(entry.theme.color)

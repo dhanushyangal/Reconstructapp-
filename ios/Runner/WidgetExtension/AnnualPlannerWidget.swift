@@ -116,7 +116,9 @@ struct AnnualPlannerWidgetView: View {
                     .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
-                    WidgetCenter.shared.reloadAllTimelines()
+                    if let url = URL(string: "mentalfitness://annualplanner") {
+                        WidgetCenter.shared.reloadAllTimelines()
+                    }
                 }) {
                     Image(systemName: "target")
                         .foregroundColor(entry.theme.color)
