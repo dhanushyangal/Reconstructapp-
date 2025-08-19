@@ -100,3 +100,4 @@ enum WidgetType: String, CaseIterable, Codable {
         }
     }
 }
+
