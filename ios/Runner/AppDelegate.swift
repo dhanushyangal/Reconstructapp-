@@ -25,63 +25,72 @@ import WidgetKit
     }
     
     // Setup widget service channel
-    let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
-    let widgetChannel = FlutterMethodChannel(name: "ios_widget_service",
-                                              binaryMessenger: controller.binaryMessenger)
-    
-    widgetChannel.setMethodCallHandler({
-      (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
-      switch call.method {
-      case "updateNotesWidget":
-        if let args = call.arguments as? [String: Any],
-           let notesDataJson = args["notesData"] as? String,
-           let selectedNoteId = args["selectedNoteId"] as? String? {
-          
-          // Decode notes data
-          if let data = notesDataJson.data(using: .utf8) {
-            do {
-              let notesData = try JSONDecoder().decode([SharedDataModel.NoteData].self, from: data)
-              SharedDataModel.saveNotesData(notesData)
-              if let noteId = selectedNoteId {
-                SharedDataModel.saveSelectedNoteId(noteId)
+    if let controller = window?.rootViewController as? FlutterViewController {
+      let widgetChannel = FlutterMethodChannel(
+        name: "ios_widget_service",
+        binaryMessenger: controller.binaryMessenger
+      )
+      
+      widgetChannel.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
+        switch call.method {
+        
+        case "updateNotesWidget":
+          if let args = call.arguments as? [String: Any],
+             let notesDataJson = args["notesData"] as? String {
+            
+            let selectedNoteId = args["selectedNoteId"] as? String
+            
+            if let data = notesDataJson.data(using: .utf8) {
+              do {
+                let notesData = try JSONDecoder().decode([SharedDataModel.NoteData].self, from: data)
+                SharedDataModel.saveNotesData(notesData)
+                if let noteId = selectedNoteId {
+                  SharedDataModel.saveSelectedNoteId(noteId)
+                }
+                WidgetCenter.shared.reloadAllTimelines()
+                result(true)
+              } catch {
+                print("Failed to decode notes data: \(error)")
+                result(FlutterError(code: "DECODE_ERROR", message: "Failed to decode notes data", details: nil))
               }
-              WidgetCenter.shared.reloadAllTimelines()
-              result(true)
-            } catch {
-              print("Failed to decode notes data: \(error)")
-              result(FlutterError(code: "DECODE_ERROR", message: "Failed to decode notes data", details: nil))
+            } else {
+              result(FlutterError(code: "INVALID_DATA", message: "Invalid notes data", details: nil))
             }
           } else {
-            result(FlutterError(code: "INVALID_DATA", message: "Invalid notes data", details: nil))
+            result(FlutterError(code: "INVALID_ARGUMENTS", message: "Missing arguments for notes widget", details: nil))
           }
+          break
           
-      case "updateVisionBoardWidget":
-        if let args = call.arguments as? [String: Any],
-           let theme = args["theme"] as? String,
-           let categories = args["categories"] as? [String],
-           let todosByCategoryJson = args["todosByCategoryJson"] as? [String: String] {
-          
-          SharedDataModel.saveTheme(theme)
-          SharedDataModel.saveCategories(categories)
-          
-          for (category, todosJson) in todosByCategoryJson {
-            SharedDataModel.saveTodos(todosJson, for: category, theme: theme)
+        case "updateVisionBoardWidget":
+          if let args = call.arguments as? [String: Any],
+             let theme = args["theme"] as? String,
+             let categories = args["categories"] as? [String],
+             let todosByCategoryJson = args["todosByCategoryJson"] as? [String: String] {
+            
+            SharedDataModel.saveTheme(theme)
+            SharedDataModel.saveCategories(categories)
+            
+            for (category, todosJson) in todosByCategoryJson {
+              SharedDataModel.saveTodos(todosJson, for: category, theme: theme)
+            }
+            
+            WidgetCenter.shared.reloadAllTimelines()
+            result(true)
+          } else {
+            result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid arguments for Vision Board widget", details: nil))
           }
+          break
           
+        case "refreshAllWidgets":
           WidgetCenter.shared.reloadAllTimelines()
           result(true)
-        } else {
-          result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid arguments for Vision Board widget", details: nil))
+          break
+          
+        default:
+          result(FlutterMethodNotImplemented)
         }
-        
-      case "refreshAllWidgets":
-        WidgetCenter.shared.reloadAllTimelines()
-        result(true)
-        
-      default:
-        result(FlutterMethodNotImplemented)
       }
-    })
+    }
     
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -100,8 +109,8 @@ import WidgetKit
       return true
     }
     
-    // Handle deep links (e.g., reconstrect://dailynotes, reconstrect://visionboard/theme, etc.)
-    if url.scheme == "reconstrect" {
+    // Handle deep links
+    if url.scheme == "mentalfitness" || url.scheme == "reconstrect" {
       print("Received deep link: \(url)")
       return true
     }
@@ -109,3 +118,4 @@ import WidgetKit
     return super.application(app, open: url, options: options)
   }
 }
+

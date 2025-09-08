@@ -84,56 +84,61 @@ struct NotesWidgetView: View {
     @Environment(\.widgetFamily) var family
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "note.text")
-                    .foregroundColor(.blue)
-                    .font(.title2)
-                Text(entry.title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
+        ZStack {
+            // Background image (matches Vision Board background style)
+            Image("daily-note")
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .clipped()
+                .overlay(Color.black.opacity(0.10))
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "note.text")
+                        .foregroundColor(.white)
+                        .font(.title2)
+                    Text(entry.title)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Spacer()
+                }
+                
+                if family == .systemMedium {
+                    Text(entry.content)
+                        .font(.body)
+                        .lineLimit(4)
+                        .foregroundColor(.white.opacity(0.92))
+                } else {
+                    Text(entry.content)
+                        .font(.caption)
+                        .lineLimit(3)
+                        .foregroundColor(.white.opacity(0.92))
+                }
+                
                 Spacer()
-            }
-            
-            if family == .systemMedium {
-                Text(entry.content)
-                    .font(.body)
-                    .lineLimit(4)
-                    .foregroundColor(.secondary)
-            } else {
-                Text(entry.content)
-                    .font(.caption)
-                    .lineLimit(3)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            HStack {
-                Text("Notes")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                Spacer()
-                // ✅ Replaced Button with Link for deep linking
-                Link(destination: URL(string: "mentalfitness://notes")!) {
-                    Image(systemName: "square.and.pencil")
-                        .foregroundColor(.blue)
-                        .font(.title3)
+                
+                HStack {
+                    Text("Notes")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.85))
+                    Spacer()
+                    Link(destination: URL(string: "mentalfitness://notes")!) {
+                        Image(systemName: "square.and.pencil")
+                            .foregroundColor(.white)
+                            .font(.title3)
+                    }
                 }
             }
+            .padding()
         }
-        .padding()
-        // ✅ Required in iOS 17+ widgets
-        .containerBackground(for: .widget) {
-            Color(.systemBackground)
-        }
+        .containerBackground(.clear, for: .widget)
     }
 }
 
 struct NotesWidget_Previews: PreviewProvider {
     static var previews: some View {
         NotesWidgetView(entry: NotesEntry(
-            date: Date(), 
+            date: Date(),
             title: "My Notes",
             content: "This is a sample note content for testing the widget."
         ))

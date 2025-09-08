@@ -98,11 +98,9 @@ struct VisionBoardWidgetEntryView: View {
 
     var body: some View {
         ZStack {
-            // Background image
-            Image("daily-note")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .clipped()
+            // Solid theme background (no image)
+            Rectangle()
+                .fill(themeBackgroundColor(entry.theme))
             
             VStack(spacing: 8) {
                 if let theme = entry.theme {
@@ -127,17 +125,21 @@ struct VisionBoardWidgetEntryView: View {
                     .padding(.top, 8)
                 } else {
                     // No theme selected - show theme selection prompt
-                    VStack(spacing: 12) {
-                        Text("Select a theme to start")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-                        
-                        Text("Tap to choose your Vision Board theme")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white.opacity(0.8))
-                            .multilineTextAlignment(.center)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.black.opacity(0.35))
+                        VStack(spacing: 8) {
+                            Text("Select a theme to start")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                            Text("Tap to choose your Vision Board theme")
+                                .font(.system(size: 13))
+                                .foregroundColor(.white.opacity(0.9))
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(12)
                     }
-                    .padding()
+                    .padding(.horizontal, 12)
                     .widgetURL(URL(string: "reconstrect://visionboard/theme"))
                 }
                 
@@ -145,6 +147,20 @@ struct VisionBoardWidgetEntryView: View {
             }
         }
         .containerBackground(.clear, for: .widget)
+    }
+}
+
+// MARK: - Theme Background
+private func themeBackgroundColor(_ theme: String?) -> Color {
+    guard let theme = theme else { return Color(red: 0.12, green: 0.12, blue: 0.12) }
+    switch theme {
+    case "Premium Vision Board": return Color(red: 0.2, green: 0.3, blue: 0.8)
+    case "PostIt Vision Board": return Color(red: 1.0, green: 0.9, blue: 0.1)
+    case "Ruby Reds Vision Board": return Color(red: 0.8, green: 0.2, blue: 0.2)
+    case "Winter Warmth Vision Board": return Color(red: 0.9, green: 0.6, blue: 0.4)
+    case "Coffee Hues Vision Board": return Color(red: 0.6, green: 0.4, blue: 0.2)
+    case "Box Vision Board": return Color(red: 0.95, green: 0.95, blue: 0.95)
+    default: return Color(red: 0.12, green: 0.12, blue: 0.12)
     }
 }
 

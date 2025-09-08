@@ -50,7 +50,7 @@ class IOSWidgetService {
       await _channel.invokeMethod('updateVisionBoardWidget', {
         'theme': theme,
         'categories': categories,
-        'todosByCategory': todosByCategoryJson,
+        'todosByCategoryJson': todosByCategoryJson,
       });
       await refreshAllWidgets();
     } catch (e) {

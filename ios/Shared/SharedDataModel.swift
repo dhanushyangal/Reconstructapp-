@@ -2,7 +2,7 @@ import Foundation
 import WidgetKit
 
 struct SharedDataModel {
-    static let appGroupIdentifier = "group.com.mentalfitness.reconstruct.widget"
+    static let appGroupIdentifier = "group.com.mentalfitness.reconstruct.widgets"
     
     // MARK: - Notes Data
     struct NoteData: Codable {
@@ -42,6 +42,7 @@ struct SharedDataModel {
         if let encoded = try? JSONEncoder().encode(notesData) {
             userDefaults.set(encoded, forKey: "notesData")
             userDefaults.synchronize()
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
     
@@ -54,6 +55,7 @@ struct SharedDataModel {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
         userDefaults.set(noteId, forKey: "selectedNoteId")
         userDefaults.synchronize()
+        WidgetCenter.shared.reloadAllTimelines()
     }
     
     // MARK: - Vision Board Methods

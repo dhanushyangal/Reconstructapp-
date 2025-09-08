@@ -18,6 +18,10 @@ class SubscriptionManager extends ChangeNotifier {
   static const String _lastCheckKey = 'last_premium_check';
   static const String _premiumConvertedDateKey = 'premium_converted_date';
   static const String _premiumEndedDateKey = 'premium_ended_date';
+  static const String _premiumSuccessDialogShownKey = '_premium_success_dialog_shown';
+
+  // In-memory guard to avoid duplicate dialogs during a single session
+  bool _isShowingSuccessDialog = false;
 
   // Subscription product IDs
   static const String yearlySubscriptionId = 're_599_1yr';
@@ -122,29 +126,42 @@ class SubscriptionManager extends ChangeNotifier {
         debugPrint(
             'Premium status updated in database and local cache with conversion date: ${conversionDate.toIso8601String()}');
 
-        // Show success dialog
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final context = navigatorKey.currentContext;
-          if (context != null) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (BuildContext context) {
-                return AlertDialog(
-                  title: const Text('Payment Successful!'),
-                  content: const Text(
-                      'Your premium subscription has been activated. You now have full access to all premium features.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('OK'),
-                    ),
-                  ],
-                );
-              },
-            );
-          }
-        });
+        // Show success dialog once (guard against multiple purchase callbacks)
+        final prefs = await SharedPreferences.getInstance();
+        final alreadyShown = prefs.getBool(_premiumSuccessDialogShownKey) ?? false;
+        if (!alreadyShown && !_isShowingSuccessDialog) {
+          _isShowingSuccessDialog = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final context = navigatorKey.currentContext;
+            if (context != null) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: const Text('Payment Successful!'),
+                    content: const Text(
+                        'Your premium subscription has been activated. You now have full access to all premium features.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () async {
+                          await prefs.setBool(_premiumSuccessDialogShownKey, true);
+                          _isShowingSuccessDialog = false;
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  );
+                },
+              );
+            } else {
+              _isShowingSuccessDialog = false;
+            }
+          });
+        }
 
         notifyListeners();
       }
