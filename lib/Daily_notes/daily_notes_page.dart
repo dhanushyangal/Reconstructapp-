@@ -13,6 +13,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 import '../services/notes_service.dart';
 import '../services/user_service.dart';
+import '../services/ios_widget_service.dart';
 
 class DailyNotesPage extends StatefulWidget {
   static const routeName = '/daily-notes';
@@ -532,6 +533,19 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
         iOSName: 'DailyNotesWidget',
       );
 
+      // Update iOS widget using the new service
+      if (Platform.isIOS) {
+        try {
+          await IOSWidgetService.updateNotesWidgetWithRefresh(
+            notesData: widgetData,
+            selectedNoteId: _currentWidgetNoteId,
+          );
+          debugPrint('iOS widget updated successfully');
+        } catch (e) {
+          debugPrint('Error updating iOS widget: $e');
+        }
+      }
+
       debugPrint('Widget update completed with ${_notes.length} notes');
     } catch (e) {
       debugPrint('Error updating widget: $e');
@@ -913,6 +927,21 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
           iOSName: 'DailyNotesWidget',
         );
         await Future.delayed(Duration(milliseconds: 500 * (i + 1)));
+      }
+
+      // Update iOS widget specifically
+      if (Platform.isIOS) {
+        try {
+          final currentNotesData = prefs.getString('flutter.daily_notes_data') ?? '[]';
+          final List<dynamic> notesList = json.decode(currentNotesData);
+          await IOSWidgetService.updateNotesWidgetWithRefresh(
+            notesData: notesList.cast<Map<String, dynamic>>(),
+            selectedNoteId: note.id,
+          );
+          debugPrint('iOS widget updated with selected note');
+        } catch (e) {
+          debugPrint('Error updating iOS widget: $e');
+        }
       }
 
       debugPrint('Widget updates completed');
@@ -1316,143 +1345,6 @@ class _DailyNotesPageState extends State<DailyNotesPage> {
   }
 
   Widget _buildNoteCard(NoteData note, {bool isGrid = true}) {
-    Widget cardContent = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Image if available
-        if (note.imagePath != null && note.imagePath!.isNotEmpty)
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-            child: Image.file(
-              File(note.imagePath!),
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: 140,
-            ),
-          ),
-
-        // Content section - no padding here since it's handled by the Stack
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title with widget indicator
-            Row(
-              children: [
-                if (note.title.isNotEmpty)
-                  Expanded(
-                    child: Text(
-                      note.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                // Widget indicator - simplified
-                if (_currentWidgetNoteId == note.id)
-                  Container(
-                    margin: const EdgeInsets.only(left: 4),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.green.shade300),
-                    ),
-                    child: Text(
-                      'WIDGET',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green.shade600,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-
-            if (note.title.isNotEmpty) const SizedBox(height: 8),
-
-            // Content
-            if (note.content.isNotEmpty)
-              Text(
-                note.content,
-                style: const TextStyle(
-                  fontSize: 14,
-                ),
-                maxLines: isGrid ? 8 : 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-
-            // Checklist items
-            if (note.checklistItems.isNotEmpty)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: note.checklistItems
-                    .take(isGrid ? 5 : 2)
-                    .map((item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 4.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                item.isChecked
-                                    ? Icons.check_box
-                                    : Icons.check_box_outline_blank,
-                                size: 16,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  item.text,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    decoration: item.isChecked
-                                        ? TextDecoration.lineThrough
-                                        : null,
-                                    color: item.isChecked ? Colors.grey : null,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ))
-                    .toList(),
-              ),
-
-            if (note.checklistItems.length > (isGrid ? 5 : 2))
-              Padding(
-                padding: const EdgeInsets.only(top: 4.0),
-                child: Text(
-                  '+ ${note.checklistItems.length - (isGrid ? 5 : 2)} more items',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
-
-            // Last edited date
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Text(
-                'Edited ${_formatDate(note.lastEdited)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
 
     return GestureDetector(
       onTap: () => _editNote(note),

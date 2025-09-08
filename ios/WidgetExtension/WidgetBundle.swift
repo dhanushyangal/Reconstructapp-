@@ -2,8 +2,9 @@ import WidgetKit
 import SwiftUI
 
 @main
-struct WidgetBundle: WidgetBundle {
+struct NotesWidgetBundle: WidgetBundle {
     var body: some Widget {
+        NotesWidget()
         VisionBoardWidget()
     }
 }

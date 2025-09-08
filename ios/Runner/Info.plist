@@ -55,6 +55,10 @@
 	<!-- Local Network permission for debugging -->
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>This app uses local network for development debugging and Google Sign-In functionality.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartobservatory._tcp</string>
+	</array>
 	
 	<!-- Prevent automatic backup of sensitive data -->
 	<key>NSSupportsAutomaticTermination</key>

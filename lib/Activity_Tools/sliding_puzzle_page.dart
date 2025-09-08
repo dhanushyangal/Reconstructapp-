@@ -44,7 +44,7 @@ class _SlidingPuzzlePageState extends State<SlidingPuzzlePage>
   }
 
   void initializePuzzle() {
-    // Create a solved puzzle (1-8 + empty tile at 9)
+
     puzzleTiles = List.generate(9, (index) => index + 1);
 
     // Reset animation controllers and offsets

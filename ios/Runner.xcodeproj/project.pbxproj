@@ -15,17 +15,12 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		BC5487942E6D7ABD00CD0AF1 /* WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC5487922E6D7ABD00CD0AF1 /* WidgetBundle.swift */; };
+		BC5487952E6D7ABD00CD0AF1 /* NotesWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC5487912E6D7ABD00CD0AF1 /* NotesWidget.swift */; };
+		BC5487962E6D7AE700CD0AF1 /* WidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BC9D13172E535BF2001DF87E /* WidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BC9D13102E535B22001DF87E /* SharedDataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9D130F2E535B22001DF87E /* SharedDataModel.swift */; };
 		BC9D13192E535BF2001DF87E /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC9D13182E535BF2001DF87E /* WidgetKit.framework */; };
 		BC9D131B2E535BF2001DF87E /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC9D131A2E535BF2001DF87E /* SwiftUI.framework */; };
-		BC9D132C2E535BF4001DF87E /* WidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BC9D13172E535BF2001DF87E /* WidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		BC9D13822E535D81001DF87E /* AnnualPlannerWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9D13782E535D81001DF87E /* AnnualPlannerWidget.swift */; };
-		BC9D13832E535D81001DF87E /* DailyNotesWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9D137A2E535D81001DF87E /* DailyNotesWidget.swift */; };
-		BC9D13842E535D81001DF87E /* VisionBoardWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9D137D2E535D81001DF87E /* VisionBoardWidget.swift */; };
-		BC9D13852E535D81001DF87E /* WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9D137F2E535D81001DF87E /* WidgetBundle.swift */; };
-		BC9D13862E535D81001DF87E /* WidgetConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9D13802E535D81001DF87E /* WidgetConfigurationView.swift */; };
-		BC9D13882E535D81001DF87E /* CalendarWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9D13792E535D81001DF87E /* CalendarWidget.swift */; };
-		BC9D13892E535D81001DF87E /* WeeklyPlannerWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9D137E2E535D81001DF87E /* WeeklyPlannerWidget.swift */; };
 		BC9D138B2E535DC3001DF87E /* SharedDataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9D130F2E535B22001DF87E /* SharedDataModel.swift */; };
 /* End PBXBuildFile section */
 
@@ -37,12 +32,12 @@
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
 		};
-		BC9D132A2E535BF4001DF87E /* PBXContainerItemProxy */ = {
+		BC5487972E6D7AE700CD0AF1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = BC9D13162E535BF2001DF87E;
-			remoteInfo = WidgetExtensionExtension;
+			remoteInfo = WidgetExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -57,13 +52,13 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		BC9D13322E535BF4001DF87E /* Embed Foundation Extensions */ = {
+		BC5487992E6D7AE800CD0AF1 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				BC9D132C2E535BF4001DF87E /* WidgetExtension.appex in Embed Foundation Extensions */,
+				BC5487962E6D7AE700CD0AF1 /* WidgetExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -88,18 +83,16 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		BC51BFAD2E55FD9A00987BAE /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
+		BC51BFAE2E55FDA500987BAE /* WidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WidgetExtension.entitlements; sourceTree = "<group>"; };
+		BC5487912E6D7ABD00CD0AF1 /* NotesWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesWidget.swift; sourceTree = "<group>"; };
+		BC5487922E6D7ABD00CD0AF1 /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = "<group>"; };
+		BC5487932E6D7ABD00CD0AF1 /* WidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WidgetExtension.entitlements; sourceTree = "<group>"; };
 		BC9D130F2E535B22001DF87E /* SharedDataModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedDataModel.swift; sourceTree = "<group>"; };
 		BC9D13172E535BF2001DF87E /* WidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BC9D13182E535BF2001DF87E /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		BC9D131A2E535BF2001DF87E /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
-		BC9D13782E535D81001DF87E /* AnnualPlannerWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnualPlannerWidget.swift; sourceTree = "<group>"; };
-		BC9D13792E535D81001DF87E /* CalendarWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarWidget.swift; sourceTree = "<group>"; };
-		BC9D137A2E535D81001DF87E /* DailyNotesWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyNotesWidget.swift; sourceTree = "<group>"; };
 		BC9D137B2E535D81001DF87E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		BC9D137D2E535D81001DF87E /* VisionBoardWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionBoardWidget.swift; sourceTree = "<group>"; };
-		BC9D137E2E535D81001DF87E /* WeeklyPlannerWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyPlannerWidget.swift; sourceTree = "<group>"; };
-		BC9D137F2E535D81001DF87E /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = "<group>"; };
-		BC9D13802E535D81001DF87E /* WidgetConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetConfigurationView.swift; sourceTree = "<group>"; };
 		BCF913C52E41DF0A00DEBEC4 /* RunnerRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RunnerRelease.entitlements; sourceTree = "<group>"; };
 		BDE7AC9268577BC34814616D /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		E92CC7246C9AA252C95E833B /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -182,6 +175,7 @@
 		97C146F01CF9000F007C117D /* Runner */ = {
 			isa = PBXGroup;
 			children = (
+				BC51BFAD2E55FD9A00987BAE /* Runner.entitlements */,
 				BCF913C52E41DF0A00DEBEC4 /* RunnerRelease.entitlements */,
 				97C146FA1CF9000F007C117D /* Main.storyboard */,
 				97C146FD1CF9000F007C117D /* Assets.xcassets */,
@@ -216,14 +210,11 @@
 		BC9D13812E535D81001DF87E /* WidgetExtension */ = {
 			isa = PBXGroup;
 			children = (
-				BC9D13782E535D81001DF87E /* AnnualPlannerWidget.swift */,
-				BC9D13792E535D81001DF87E /* CalendarWidget.swift */,
-				BC9D137A2E535D81001DF87E /* DailyNotesWidget.swift */,
+				BC51BFAE2E55FDA500987BAE /* WidgetExtension.entitlements */,
 				BC9D137B2E535D81001DF87E /* Info.plist */,
-				BC9D137D2E535D81001DF87E /* VisionBoardWidget.swift */,
-				BC9D137E2E535D81001DF87E /* WeeklyPlannerWidget.swift */,
-				BC9D137F2E535D81001DF87E /* WidgetBundle.swift */,
-				BC9D13802E535D81001DF87E /* WidgetConfigurationView.swift */,
+				BC5487912E6D7ABD00CD0AF1 /* NotesWidget.swift */,
+				BC5487922E6D7ABD00CD0AF1 /* WidgetBundle.swift */,
+				BC5487932E6D7ABD00CD0AF1 /* WidgetExtension.entitlements */,
 			);
 			path = WidgetExtension;
 			sourceTree = "<group>";
@@ -257,16 +248,16 @@
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
-				9705A1C41CF9048500538489 /* Embed Frameworks */,
+				BC5487992E6D7AE800CD0AF1 /* Embed Foundation Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				45F9D0199A3D1897167676C6 /* [CP] Embed Pods Frameworks */,
 				0C9602BC295FDC619672A00D /* [CP] Copy Pods Resources */,
-				BC9D13322E535BF4001DF87E /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				BC9D132B2E535BF4001DF87E /* PBXTargetDependency */,
+				BC5487982E6D7AE700CD0AF1 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
@@ -371,9 +362,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -394,7 +389,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin\n";
 		};
 		45F9D0199A3D1897167676C6 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -404,9 +399,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -465,13 +464,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BC9D13822E535D81001DF87E /* AnnualPlannerWidget.swift in Sources */,
-				BC9D13832E535D81001DF87E /* DailyNotesWidget.swift in Sources */,
-				BC9D13842E535D81001DF87E /* VisionBoardWidget.swift in Sources */,
-				BC9D13852E535D81001DF87E /* WidgetBundle.swift in Sources */,
-				BC9D13862E535D81001DF87E /* WidgetConfigurationView.swift in Sources */,
-				BC9D13882E535D81001DF87E /* CalendarWidget.swift in Sources */,
-				BC9D13892E535D81001DF87E /* WeeklyPlannerWidget.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				BC9D13102E535B22001DF87E /* SharedDataModel.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
@@ -482,6 +474,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BC5487942E6D7ABD00CD0AF1 /* WidgetBundle.swift in Sources */,
+				BC5487952E6D7ABD00CD0AF1 /* NotesWidget.swift in Sources */,
 				BC9D138B2E535DC3001DF87E /* SharedDataModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -494,10 +488,10 @@
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
 		};
-		BC9D132B2E535BF4001DF87E /* PBXTargetDependency */ = {
+		BC5487982E6D7AE700CD0AF1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = BC9D13162E535BF2001DF87E /* WidgetExtension */;
-			targetProxy = BC9D132A2E535BF4001DF87E /* PBXContainerItemProxy */;
+			targetProxy = BC5487972E6D7AE700CD0AF1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -564,7 +558,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -580,17 +574,18 @@
 				APP_SHORTCUTS_ENABLE_FLEXIBLE_MATCHING = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6GK8XTND5N;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Reconstruct;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.7;
+				MARKETING_VERSION = 1.0.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mentalfitness.reconstruct;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -696,7 +691,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -747,7 +742,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -765,17 +760,18 @@
 				APP_SHORTCUTS_ENABLE_FLEXIBLE_MATCHING = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6GK8XTND5N;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Reconstruct;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.7;
+				MARKETING_VERSION = 1.0.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mentalfitness.reconstruct;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -799,12 +795,12 @@
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Reconstruct;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.7;
+				MARKETING_VERSION = 1.0.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mentalfitness.reconstruct;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -825,6 +821,7 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = WidgetExtension/WidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6GK8XTND5N;
@@ -832,9 +829,10 @@
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WidgetExtension/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = WidgetExtension;
+				INFOPLIST_KEY_CFBundleDisplayName = "Reconstruct Widgets";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -844,7 +842,7 @@
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mentalfitness.reconstruct.WidgetExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mentalfitness.reconstruct.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -866,6 +864,7 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = WidgetExtension/WidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6GK8XTND5N;
@@ -873,9 +872,10 @@
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WidgetExtension/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = WidgetExtension;
+				INFOPLIST_KEY_CFBundleDisplayName = "Reconstruct Widgets";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -884,7 +884,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mentalfitness.reconstruct.WidgetExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mentalfitness.reconstruct.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -904,6 +904,7 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = WidgetExtension/WidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6GK8XTND5N;
@@ -911,9 +912,10 @@
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WidgetExtension/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = WidgetExtension;
+				INFOPLIST_KEY_CFBundleDisplayName = "Reconstruct Widgets";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -922,7 +924,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mentalfitness.reconstruct.WidgetExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mentalfitness.reconstruct.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
