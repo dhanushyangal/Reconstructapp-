@@ -60,6 +60,8 @@ import 'services/supabase_database_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'pages/vision_board_theme_picker.dart';
+import 'pages/vision_board_category_picker.dart';
 
 // Constants
 const String _hasCompletedPaymentKey = 'has_completed_payment';
@@ -282,6 +284,10 @@ class _MyAppState extends State<MyApp> {
       // Vision board routes
       VisionBoardDetailsPage.routeName: (context) =>
           const VisionBoardDetailsPage(title: 'Box Them Vision Board'),
+      '/visionboard/theme-picker': (context) =>
+          const VisionBoardThemePickerPage(),
+      '/visionboard/category-picker': (context) =>
+          const VisionBoardCategoryPickerPage(),
       PostItThemeVisionBoard.routeName: (context) =>
           const PostItThemeVisionBoard(),
       CoffeeHuesThemeVisionBoard.routeName: (context) =>

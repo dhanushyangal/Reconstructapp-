@@ -235,23 +235,9 @@ class SubscriptionManager extends ChangeNotifier {
         final premiumConvertedDate = data['premium_converted_date'];
         final premiumEndedDate = data['premium_ended_date'];
 
-        // Decide effective premium strictly: must have conversion date and be within end date window if provided
-        bool effectivePremium = false;
-        if (hasActiveAccess && premiumConvertedDate != null) {
-          if (premiumEndedDate == null) {
-            effectivePremium = true;
-          } else {
-            final endDate = DateTime.tryParse(premiumEndedDate);
-            if (endDate != null) {
-              final now = DateTime.now();
-              effectivePremium = now.isBefore(endDate) || now.isAtSameMomentAs(endDate);
-            }
-          }
-        }
-
         // Update local cache
         await prefs.setInt(_lastCheckKey, currentTime);
-        await prefs.setBool(_isPremiumKey, effectivePremium);
+        await prefs.setBool(_isPremiumKey, hasActiveAccess);
 
         // Clear any old trial data
         await prefs.remove(_trialStartDateKey);
@@ -274,8 +260,8 @@ class SubscriptionManager extends ChangeNotifier {
         }
 
         debugPrint(
-            'Premium status updated from Supabase: hasActiveAccess=$hasActiveAccess, conversionDate=$premiumConvertedDate, endedDate=$premiumEndedDate, effective=$effectivePremium');
-        return effectivePremium;
+            'Premium status updated from Supabase: hasActiveAccess=$hasActiveAccess, conversionDate=$premiumConvertedDate, endedDate=$premiumEndedDate');
+        return hasActiveAccess;
       } else {
         debugPrint(
             'Failed to fetch premium status from Supabase: ${response['message']}');
@@ -301,27 +287,8 @@ class SubscriptionManager extends ChangeNotifier {
 
   /// Check if user is premium (not including trial)
   Future<bool> isPremium() async {
-    try {
-      final currentUser = AuthService.instance.currentUser;
-      if (currentUser?.email == null) return false;
-
-      final prefs = await SharedPreferences.getInstance();
-      final lastCheckTime = prefs.getInt(_lastCheckKey) ?? 0;
-      final currentTime = DateTime.now().millisecondsSinceEpoch;
-      final timeSinceLastCheck = currentTime - lastCheckTime;
-      final cacheExpired = timeSinceLastCheck > (_cacheMinutes * 60 * 1000);
-
-      if (!cacheExpired && lastCheckTime > 0) {
-        return prefs.getBool(_isPremiumKey) ?? false;
-      }
-
-      // Refresh from database
-      await hasAccess();
-      return prefs.getBool(_isPremiumKey) ?? false;
-    } catch (e) {
-      debugPrint('Error checking premium status: $e');
-      return false;
-    }
+    // Use the stricter access check which validates end dates and avoids stale cache
+    return await hasAccess();
   }
 
   /// Legacy method for compatibility

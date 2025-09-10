@@ -87,6 +87,11 @@ import WidgetKit
           WidgetCenter.shared.reloadAllTimelines()
           result(true)
           break
+
+        case "getCurrentTheme":
+          let theme = SharedDataModel.getTheme()
+          result(theme ?? "")
+          break
           
         default:
           result(FlutterMethodNotImplemented)

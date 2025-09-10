@@ -116,7 +116,7 @@ struct VisionBoardWidgetEntryView: View {
                             .padding(12)
                         }
                         .padding(.horizontal, 12)
-                        .widgetURL(URL(string: "reconstrect://visionboard/category-select"))
+                        .widgetURL(URL(string: "mentalfitness://visionboard/category-select"))
                     } else {
                         // Show categories grid
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
@@ -126,13 +126,13 @@ struct VisionBoardWidgetEntryView: View {
                                     todos: entry.todosByCategory[category] ?? [],
                                     theme: theme
                                 )
-                                .widgetURL(URL(string: "reconstrect://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
+                                .widgetURL(URL(string: "mentalfitness://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
                             }
                             
                             // Add category button if less than 5 categories
                             if entry.categories.count < 5 {
                                 AddCategoryBoxView(theme: theme)
-                                    .widgetURL(URL(string: "reconstrect://visionboard/category-select"))
+                                    .widgetURL(URL(string: "mentalfitness://visionboard/category-select"))
                             }
                         }
                         .padding(.horizontal, 12)
@@ -155,7 +155,7 @@ struct VisionBoardWidgetEntryView: View {
                         .padding(12)
                     }
                     .padding(.horizontal, 12)
-                    .widgetURL(URL(string: "reconstrect://visionboard/theme"))
+                    .widgetURL(URL(string: "mentalfitness://visionboard/theme"))
                 }
                 
                 Spacer()

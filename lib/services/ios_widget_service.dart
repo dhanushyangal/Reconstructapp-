@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'dart:convert';
+import '../main.dart' show navigatorKey;
 
 class IOSWidgetService {
   static const MethodChannel _channel = MethodChannel('ios_widget_service');
@@ -14,7 +15,16 @@ class IOSWidgetService {
       try {
         switch (call.method) {
           case 'openVisionBoardTheme':
-            if (onOpenVisionBoardTheme != null) onOpenVisionBoardTheme!();
+            if (onOpenVisionBoardTheme != null) {
+              onOpenVisionBoardTheme!();
+            } else {
+              // Fallback: navigate using navigatorKey if available
+              try {
+                // Import at call site: main.dart defines navigatorKey
+                // ignore: avoid_dynamic_calls
+                navigatorKey.currentState?.pushNamed('/visionboard/theme-picker');
+              } catch (_) {}
+            }
             break;
           case 'openVisionBoardCategorySelect':
             if (onOpenVisionBoardCategorySelect != null) onOpenVisionBoardCategorySelect!();
@@ -85,6 +95,16 @@ class IOSWidgetService {
       await refreshAllWidgets();
     } catch (e) {
       print('Error updating Vision Board widget: $e');
+    }
+  }
+
+  // Fetch current theme from native side (for category picker default)
+  static Future<String?> getCurrentTheme() async {
+    try {
+      final theme = await _channel.invokeMethod<String>('getCurrentTheme');
+      return (theme != null && theme.isNotEmpty) ? theme : null;
+    } catch (_) {
+      return null;
     }
   }
 }

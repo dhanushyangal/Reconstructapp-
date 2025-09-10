@@ -45,13 +45,16 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
 
       // If user is premium, preload features before showing UI
       if (isPremium) {
-        await _preloadPremiumFeatures();
-
-        // For premium users, close the page immediately instead of showing it
-        if (widget.onClose != null && mounted) {
-          debugPrint('User is premium, closing payment page automatically');
-          Future.microtask(() => widget.onClose!());
-          return;
+        // Confirm via strict refresh to avoid false positives on login
+        await SubscriptionManager().refreshPremiumStatus();
+        final confirmed = await SubscriptionManager().isPremium();
+        if (confirmed) {
+          // For premium users, close the page immediately instead of showing it
+          if (widget.onClose != null && mounted) {
+            debugPrint('User is premium (confirmed), closing payment page automatically');
+            Future.microtask(() => widget.onClose!());
+            return;
+          }
         }
       }
 
@@ -66,14 +69,9 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
 
       // Fallback to local check on error
       final prefs = await SharedPreferences.getInstance();
-      final isSubscribedLocally = prefs.getBool('is_subscribed') ?? false;
-      final hasCompletedPayment =
-          prefs.getBool('has_completed_payment') ?? false;
-      final premiumFeaturesEnabled =
-          prefs.getBool('premium_features_enabled') ?? false;
+      final hasCompletedPayment = prefs.getBool('has_completed_payment') ?? false;
 
-      final localIsPremium =
-          isSubscribedLocally || hasCompletedPayment || premiumFeaturesEnabled;
+      final localIsPremium = hasCompletedPayment; // do not auto-upgrade on login flags
 
       if (localIsPremium && widget.onClose != null && mounted) {
         // For premium users, close the page automatically
@@ -93,17 +91,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
   }
 
   // Preload premium features to avoid delay after showing premium status
-  Future<void> _preloadPremiumFeatures() async {
-    try {
-      // Use the simplified subscription manager to refresh premium status
-      final subscriptionManager = SubscriptionManager();
-      await subscriptionManager.refreshPremiumStatus();
-
-      debugPrint('Premium features preloaded before showing UI');
-    } catch (e) {
-      debugPrint('Error preloading premium features: $e');
-    }
-  }
+  // Removed unused preload helper
 
   Future<void> _handleStartFreeTrial() async {
     // Show loading state while we prepare premium features

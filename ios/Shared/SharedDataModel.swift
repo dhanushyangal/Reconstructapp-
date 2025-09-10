@@ -64,6 +64,7 @@ struct SharedDataModel {
         userDefaults.set(theme, forKey: "widget_theme")
         userDefaults.synchronize()
         print("Vision Board theme saved: \(theme)")
+        WidgetCenter.shared.reloadAllTimelines()
     }
     
     static func getTheme() -> String? {

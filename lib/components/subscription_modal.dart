@@ -34,7 +34,7 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
     try {
       // Use the simplified subscription manager for consistent premium checks
       final subscriptionManager = SubscriptionManager();
-      bool isPremium = await subscriptionManager.isPremium();
+      bool isPremium = await subscriptionManager.hasAccess();
 
       debugPrint('Premium status check in subscription modal: $isPremium');
 
@@ -52,16 +52,11 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
     } catch (e) {
       debugPrint('Error checking premium status in subscription modal: $e');
 
-      // Fallback to local check on error
       final prefs = await SharedPreferences.getInstance();
-      final isSubscribedLocally = prefs.getBool('is_subscribed') ?? false;
       final hasCompletedPayment =
           prefs.getBool('has_completed_payment') ?? false;
-      final premiumFeaturesEnabled =
-          prefs.getBool('premium_features_enabled') ?? false;
 
-      final localIsPremium =
-          isSubscribedLocally || hasCompletedPayment || premiumFeaturesEnabled;
+      final localIsPremium = hasCompletedPayment; // only honor actual payment flag
 
       if (mounted) {
         setState(() {
