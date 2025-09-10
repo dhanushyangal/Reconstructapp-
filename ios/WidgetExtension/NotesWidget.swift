@@ -85,51 +85,61 @@ struct NotesWidgetView: View {
 
     var body: some View {
         ZStack {
-            // Background image (matches Vision Board background style)
-            Image("daily-note")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .clipped()
-                .overlay(Color.black.opacity(0.10))
+            GeometryReader { geo in
+                Image("daily-note")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+                    .overlay(Color.black.opacity(family == .systemSmall ? 0.22 : 0.16))
+            }
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "note.text")
-                        .foregroundColor(.white)
-                        .font(.title2)
+            let isSmall = (family == .systemSmall)
+
+            VStack(alignment: .leading, spacing: isSmall ? 6 : 8) {
+                if isSmall {
+                    // Compact header for small size
                     Text(entry.title)
-                        .font(.headline)
+                        .font(.subheadline)
                         .foregroundColor(.white)
-                    Spacer()
-                }
-                
-                if family == .systemMedium {
-                    Text(entry.content)
-                        .font(.body)
-                        .lineLimit(4)
-                        .foregroundColor(.white.opacity(0.92))
+                        .lineLimit(1)
                 } else {
-                    Text(entry.content)
-                        .font(.caption)
-                        .lineLimit(3)
-                        .foregroundColor(.white.opacity(0.92))
-                }
-                
-                Spacer()
-                
-                HStack {
-                    Text("Notes")
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.85))
-                    Spacer()
-                    Link(destination: URL(string: "mentalfitness://notes")!) {
-                        Image(systemName: "square.and.pencil")
+                    HStack {
+                        Image(systemName: "note.text")
                             .foregroundColor(.white)
                             .font(.title3)
+                        Text(entry.title)
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        Spacer()
+                    }
+                }
+
+                Text(entry.content)
+                    .font(isSmall ? .caption2 : .callout)
+                    .lineLimit(isSmall ? 3 : 5)
+                    .foregroundColor(.white.opacity(0.92))
+                    .multilineTextAlignment(.leading)
+                    .minimumScaleFactor(0.9)
+                    
+                Spacer()
+
+                if !isSmall {
+                    HStack {
+                        Text("Notes")
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.85))
+                        Spacer()
+                        Link(destination: URL(string: "mentalfitness://notes")!) {
+                            Image(systemName: "square.and.pencil")
+                                .foregroundColor(.white)
+                                .font(.title3)
+                        }
                     }
                 }
             }
-            .padding()
+            .padding(isSmall ? 10 : 12)
         }
         .containerBackground(.clear, for: .widget)
     }

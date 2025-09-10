@@ -5,6 +5,7 @@ import WidgetKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
+  private var widgetChannel: FlutterMethodChannel?
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -30,6 +31,7 @@ import WidgetKit
         name: "ios_widget_service",
         binaryMessenger: controller.binaryMessenger
       )
+      self.widgetChannel = widgetChannel
       
       widgetChannel.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
         switch call.method {
@@ -109,9 +111,26 @@ import WidgetKit
       return true
     }
     
-    // Handle deep links
+    // Handle deep links for widgets
     if url.scheme == "mentalfitness" || url.scheme == "reconstrect" {
       print("Received deep link: \(url)")
+      // Example URLs:
+      // reconstrect://visionboard/theme
+      // reconstrect://visionboard/category-select
+      // reconstrect://visionboard/category/<name>
+      if url.host == "visionboard" {
+        let path = url.path // e.g. /theme, /category-select, /category/<name>
+        if path.hasPrefix("/theme") {
+          widgetChannel?.invokeMethod("openVisionBoardTheme", arguments: nil)
+        } else if path.hasPrefix("/category-select") {
+          widgetChannel?.invokeMethod("openVisionBoardCategorySelect", arguments: nil)
+        } else if path.hasPrefix("/category/") {
+          let categoryName = String(path.dropFirst("/category/".count))
+            .removingPercentEncoding
+          widgetChannel?.invokeMethod("openVisionBoardCategory", arguments: ["category": categoryName ?? ""])        
+        }
+        return true
+      }
       return true
     }
     

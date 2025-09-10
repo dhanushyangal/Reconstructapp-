@@ -13,7 +13,7 @@ struct SharedDataModel {
         let colorValue: Int?
         let checklistItems: [ChecklistItem]
         let isPinned: Bool
-        let lastEdited: Date
+        let lastEdited: String
     }
     
     struct ChecklistItem: Codable {

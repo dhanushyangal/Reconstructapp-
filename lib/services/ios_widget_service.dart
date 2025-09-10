@@ -3,6 +3,36 @@ import 'dart:convert';
 
 class IOSWidgetService {
   static const MethodChannel _channel = MethodChannel('ios_widget_service');
+  // Optional callbacks the app can set to handle widget deep links
+  static void Function()? onOpenVisionBoardTheme;
+  static void Function()? onOpenVisionBoardCategorySelect;
+  static void Function(String category)? onOpenVisionBoardCategory;
+
+  // Call once during app startup (e.g., in main.dart) to handle deep links from widgets
+  static void initDeepLinkHandling() {
+    _channel.setMethodCallHandler((call) async {
+      try {
+        switch (call.method) {
+          case 'openVisionBoardTheme':
+            if (onOpenVisionBoardTheme != null) onOpenVisionBoardTheme!();
+            break;
+          case 'openVisionBoardCategorySelect':
+            if (onOpenVisionBoardCategorySelect != null) onOpenVisionBoardCategorySelect!();
+            break;
+          case 'openVisionBoardCategory':
+            final args = (call.arguments as Map?) ?? {};
+            final category = args['category'] as String? ?? '';
+            if (onOpenVisionBoardCategory != null) onOpenVisionBoardCategory!(category);
+            break;
+          default:
+            // ignore
+            break;
+        }
+      } catch (e) {
+        // ignore
+      }
+    });
+  }
 
   // Update Notes Widget with existing notes data (matches daily_notes_page.dart structure)
   static Future<void> updateNotesWidget({
