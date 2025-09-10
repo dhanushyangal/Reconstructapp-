@@ -40,11 +40,6 @@ struct VisionBoardProvider: TimelineProvider {
         var todosByCategory: [String: [SharedDataModel.TodoItem]] = [:]
 
         if let currentTheme = theme {
-            if categories.isEmpty {
-                // If theme is selected but no categories are saved, show a single default starter category
-                categories = defaultStarterCategory(for: currentTheme)
-            }
-
             for category in categories {
                 if let todosJson = SharedDataModel.getTodos(for: category, theme: currentTheme) {
                     if let data = todosJson.data(using: .utf8) {
@@ -101,28 +96,48 @@ struct VisionBoardWidgetEntryView: View {
             // Solid theme background (no image)
             Rectangle()
                 .fill(themeBackgroundColor(entry.theme))
-            
+
             VStack(spacing: 8) {
                 if let theme = entry.theme {
-                    // Show categories grid
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
-                        ForEach(entry.categories, id: \.self) { category in
-                            CategoryBoxView(
-                                category: category,
-                                todos: entry.todosByCategory[category] ?? [],
-                                theme: theme
-                            )
-                            .widgetURL(URL(string: "reconstrect://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
+                    if entry.categories.isEmpty {
+                        // Theme selected but no categories yet – prompt to select categories
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.black.opacity(0.35))
+                            VStack(spacing: 8) {
+                                Text("Select categories")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white)
+                                Text("Tap to choose up to 5 categories")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(12)
                         }
-                        
-                        // Add category button if less than 5 categories
-                        if entry.categories.count < 5 {
-                            AddCategoryBoxView(theme: theme)
-                                .widgetURL(URL(string: "reconstrect://visionboard/category-select"))
+                        .padding(.horizontal, 12)
+                        .widgetURL(URL(string: "reconstrect://visionboard/category-select"))
+                    } else {
+                        // Show categories grid
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
+                            ForEach(entry.categories, id: \.self) { category in
+                                CategoryBoxView(
+                                    category: category,
+                                    todos: entry.todosByCategory[category] ?? [],
+                                    theme: theme
+                                )
+                                .widgetURL(URL(string: "reconstrect://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
+                            }
+                            
+                            // Add category button if less than 5 categories
+                            if entry.categories.count < 5 {
+                                AddCategoryBoxView(theme: theme)
+                                    .widgetURL(URL(string: "reconstrect://visionboard/category-select"))
+                            }
                         }
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
                 } else {
                     // No theme selected - show theme selection prompt
                     ZStack {

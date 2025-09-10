@@ -235,9 +235,23 @@ class SubscriptionManager extends ChangeNotifier {
         final premiumConvertedDate = data['premium_converted_date'];
         final premiumEndedDate = data['premium_ended_date'];
 
+        // Decide effective premium strictly: must have conversion date and be within end date window if provided
+        bool effectivePremium = false;
+        if (hasActiveAccess && premiumConvertedDate != null) {
+          if (premiumEndedDate == null) {
+            effectivePremium = true;
+          } else {
+            final endDate = DateTime.tryParse(premiumEndedDate);
+            if (endDate != null) {
+              final now = DateTime.now();
+              effectivePremium = now.isBefore(endDate) || now.isAtSameMomentAs(endDate);
+            }
+          }
+        }
+
         // Update local cache
         await prefs.setInt(_lastCheckKey, currentTime);
-        await prefs.setBool(_isPremiumKey, hasActiveAccess);
+        await prefs.setBool(_isPremiumKey, effectivePremium);
 
         // Clear any old trial data
         await prefs.remove(_trialStartDateKey);
@@ -260,8 +274,8 @@ class SubscriptionManager extends ChangeNotifier {
         }
 
         debugPrint(
-            'Premium status updated from Supabase: hasActiveAccess=$hasActiveAccess, conversionDate=$premiumConvertedDate, endedDate=$premiumEndedDate');
-        return hasActiveAccess;
+            'Premium status updated from Supabase: hasActiveAccess=$hasActiveAccess, conversionDate=$premiumConvertedDate, endedDate=$premiumEndedDate, effective=$effectivePremium');
+        return effectivePremium;
       } else {
         debugPrint(
             'Failed to fetch premium status from Supabase: ${response['message']}');
