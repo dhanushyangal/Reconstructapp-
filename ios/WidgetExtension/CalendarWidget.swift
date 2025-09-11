@@ -72,73 +72,53 @@ struct CalendarWidgetEntryView: View {
     @Environment(\.widgetFamily) var family
 
     var body: some View {
-        ZStack {
-            // Summer theme background gradient
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color(red: 1.0, green: 0.8, blue: 0.4), // Light orange
-                    Color(red: 0.9, green: 0.6, blue: 0.2)  // Darker orange
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            
+        GeometryReader { proxy in
+            let topHeight = proxy.size.height * 0.4
+            let bottomHeight = proxy.size.height * 0.6
             VStack(spacing: 0) {
-                // Top section with month/year and add button (deep link)
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(entry.monthName) \(entry.year)")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                    }
-                    
-                    Spacer()
-                    
-                    // Add button (opens app to add event)
+                // Top 40% – month image with + button
+                ZStack(alignment: .topTrailing) {
+                    monthImageView
+                        .frame(height: topHeight)
+                        .clipped()
                     if let url = URL(string: "mentalfitness://calendar/add?month=\(getMonthNumber(entry.monthName))&year=\(entry.year)") {
                         Link(destination: url) {
                             Image(systemName: "plus")
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 24, height: 24)
-                                .background(Color.black.opacity(0.3))
+                                .foregroundColor(.black)
+                                .frame(width: 26, height: 26)
+                                .background(Color.white)
                                 .clipShape(Circle())
+                                .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
                         }
+                        .padding(8)
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
-            
-            Spacer()
-            
-                // Calendar grid
-                VStack(spacing: 4) {
-                    // Day headers
-                    HStack(spacing: 0) {
-                        ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
-                            Text(day)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
+
+                // Bottom 60% – header + calendar grid
+                ZStack {
+                    Color.white
+                    VStack(spacing: 6) {
+                        Text("\(entry.monthName) \(entry.year)")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(Color(.darkGray))
+
+                        // Day headers
+                        HStack(spacing: 0) {
+                            ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
+                                Text(day)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Color(.darkGray))
+                                    .frame(maxWidth: .infinity)
+                            }
                         }
+                        .padding(.horizontal, 8)
+
+                        calendarGrid
+                            .padding(.horizontal, 8)
                     }
-                    .padding(.horizontal, 8)
-                    
-                    // Calendar days
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 7), spacing: 2) {
-                        ForEach(1...30, id: \.self) { day in
-                            CalendarDayView(
-                                day: day,
-                                isCurrentDay: day == entry.currentDay,
-                                category: getCategoryForDay(day),
-                                month: getMonthNumber(entry.monthName),
-                                year: entry.year
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 8)
                 }
-                .padding(.bottom, 8)
+                .frame(height: bottomHeight)
             }
         }
         .containerBackground(.clear, for: .widget)
@@ -154,6 +134,84 @@ struct CalendarWidgetEntryView: View {
         let months = ["January", "February", "March", "April", "May", "June",
                      "July", "August", "September", "October", "November", "December"]
         return (months.firstIndex(of: monthName) ?? 0) + 1
+    }
+}
+
+// MARK: - Subviews & Helpers
+extension CalendarWidgetEntryView {
+    private var monthImageView: some View {
+        let month = getMonthNumber(entry.monthName)
+        // Expect assets named: summer1 ... summer12
+        let imageName = "summer\(month)"
+        return Group {
+            if UIImage(named: imageName) != nil {
+                Image(imageName)
+                    .resizable()
+                    .aspectRatio(contentMode: .cover)
+            } else {
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color(red: 0.98, green: 0.76, blue: 0.36),
+                        Color(red: 0.93, green: 0.60, blue: 0.24)
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+    }
+
+    private var calendarGrid: some View {
+        let month = getMonthNumber(entry.monthName)
+        let year = entry.year
+        let totalDays = daysIn(month: month, year: year)
+        let firstOffset = firstWeekdayOffset(month: month, year: year)
+
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 7), spacing: 2) {
+            // Leading blanks
+            ForEach(0..<firstOffset, id: \.self) { _ in
+                Color.clear
+                    .frame(height: 24)
+            }
+            // Days
+            ForEach(1...totalDays, id: \.self) { day in
+                CalendarDayView(
+                    day: day,
+                    isCurrentDay: day == entry.currentDay && month == Calendar.current.component(.month, from: Date()) && year == Calendar.current.component(.year, from: Date()),
+                    category: getCategoryForDay(day),
+                    month: month,
+                    year: year
+                )
+            }
+            // Trailing blanks to fill 6x7 grid
+            let filled = firstOffset + totalDays
+            let remaining = max(0, (7 * 6) - filled)
+            ForEach(0..<remaining, id: \.self) { _ in
+                Color.clear
+                    .frame(height: 24)
+            }
+        }
+    }
+
+    private func daysIn(month: Int, year: Int) -> Int {
+        var comps = DateComponents()
+        comps.year = year
+        comps.month = month
+        let calendar = Calendar.current
+        let date = calendar.date(from: comps) ?? Date()
+        return calendar.range(of: .day, in: .month, for: date)?.count ?? 30
+    }
+
+    // 0 for Sunday ... 6 for Saturday
+    private func firstWeekdayOffset(month: Int, year: Int) -> Int {
+        var comps = DateComponents()
+        comps.year = year
+        comps.month = month
+        comps.day = 1
+        let calendar = Calendar.current
+        let date = calendar.date(from: comps) ?? Date()
+        let weekday = calendar.component(.weekday, from: date) // 1..7
+        return (weekday - 1)
     }
 }
 
