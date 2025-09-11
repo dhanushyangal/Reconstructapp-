@@ -128,4 +128,33 @@ struct SharedDataModel {
         }
         return userDefaults.string(forKey: key)
     }
+    
+    // MARK: - Calendar Data Methods
+    static func saveCalendarData(_ data: [String: String]) {
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
+        if let encoded = try? JSONEncoder().encode(data) {
+            userDefaults.set(encoded, forKey: "summer.calendar_theme_2025")
+            userDefaults.synchronize()
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+    
+    static func getCalendarData() -> [String: String] {
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return [:] }
+        
+        // Try the summer calendar data key first
+        if let data = userDefaults.data(forKey: "summer.calendar_theme_2025"),
+           let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
+            return decoded
+        }
+        
+        // Fallback to string format (legacy)
+        if let dataString = userDefaults.string(forKey: "summer.calendar_theme_2025"),
+           let data = dataString.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
+            return decoded
+        }
+        
+        return [:]
+    }
 }

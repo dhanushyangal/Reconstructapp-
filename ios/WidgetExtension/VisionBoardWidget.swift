@@ -60,7 +60,7 @@ struct VisionBoardProvider: TimelineProvider {
             categories: categories,
             todosByCategory: todosByCategory
         )
-
+        
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: currentDate)!
         let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
         completion(timeline)

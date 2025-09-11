@@ -93,6 +93,23 @@ import WidgetKit
           result(theme ?? "")
           break
           
+        case "updateCalendarWidget":
+          if let args = call.arguments as? [String: Any],
+             let calendarData = args["calendarData"] as? [String: String] {
+            
+            SharedDataModel.saveCalendarData(calendarData)
+            WidgetCenter.shared.reloadAllTimelines()
+            result(true)
+          } else {
+            result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid arguments for Calendar widget", details: nil))
+          }
+          break
+          
+        case "getCalendarData":
+          let calendarData = SharedDataModel.getCalendarData()
+          result(calendarData)
+          break
+          
         default:
           result(FlutterMethodNotImplemented)
         }

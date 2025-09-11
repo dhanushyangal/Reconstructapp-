@@ -6,5 +6,6 @@ struct NotesWidgetBundle: WidgetBundle {
     var body: some Widget {
         NotesWidget()
         VisionBoardWidget()
+        CalendarWidget()
     }
 }
