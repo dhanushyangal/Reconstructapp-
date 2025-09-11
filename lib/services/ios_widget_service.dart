@@ -107,5 +107,19 @@ class IOSWidgetService {
       return null;
     }
   }
+
+  // Calendar widget: push summer calendar data to iOS widget
+  static Future<void> updateCalendarWidget({
+    required Map<String, String> calendarData,
+  }) async {
+    try {
+      await _channel.invokeMethod('updateCalendarWidget', {
+        'calendarData': calendarData,
+      });
+      await refreshAllWidgets();
+    } catch (e) {
+      // Silent catch to avoid UI disruption if widget extension is unavailable
+    }
+  }
 }
 

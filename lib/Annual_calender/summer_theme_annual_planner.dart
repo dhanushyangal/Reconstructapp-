@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
+import '../services/ios_widget_service.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -544,6 +545,15 @@ class _SummerThemeCalendarAppState extends State<SummerThemeCalendarApp>
       );
 
       debugPrint('Calendar data saved for widget display');
+
+      // Also push data to iOS WidgetExtension
+      try {
+        await IOSWidgetService.updateCalendarWidget(
+          calendarData: Map<String, String>.from(dataToSave.map((k, v) => MapEntry(k, v.toString()))),
+        );
+      } catch (e) {
+        debugPrint('Error pushing data to iOS Calendar widget: $e');
+      }
     } catch (e) {
       debugPrint('Error saving dates for widget: $e');
     }

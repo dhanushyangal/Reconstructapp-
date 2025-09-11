@@ -84,7 +84,7 @@ struct CalendarWidgetEntryView: View {
             )
             
             VStack(spacing: 0) {
-                // Top section with month/year and add button
+                // Top section with month/year and add button (deep link)
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(entry.monthName) \(entry.year)")
@@ -94,22 +94,23 @@ struct CalendarWidgetEntryView: View {
                     
                     Spacer()
                     
-                    // Add button
-                    Button(intent: OpenCalendarIntent()) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(width: 24, height: 24)
-                            .background(Color.black.opacity(0.3))
-                            .clipShape(Circle())
+                    // Add button (opens app to add event)
+                    if let url = URL(string: "mentalfitness://calendar/add?month=\(getMonthNumber(entry.monthName))&year=\(entry.year)") {
+                        Link(destination: url) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 24, height: 24)
+                                .background(Color.black.opacity(0.3))
+                                .clipShape(Circle())
+                        }
                     }
-                    .buttonStyle(PlainButtonStyle())
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
-                
-                Spacer()
-                
+            
+            Spacer()
+            
                 // Calendar grid
                 VStack(spacing: 4) {
                     // Day headers
@@ -164,15 +165,25 @@ struct CalendarDayView: View {
     let year: Int
     
     var body: some View {
-        Button(intent: OpenCalendarDayIntent(day: day, month: month, year: year)) {
-            Text("\(day)")
-                .font(.system(size: 12, weight: isCurrentDay ? .bold : .medium))
-                .foregroundColor(textColor)
-                .frame(width: 24, height: 24)
-                .background(backgroundColor)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+        Group {
+            if let url = URL(string: "mentalfitness://calendar/day?day=\(day)&month=\(month)&year=\(year)") {
+                Link(destination: url) {
+                    Text("\(day)")
+                        .font(.system(size: 12, weight: isCurrentDay ? .bold : .medium))
+                        .foregroundColor(textColor)
+                        .frame(width: 24, height: 24)
+                        .background(backgroundColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+            } else {
+                Text("\(day)")
+                    .font(.system(size: 12, weight: isCurrentDay ? .bold : .medium))
+                    .foregroundColor(textColor)
+                    .frame(width: 24, height: 24)
+                    .background(backgroundColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
         }
-        .buttonStyle(PlainButtonStyle())
     }
     
     private var backgroundColor: Color {
@@ -201,46 +212,6 @@ struct CalendarDayView: View {
         case "Health": return Color(red: 0.51, green: 0.38, blue: 0.76) // Purple
         default: return Color.blue
         }
-    }
-}
-
-// App Intents for deep linking
-struct OpenCalendarIntent: AppIntent {
-    static var title: LocalizedStringResource = "Open Calendar"
-    
-    func perform() async throws -> some IntentResult {
-        // This will be handled by the main app
-        return .result()
-    }
-}
-
-struct OpenCalendarDayIntent: AppIntent {
-    static var title: LocalizedStringResource = "Open Calendar Day"
-    
-    @Parameter(title: "Day")
-    var day: Int
-    
-    @Parameter(title: "Month")
-    var month: Int
-    
-    @Parameter(title: "Year")
-    var year: Int
-    
-    init(day: Int, month: Int, year: Int) {
-        self.day = day
-        self.month = month
-        self.year = year
-    }
-    
-    init() {
-        self.day = 1
-        self.month = 1
-        self.year = 2025
-    }
-    
-    func perform() async throws -> some IntentResult {
-        // This will be handled by the main app
-        return .result()
     }
 }
 
