@@ -12,6 +12,7 @@ class DatabaseService {
   late final AuthService _authService;
   bool _isConnected = false;
 
+
   // Singleton pattern
   static DatabaseService get instance {
     _instance ??= DatabaseService._();
