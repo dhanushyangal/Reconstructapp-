@@ -123,6 +123,7 @@ class DatabaseService {
       } else {
         debugPrint('Failed to load tasks: ${result['message']}');
         return [];
+        
       }
     } catch (e) {
       debugPrint('Failed to load tasks from Supabase: $e');
