@@ -16,6 +16,7 @@ import 'dart:convert';
 import '../vision_journey/vision-board-travel-journey.dart';
 import '../district-my-mind/distract-my-mind-journey.dart';
 import '../utils/activity_tracker_mixin.dart';
+import '../vision_bord/vision_board_template_selection_page.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -117,7 +118,6 @@ class ActiveDashboardPage extends StatefulWidget {
 
 class _ActiveDashboardPageState extends State<ActiveDashboardPage>
     with ActivityTrackerMixin {
-  String? _selectedCategory;
   List<RecentActivityItem> _recentActivities = [];
   bool _isLoadingActivities = true;
 
@@ -182,6 +182,20 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text('Dashboard'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(4),
+          child: LinearProgressIndicator(
+            value: 0.0, // Starting point - no progress yet
+            backgroundColor: Colors.grey[300],
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
+          ),
+        ),
+      ),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -200,8 +214,6 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
             // Quick links section
             _buildQuickLinksSection(),
 
-            // Tools section (based on selected category)
-            _buildToolsSection(),
 
             // Recent activity section
             _buildRecentActivitySection(),
@@ -215,7 +227,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
 
   Widget _buildHeroSection() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 60, 20, 40),
       child: Column(
         children: [
           Text(
@@ -227,40 +239,120 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 20),
+          SizedBox(height: 8),
+          Text(
+            "Select any one and proceed",
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 40),
 
-          // Dropdown for categories
-          Container(
-            width: 450,
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(25),
-              border: Border.all(color: Color(0xFF23C4F7)),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                isExpanded: true,
-                hint: Text("Select...", style: TextStyle(color: Colors.grey)),
-                value: _selectedCategory,
-                icon: Icon(Icons.arrow_drop_down),
-                items: [
-                  DropdownMenuItem(
-                      value: 'vision', child: Text('Plan my future')),
-                  DropdownMenuItem(
-                      value: 'mind', child: Text('Reset my emotions')),
-                  DropdownMenuItem(
-                      value: 'activity', child: Text('distract my mind')),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCategory = value;
-                  });
-                },
-              ),
-            ),
+          // Main action buttons
+          _buildActionButton(
+            title: "Plan my future",
+            subtitle: "Turn ideas into a clear path forward.",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CategoryToolsPage(
+                    category: 'vision',
+                    categoryName: 'Plan my future',
+                    tools: _tools['vision']!,
+                  ),
+                ),
+              );
+            },
+          ),
+          SizedBox(height: 16),
+          _buildActionButton(
+            title: "Reset my emotions",
+            subtitle: "Release what's heavy and feel lighter.",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CategoryToolsPage(
+                    category: 'mind',
+                    categoryName: 'Reset my emotions',
+                    tools: _tools['mind']!,
+                  ),
+                ),
+              );
+            },
+          ),
+          SizedBox(height: 16),
+          _buildActionButton(
+            title: "Clear my mind",
+            subtitle: "Get a fresh start for renewed focus",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CategoryToolsPage(
+                    category: 'activity',
+                    categoryName: 'Clear my mind',
+                    tools: _tools['activity']!,
+                  ),
+                ),
+              );
+            },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        decoration: BoxDecoration(
+          color: Color(0xFFE8FAFF),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Color(0xFF23C4F7).withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: Color(0xFF23C4F7),
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -364,100 +456,6 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
     );
   }
 
-  Widget _buildToolsSection() {
-    return Container(
-      padding: EdgeInsets.all(20),
-      color: Colors.white,
-      child: Column(
-        children: [
-          if (_selectedCategory != null)
-            ..._buildToolCards()
-          else
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                  'Your mind tools will show here...',
-                  style: TextStyle(color: Colors.grey, fontSize: 16),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildToolCards() {
-    final toolsList = _tools[_selectedCategory!] ?? [];
-
-    return [
-      GridView.builder(
-        shrinkWrap: true,
-        physics: NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2,
-          childAspectRatio: 0.8,
-          crossAxisSpacing: 15,
-          mainAxisSpacing: 15,
-        ),
-        itemCount: toolsList.length,
-        itemBuilder: (context, index) {
-          final tool = toolsList[index];
-          return GestureDetector(
-            onTap: () {
-              // Navigate based on category and tool name
-              if (_selectedCategory == 'vision') {
-                _handleVisionToolNavigation(tool['name'] as String);
-              } else if (_selectedCategory == 'mind') {
-                _handleMindToolNavigation(tool['name'] as String);
-              } else if (_selectedCategory == 'activity') {
-                _handleActivityToolNavigation(tool['name'] as String);
-              }
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(9)),
-                      child: Image.asset(
-                        tool['image'] as String,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          print('Error loading image: ${tool['image']}');
-                          return Center(
-                            child: Icon(Icons.image_not_supported,
-                                size: 40, color: Colors.grey[400]),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      tool['name'] as String,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    ];
-  }
 
   Widget _buildRecentActivitySection() {
     return Container(
@@ -592,7 +590,234 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
     );
   }
 
-  // Restore the navigation methods but add a case for 'Start guided journey'
+
+  String get pageName => 'Dashboard';
+}
+
+class CategoryToolsPage extends StatefulWidget {
+  final String category;
+  final String categoryName;
+  final List<Map<String, dynamic>> tools;
+
+  const CategoryToolsPage({
+    super.key,
+    required this.category,
+    required this.categoryName,
+    required this.tools,
+  });
+
+  @override
+  _CategoryToolsPageState createState() => _CategoryToolsPageState();
+}
+
+class _CategoryToolsPageState extends State<CategoryToolsPage>
+    with ActivityTrackerMixin {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.categoryName,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Column(
+        children: [
+          // Top padding
+          SizedBox(height: 70),
+          
+          // Fixed text above images
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.categoryName,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  "Take the first step — choose a tool.",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          SizedBox(height: 20),
+
+           // Sliding tools view - moved to bottom
+           Expanded(
+             child: PageView.builder(
+               itemCount: widget.tools.length,
+               itemBuilder: (context, index) {
+                 final tool = widget.tools[index];
+                 return _buildToolSlide(tool, index);
+               },
+             ),
+           ),
+
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolSlide(Map<String, dynamic> tool, int index) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+           // Tool image
+           Container(
+             height: 500,
+             width: double.infinity,
+             decoration: BoxDecoration(
+               borderRadius: BorderRadius.circular(20),
+               boxShadow: [
+                 BoxShadow(
+                   color: Colors.grey.withOpacity(0.2),
+                   spreadRadius: 2,
+                   blurRadius: 10,
+                   offset: Offset(0, 5),
+                 ),
+               ],
+             ),
+             child: ClipRRect(
+               borderRadius: BorderRadius.circular(20),
+               child: Image.asset(
+                 tool['image'] as String,
+                 fit: BoxFit.cover,
+                 errorBuilder: (context, error, stackTrace) {
+                   return Container(
+                     color: Colors.grey[200],
+                     child: Icon(
+                       Icons.image_not_supported,
+                       size: 80,
+                       color: Colors.grey[400],
+                     ),
+                   );
+                 },
+               ),
+             ),
+           ),
+          
+           SizedBox(height: 30),
+          
+           // Action button
+           Container(
+             width: double.infinity,
+             child: MouseRegion(
+               onEnter: (_) => setState(() => _isHovered = true),
+               onExit: (_) => setState(() => _isHovered = false),
+               child: ElevatedButton(
+                 onPressed: () {
+                   _navigateToTool(tool['name'] as String);
+                 },
+                 style: ElevatedButton.styleFrom(
+                   backgroundColor: _isHovered ? Colors.grey[100] : Colors.white,
+                   foregroundColor: Colors.black,
+                   padding: EdgeInsets.symmetric(vertical: 15),
+                   shape: RoundedRectangleBorder(
+                     borderRadius: BorderRadius.circular(25),
+                     side: BorderSide(color: Colors.grey.shade300),
+                   ),
+                   elevation: _isHovered ? 4 : 2,
+                 ),
+                 child: Text(
+                   tool['name'] as String,
+                   style: TextStyle(
+                     fontSize: 18,
+                     fontWeight: FontWeight.bold,
+                     color: Colors.black,
+                   ),
+                 ),
+               ),
+             ),
+           ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToTool(String toolName) {
+    // Track the activity
+    final activity = RecentActivityItem(
+      name: toolName,
+      imagePath: widget.tools.firstWhere((t) => t['name'] == toolName)['image'],
+      timestamp: DateTime.now(),
+      routeName: _getRouteName(toolName),
+    );
+    ActivityTracker().trackActivity(activity);
+
+    // Navigate based on category and tool name
+    if (widget.category == 'vision') {
+      _handleVisionToolNavigation(toolName);
+    } else if (widget.category == 'mind') {
+      _handleMindToolNavigation(toolName);
+    } else if (widget.category == 'activity') {
+      _handleActivityToolNavigation(toolName);
+    }
+  }
+
+  String _getRouteName(String toolName) {
+    // Return appropriate route names for navigation
+    switch (toolName) {
+      case 'Start guided journey':
+        return widget.category == 'vision' ? '/vision-journey' : '/distract-journey';
+      case 'Vision Boards':
+        return '/vision-board';
+      case 'Weekly Planners':
+        return '/weekly-planner';
+      case 'To do List':
+        return '/annual-planner';
+      case 'Fun Calendars':
+        return '/annual-calendar';
+      case 'Thought Shredder':
+        return '/thought-shredder';
+      case 'Smile Therapy':
+        return '/make-me-smile';
+      case 'Break Things':
+        return '/break-things';
+      case 'Bubble Wrap Popper':
+        return '/bubble-wrap-popper';
+      case 'Digital Coloring':
+        return '/color-me-now';
+      case 'Memory Game':
+        return '/memory-game';
+      case 'Riddles':
+        return '/riddle-quiz';
+      case 'Sliding Puzzle':
+        return '/sliding-puzzle';
+      default:
+        return '/dashboard';
+    }
+  }
+
   void _handleVisionToolNavigation(String toolName) {
     switch (toolName) {
       case 'Start guided journey':
@@ -605,7 +830,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
       case 'Vision Boards':
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const VisionBoardPage()),
+          MaterialPageRoute(builder: (context) => const VisionBoardTemplateSelectionPage()),
         );
         break;
       case 'Weekly Planners':
@@ -635,7 +860,6 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
     }
   }
 
-  // Fix the onTap handler to use the existing methods again
   void _handleMindToolNavigation(String toolName) {
     switch (toolName) {
       case 'Thought Shredder':
@@ -660,11 +884,6 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const BubbleWrapPopperPage()),
-        );
-        break;
-      case 'Decide For Me':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Decide For Me coming soon')),
         );
         break;
       default:
@@ -701,5 +920,5 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
     }
   }
 
-  String get pageName => 'Dashboard';
+  String get pageName => widget.categoryName;
 }

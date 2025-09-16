@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
-import 'dashboard_traker.dart'; // Import the dashboard tracker
 import '../utils/activity_tracker_mixin.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
