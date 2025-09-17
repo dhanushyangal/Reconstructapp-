@@ -6,7 +6,7 @@ import '../services/database_service.dart';
 
 import '../services/user_service.dart';
 import '../services/journey_database_service.dart';
-import '../pages/box_them_vision_board.dart';
+import '../vision_bord/box_them_vision_board.dart';
 
 // Define the FinanceTask class
 class FinanceTask {

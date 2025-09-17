@@ -17,16 +17,41 @@ class VisionBoardTemplateSelectionPage extends StatefulWidget {
 }
 
 class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSelectionPage>
-    with ActivityTrackerMixin {
+    with ActivityTrackerMixin, TickerProviderStateMixin {
   bool _isPremium = false;
   bool _isLoading = true;
+  AnimationController? _progressAnimationController;
+  Animation<double>? _progressAnimation;
 
   String get pageName => 'Vision Board Templates';
 
   @override
   void initState() {
     super.initState();
+    
+    // Initialize progress animation
+    _progressAnimationController = AnimationController(
+      duration: Duration(seconds: 2),
+      vsync: this,
+    );
+    _progressAnimation = Tween<double>(
+      begin: 0.0,
+      end: 0.33, // 33% progress for step 1
+    ).animate(CurvedAnimation(
+      parent: _progressAnimationController!,
+      curve: Curves.easeInOut,
+    ));
+    
+    // Start the animation
+    _progressAnimationController!.forward();
+    
     _loadPremiumStatus();
+  }
+
+  @override
+  void dispose() {
+    _progressAnimationController?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPremiumStatus() async {
@@ -87,8 +112,8 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
   bool _isTemplateLocked(String title) {
     if (_isPremium) return false; // Premium users get access to everything
 
-    // Only Box theme is free
-    return title != 'Box theme Vision Board';
+    // Only Boxy theme is free
+    return title != 'Boxy theme board';
   }
 
   // Method to show payment page directly like profile page
@@ -174,49 +199,54 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
           ),
         );
       },
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.15),
+              spreadRadius: 1,
+              blurRadius: 8,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
         child: Stack(
           children: [
             Column(
               children: [
+                // Image section - takes up most of the card
                 Expanded(
+                  flex: 4,
                   child: ClipRRect(
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(12)),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                     child: Image.asset(
                       imagePath,
                       fit: BoxFit.cover,
+                      width: double.infinity,
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: isLocked ? Colors.grey : null,
-                          ),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
+                // Title section - smaller portion at bottom
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Center(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: isLocked ? Colors.grey : Colors.black,
                         ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      if (isLocked)
-                        Icon(
-                          Icons.lock,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -225,14 +255,14 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     color: Colors.black.withOpacity(0.3),
                   ),
                   child: Center(
                     child: Icon(
                       Icons.lock,
                       color: Colors.white,
-                      size: 48,
+                      size: 40,
                     ),
                   ),
                 ),
@@ -255,51 +285,128 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Select a theme for your board'),
+        title: const Text('Choose a theme for your annual goals board'),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(4),
-          child: LinearProgressIndicator(
-            value: 0.33, // Step 1 of 3
-            backgroundColor: Colors.grey[300],
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
-          ),
+        automaticallyImplyLeading: false,
+        titleTextStyle: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: Colors.black,
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
+      body: Column(
+        children: [
+          SizedBox(height: 30),
+          // Templates grid
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
               child: GridView.count(
                 crossAxisCount: 2,
-                childAspectRatio: 0.75,
+                childAspectRatio: 0.85,
+                mainAxisSpacing: 20,
+                crossAxisSpacing: 20,
                 children: [
                   _buildTemplateCard(
                     context,
-                    'assets/vision-board-ruled-theme.png',
-                    'Box theme Vision Board'),
+                    'assets\Plan_your_annual_goals-images\Annual-boxy.png',
+                    'Boxy theme board'),
                   _buildTemplateCard(
                     context,
-                    'assets/Postit-Theme-Vision-Board.png',
-                    'PostIt theme Vision Board'),
-                  _buildTemplateCard(context, 'assets/premium-theme.png',
-                      'Premium theme Vision Board'),
+                    'assets\Plan_your_annual_goals-images\Annual-post.png',
+                    'Post it theme board'),
+                  _buildTemplateCard(context, 
+                  'assets\Plan_your_annual_goals-images\Annual-premium.png',
+                      'Premium black board'),
                   _buildTemplateCard(
                     context,
-                    'assets/winter-warmth-theme-vision-board.png',
-                    'Winter Warmth theme Vision Board'),
+                    'assets\Plan_your_annual_goals-images\Annual-floral.png',
+                    'Floral theme board'),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          // Progress bar at the bottom
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFF8FBFF),
+                  Colors.white,
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Template Selection Progress',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    AnimatedBuilder(
+                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                      builder: (context, child) {
+                        return Text(
+                          '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}% Complete',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF23C4F7),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Container(
+                  height: 10,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(5),
+                    color: Colors.grey[200],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(5),
+                    child: AnimatedBuilder(
+                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                      builder: (context, child) {
+                        return LinearProgressIndicator(
+                          value: _progressAnimation?.value ?? 0.0,
+                          backgroundColor: Colors.transparent,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:screenshot/screenshot.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
 import 'dart:convert';
@@ -7,8 +10,9 @@ import '../services/database_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
-import '../utils/platform_features.dart';
+import '../utils/platform_features.dart'; // Import for platform features
 import '../pages/active_tasks_page.dart';
 
 class TodoItem {
@@ -35,23 +39,111 @@ class TodoItem {
       );
 }
 
-class CustomVisionBoardPage extends StatefulWidget {
-  final String template;
-  final String imagePath;
-  final List<String> selectedAreas;
-
-  const CustomVisionBoardPage({
-    super.key,
-    required this.template,
-    required this.imagePath,
-    required this.selectedAreas,
-  });
+class ManualLoginDialog extends StatefulWidget {
+  const ManualLoginDialog({super.key});
 
   @override
-  State<CustomVisionBoardPage> createState() => _CustomVisionBoardPageState();
+  State<ManualLoginDialog> createState() => _ManualLoginDialogState();
 }
 
-class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
+class _ManualLoginDialogState extends State<ManualLoginDialog> {
+  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUserInfo();
+  }
+
+  Future<void> _loadCurrentUserInfo() async {
+    final userInfo = await UserService.instance.getUserInfo();
+    setState(() {
+      _usernameController.text = userInfo['userName'] ?? '';
+      _emailController.text = userInfo['email'] ?? '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Set User Information'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _usernameController,
+            decoration: const InputDecoration(labelText: 'Username'),
+          ),
+          TextField(
+            controller: _emailController,
+            decoration: const InputDecoration(labelText: 'Email'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            await UserService.instance.clearUserInfo();
+            if (!mounted) return;
+            Navigator.pop(context);
+          },
+          child: const Text('Clear'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (_usernameController.text.isNotEmpty &&
+                _emailController.text.isNotEmpty) {
+              await UserService.instance.setManualUserInfo(
+                userName: _usernameController.text,
+                email: _emailController.text,
+              );
+              if (!mounted) return;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('User information saved'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please enter both username and email'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
+class PostItThemeVisionBoard extends StatefulWidget {
+  const PostItThemeVisionBoard({super.key});
+
+  // Add route name to make navigation easier
+  static const routeName = '/post-it-theme-vision-board';
+
+  @override
+  State<PostItThemeVisionBoard> createState() => _PostItThemeVisionBoardState();
+}
+
+class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
     with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
@@ -59,83 +151,61 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
   bool _isSyncing = false;
   DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
   bool _hasNetworkConnectivity = true;
+  final List<String> visionCategories = [
+    'Travel',
+    'Self Care',
+    'Forgive',
+    'Love',
+    'Family',
+    'Career',
+    'Health',
+    'Hobbies',
+    'Knowledge',
+    'Social',
+    'Reading',
+    'Food',
+    'Music',
+    'Tech',
+    'DIY',
+    'Luxury',
+    'Income',
+    'BMI',
+    'Invest',
+    'Inspiration',
+    'Help'
+  ];
 
-  String get pageName => 'Custom Vision Board - ${widget.template}';
+  final List<Color> cardColors = [
+    Colors.orange, // Travel
+    Color.fromARGB(255, 244, 118, 142), // Self Care
+    Color.fromRGBO(235, 196, 95, 1), // Forgive
+    Color.fromARGB(255, 55, 78, 49), // Love
+    Color.fromARGB(255, 164, 219, 117), // Family
+    Color.fromARGB(255, 170, 238, 217), // Career
+    Color.fromARGB(255, 64, 83, 162), // Health
+    Color.fromARGB(255, 98, 126, 138), // Hobbies
+    Color.fromARGB(255, 67, 141, 204), // Knowledge
+    Color.fromARGB(255, 253, 60, 5), // Social
+    Color.fromARGB(255, 255, 150, 38), // Reading
+    Color.fromARGB(255, 62, 173, 154), // Food
+    Color.fromARGB(255, 254, 181, 89), // Music
+    Color.fromARGB(255, 255, 243, 208), // Tech
+    Color.fromARGB(255, 207, 174, 203), // DIY
+    Color.fromARGB(255, 250, 188, 139), // Luxury
+    Color.fromARGB(255, 45, 30, 99), // Income
+    Color.fromARGB(255, 251, 87, 86), // BMI (default to pink if null)
+    Color.fromARGB(255, 240, 166, 225), // Invest (default to purple if null)
+    Color.fromARGB(255, 255, 255, 255), // Inspiration (default to blue if null)
+    Color.fromARGB(255, 34, 0, 201) // Help
+  ];
 
-  // Theme-specific colors and styles
-  Map<String, dynamic> get _themeConfig {
-    switch (widget.template) {
-      case 'Box theme Vision Board':
-        return {
-          'type': 'box',
-          'backgroundImage': 'assets/vision-board-ruled.png',
-          'cardBackground': Colors.white,
-          'textColor': Colors.black,
-          'placeholderColor': Colors.grey,
-          'storagePrefix': 'custom_box',
-        };
-      case 'PostIt theme Vision Board':
-        return {
-          'type': 'postit',
-          'cardColors': [
-            Colors.orange,
-            Color.fromARGB(255, 244, 118, 142),
-            Color.fromRGBO(235, 196, 95, 1),
-            Color.fromARGB(255, 55, 78, 49),
-            Color.fromARGB(255, 164, 219, 117),
-            Color.fromARGB(255, 170, 238, 217),
-            Color.fromARGB(255, 64, 83, 162),
-            Color.fromARGB(255, 98, 126, 138),
-            Color.fromARGB(255, 67, 141, 204),
-          ],
-          'textColor': Colors.black,
-          'placeholderColor': Colors.grey,
-          'storagePrefix': 'custom_postit',
-        };
-      case 'Premium theme Vision Board':
-        return {
-          'type': 'premium',
-          'cardBackground': Colors.black,
-          'textColor': Colors.white,
-          'placeholderColor': Colors.grey,
-          'storagePrefix': 'custom_premium',
-        };
-      case 'Winter Warmth theme Vision Board':
-        return {
-          'type': 'winter',
-          'cardColors': [
-            Color.fromARGB(255, 194, 183, 163),
-            Color(0xFF330f0f),
-            Color(0xFFb78c56),
-            Color.fromARGB(255, 45, 41, 0),
-            Color(0xFF929092),
-            Color(0xFF741102),
-            Color(0xFF9e8c66),
-            Color(0xFF462a19),
-            Color(0xFF929274),
-          ],
-          'textColor': Colors.white,
-          'placeholderColor': Color.fromARGB(255, 160, 171, 150),
-          'storagePrefix': 'custom_winter',
-        };
-      default:
-        return {
-          'type': 'box',
-          'backgroundImage': 'assets/vision-board-ruled.png',
-          'cardBackground': Colors.white,
-          'textColor': Colors.black,
-          'placeholderColor': Colors.grey,
-          'storagePrefix': 'custom_default',
-        };
-    }
-  }
+  @override
+  String get pageName => 'Post-It Vision Board';
 
   @override
   void initState() {
     super.initState();
-    
-    // Initialize controllers and todo lists for selected areas only
-    for (var category in widget.selectedAreas) {
+    for (var category in visionCategories) {
       _controllers[category] = TextEditingController();
       _todoLists[category] = [];
     }
@@ -164,19 +234,17 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
       }
     });
 
-    // Track activity
+    // Add activity tracking
     _trackActivity();
   }
 
   // Load all data from local storage (fast operation)
   Future<void> _loadAllFromLocalStorage() async {
     final prefs = await SharedPreferences.getInstance();
-    final themeConfig = _themeConfig;
-    final storagePrefix = themeConfig['storagePrefix'] as String;
 
-    for (var category in widget.selectedAreas) {
+    for (var category in visionCategories) {
       try {
-        final savedTodos = prefs.getString('${storagePrefix}_todos_$category');
+        final savedTodos = prefs.getString('postit_todos_$category');
         if (savedTodos != null) {
           final List<dynamic> decoded = json.decode(savedTodos);
           setState(() {
@@ -227,13 +295,11 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
 
     try {
       final userInfo = await UserService.instance.getUserInfo();
-      final themeConfig = _themeConfig;
-      final storagePrefix = themeConfig['storagePrefix'] as String;
 
       if (userInfo['userName']?.isNotEmpty == true &&
           userInfo['email']?.isNotEmpty == true) {
         final allTasksFromDb =
-            await DatabaseService.instance.loadUserTasks(userInfo, storagePrefix);
+            await DatabaseService.instance.loadUserTasks(userInfo, 'PostIt');
 
         if (allTasksFromDb.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
@@ -251,9 +317,9 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                   _controllers[category]?.text = _formatDisplayText(category);
                 });
 
-                await prefs.setString('${storagePrefix}_todos_$category', tasksJson);
+                await prefs.setString('postit_todos_$category', tasksJson);
                 await HomeWidget.saveWidgetData(
-                    '${storagePrefix}_todos_$category', tasksJson);
+                    'postit_todos_$category', tasksJson);
 
                 debugPrint(
                     'Updated local storage for $category with database data');
@@ -282,12 +348,10 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
     final prefs = await SharedPreferences.getInstance();
     final encoded = json
         .encode(_todoLists[category]?.map((item) => item.toJson()).toList());
-    final themeConfig = _themeConfig;
-    final storagePrefix = themeConfig['storagePrefix'] as String;
 
     // Always save locally first (fast operation)
-    await prefs.setString('${storagePrefix}_todos_$category', encoded);
-    await HomeWidget.saveWidgetData('${storagePrefix}_todos_$category', encoded);
+    await prefs.setString('postit_todos_$category', encoded);
+    await HomeWidget.saveWidgetData('postit_todos_$category', encoded);
 
     // Update the widget
     await HomeWidget.updateWidget(
@@ -295,40 +359,24 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
       iOSName: 'VisionBoardWidget',
     );
 
-    // Only try to save to database if we have network connectivity
-    if (!_hasNetworkConnectivity) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Task saved locally (offline mode)'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-      return;
-    }
-
-    // Try to save to database in the background
+    // Try to save to database immediately
     try {
       final isLoggedIn = await DatabaseService.instance.isUserLoggedIn();
 
       if (isLoggedIn) {
         final userInfo = await UserService.instance.getUserInfo();
 
-        DatabaseService.instance
-            .saveTodoItem(userInfo, category, encoded, storagePrefix)
-            .then((success) {
-          if (success && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Task synced to cloud'),
-                duration: Duration(seconds: 1),
-              ),
-            );
-          }
-        }).catchError((e) {
-          debugPrint('Background save to database failed: $e');
-        });
+        final success = await DatabaseService.instance
+            .saveTodoItem(userInfo, category, encoded, 'PostIt');
+
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Task saved to cloud'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -343,7 +391,15 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
         );
       }
     } catch (e) {
-      debugPrint('Error in database save preparation: $e');
+      debugPrint('Error saving to database: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Task saved locally only'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -352,133 +408,6 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
     if (todos == null || todos.isEmpty) return '';
 
     return todos.map((item) => "• ${item.text}").join("\n");
-  }
-
-  @override
-  void dispose() {
-    for (var controller in _controllers.values) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-
-  Widget _buildVisionCard(String title, int index) {
-    final themeConfig = _themeConfig;
-    final cardColors = themeConfig['cardColors'] as List<Color>?;
-    final cardBackground = themeConfig['cardBackground'] as Color?;
-    final backgroundImage = themeConfig['backgroundImage'] as String?;
-    final textColor = themeConfig['textColor'] as Color;
-    final placeholderColor = themeConfig['placeholderColor'] as Color;
-
-    Color cardColor;
-    if (cardColors != null && index < cardColors.length) {
-      cardColor = cardColors[index];
-    } else if (cardBackground != null) {
-      cardColor = cardBackground;
-    } else {
-      cardColor = Colors.white;
-    }
-
-    Widget cardContent = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-          ),
-          child: Text(
-            title,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 17,
-              color: themeConfig['type'] == 'premium' || themeConfig['type'] == 'winter'
-                  ? Colors.white
-                  : Colors.black,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: GestureDetector(
-                onTap: () => _showTodoDialog(title),
-                child: _todoLists[title]?.isEmpty ?? true
-                    ? Text(
-                        'Write your\nvision here',
-                        style: TextStyle(
-                          color: placeholderColor,
-                          fontSize: 16,
-                          height: 1.4,
-                        ),
-                      )
-                    : Text.rich(
-                        TextSpan(
-                          children: _todoLists[title]?.map((todo) {
-                                return TextSpan(
-                                  text: "• ${todo.text}\n",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    decoration: todo.isDone == true
-                                        ? TextDecoration.lineThrough
-                                        : TextDecoration.none,
-                                    color: todo.isDone == true
-                                        ? Colors.grey
-                                        : textColor,
-                                  ),
-                                );
-                              }).toList() ??
-                              [],
-                        ),
-                      ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-
-    return GestureDetector(
-      onTap: () => _showTodoDialog(title),
-      onLongPress: () async {
-        await HomeWidget.saveWidgetData('edit_mode', title);
-        await HomeWidget.updateWidget(
-          androidName: 'VisionBoardWidget',
-          iOSName: 'VisionBoardWidget',
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          image: backgroundImage != null
-              ? DecorationImage(
-                  image: AssetImage(backgroundImage),
-                  fit: BoxFit.cover,
-                )
-              : null,
-          color: backgroundImage == null ? cardColor : null,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withAlpha(50),
-              spreadRadius: 2,
-              blurRadius: 6,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: backgroundImage != null
-            ? cardContent
-            : cardContent,
-      ),
-    );
   }
 
   void _showTodoDialog(String category) {
@@ -501,12 +430,152 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
     );
   }
 
+  Future<void> loadData() async {
+    try {
+      final data = await HomeWidget.getWidgetData<String>('vision_data');
+      if (data != null) {
+        setState(() {
+          // Update your state based on widget data
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading widget data: $e');
+    }
+  }
+
+  Future<void> updateWidget() async {
+    try {
+      await HomeWidget.saveWidgetData<String>(
+          'vision_data', 'Your vision data here');
+      await HomeWidget.updateWidget(
+        androidName: 'VisionBoardWidget',
+        iOSName: 'VisionBoardWidget',
+      );
+    } catch (e) {
+      debugPrint('Error updating widget: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _takeScreenshotAndShare() async {
+    try {
+      final image = await screenshotController.capture();
+      if (image == null) return;
+
+      final directory = await getApplicationDocumentsDirectory();
+      final imagePath = '${directory.path}/postit_vision_board.png';
+      final imageFile = File(imagePath);
+      await imageFile.writeAsBytes(image);
+
+      await Share.shareXFiles([XFile(imagePath)],
+          text: 'My Post-It Vision Board for 2025');
+    } catch (e) {
+      debugPrint('Error sharing vision board: $e');
+    }
+  }
+
+  Widget _buildVisionCard(String title, Color color) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withAlpha(50),
+            spreadRadius: 2,
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    _showTodoDialog(title);
+                  },
+                  child: _todoLists[title]?.isEmpty ?? true
+                      ? const Text(
+                          'Write your\nvision here',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                            height: 1.4,
+                          ),
+                        )
+                      : Text.rich(
+                          TextSpan(
+                            children: _todoLists[title]?.map((todo) {
+                                  return TextSpan(
+                                    text: "• ${todo.text}\n",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      decoration: todo.isDone == true
+                                          ? TextDecoration.lineThrough
+                                          : TextDecoration.none,
+                                      color: todo.isDone == true
+                                          ? Colors.grey
+                                          : (title == 'Love' ||
+                                                  title == 'Invest' ||
+                                                  title == 'Help'
+                                              ? const Color.fromARGB(
+                                                  255, 255, 255, 255)
+                                              : Colors.black),
+                                    ),
+                                  );
+                                }).toList() ??
+                                [],
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.template),
+        title: const Text('Post-It Theme Vision Board'),
         actions: [
+          // Add a sync button
           _isSyncing
               ? const Padding(
                   padding: EdgeInsets.all(8.0),
@@ -525,17 +594,10 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                   onPressed: _syncWithDatabase,
                 ),
         ],
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(4),
-          child: LinearProgressIndicator(
-            value: 1.0, // Step 3 of 3 - Complete
-            backgroundColor: Colors.grey[300],
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
-          ),
-        ),
       ),
       body: Column(
         children: [
+          // Connection status indicator
           if (!_hasNetworkConnectivity)
             Container(
               width: double.infinity,
@@ -575,15 +637,16 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                   child: GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: widget.selectedAreas.length <= 6 ? 2 : 3,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
                       childAspectRatio: 0.7,
                       mainAxisSpacing: 10,
                       crossAxisSpacing: 10,
                     ),
-                    itemCount: widget.selectedAreas.length,
-                    itemBuilder: (context, index) =>
-                        _buildVisionCard(widget.selectedAreas[index], index),
+                    itemCount: visionCategories.length,
+                    itemBuilder: (context, index) => _buildVisionCard(
+                        visionCategories[index], cardColors[index]),
                   ),
                 ),
               ),
@@ -593,9 +656,8 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                PlatformFeatureWidget(
-                  featureName: 'add_widgets',
-                  child: ElevatedButton.icon(
+                if (PlatformFeatures.isFeatureAvailable('add_widgets'))
+                  ElevatedButton.icon(
                     onPressed: () async {
                       final url =
                           'https://youtube.com/shorts/IAeczaEygUM?feature=share';
@@ -604,8 +666,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                           mode: LaunchMode.externalApplication)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                              content:
-                                  Text('Could not open YouTube shorts: $url')),
+                              content: Text('Could not open YouTube shorts: $url')),
                         );
                       }
                     },
@@ -622,7 +683,6 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                       ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -643,30 +703,6 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                     ),
                   ),
                 ),
-                if (_isSyncing)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.grey.shade600),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Syncing with cloud...',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade600),
-                        ),
-                      ],
-                    ),
-                  ),
               ],
             ),
           ),
@@ -675,8 +711,20 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
     );
   }
 
-  void _trackActivity() {
-    trackClick('Custom Vision Board - ${widget.template}');
+  // Complete implementation of _trackActivity method
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Post-it Theme Vision Board',
+        imagePath: 'assets/images/postit.png',
+        timestamp: DateTime.now(),
+        routeName: PostItThemeVisionBoard.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 }
 
@@ -798,7 +846,6 @@ class TodoListDialogState extends State<TodoListDialog> {
                     androidName: 'VisionBoardWidget',
                     iOSName: 'VisionBoardWidget',
                   );
-                  if (!mounted) return;
                   Navigator.pop(context);
                 },
                 child: const Text('Save'),

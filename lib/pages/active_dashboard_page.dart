@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../pages/vision_board_page.dart';
+import '../vision_bord/vision_board_page.dart';
 import '../Annual_calender/annual_calendar_page.dart';
 import '../weekly_planners/weekly_planner_page.dart';
 import '../Mind_tools/thought_shredder_page.dart';
@@ -13,10 +13,8 @@ import '../Mind_tools/bubble_wrap_popper_page.dart';
 import '../Activity_Tools/sliding_puzzle_page.dart';
 import '../Activity_Tools/color_me_now.dart';
 import 'dart:convert';
-import '../vision_journey/vision-board-travel-journey.dart';
-import '../district-my-mind/distract-my-mind-journey.dart';
 import '../utils/activity_tracker_mixin.dart';
-import '../vision_bord/vision_board_template_selection_page.dart';
+import '../vision_bord_plan/vision_board_template_selection_page.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -118,20 +116,17 @@ class ActiveDashboardPage extends StatefulWidget {
 
 class _ActiveDashboardPageState extends State<ActiveDashboardPage>
     with ActivityTrackerMixin {
-  List<RecentActivityItem> _recentActivities = [];
-  bool _isLoadingActivities = true;
 
   // Tool data organized by category
   final Map<String, List<Map<String, dynamic>>> _tools = {
     'vision': [
-      {'name': 'Start guided journey', 'image': 'assets/journey.png'},
-      {'name': 'Vision Boards', 'image': 'assets/vision-board-plain.jpg'},
-      {'name': 'Weekly Planners', 'image': 'assets/weakly_planer.png'},
+      {'name': 'Plan your annual goals', 'image': 'assets\Plan_my_future-images\annual.png'},
+      {'name': 'Plan your Weekly goals', 'image': 'assets\Plan_my_future-images\weekly.png'},
       {
-        'name': 'To do List',
-        'image': 'assets/watercolor_theme_annual_planner.png'
+        'name': 'Plan your Monthly goals',
+        'image': 'assets\Plan_my_future-images\monthly.png'
       },
-      {'name': 'Fun Calendars', 'image': 'assets/calendar.jpg'}
+      {'name': 'Plan your Daily goals', 'image': 'assets\Plan_my_future-images\daily.png'}
     ],
     'mind': [
       {
@@ -146,7 +141,6 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
       }
     ],
     'activity': [
-      {'name': 'Start Guided Journey', 'image': 'assets/journey.png'},
       {
         'name': 'Digital Coloring',
         'image': 'assets/activity_tools/coloring-sheet.png'
@@ -161,147 +155,113 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
   };
 
   @override
-  void initState() {
-    super.initState();
-    _loadRecentActivities();
-  }
-
-  Future<void> _loadRecentActivities() async {
-    setState(() {
-      _isLoadingActivities = true;
-    });
-
-    final activities = await ActivityTracker().getRecentActivities();
-
-    setState(() {
-      _recentActivities = activities;
-      _isLoadingActivities = false;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Dashboard'),
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(4),
-          child: LinearProgressIndicator(
-            value: 0.0, // Starting point - no progress yet
-            backgroundColor: Colors.grey[300],
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, Color(0xFFE8FAFF)],
           ),
         ),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Hero section with gradient background
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Colors.white, Color(0xFFE8FAFF)],
-                ),
-              ),
-              child: _buildHeroSection(),
-            ),
-
-            // Quick links section
-            _buildQuickLinksSection(),
-
-
-            // Recent activity section
-            _buildRecentActivitySection(),
-
-            SizedBox(height: 30), // Bottom padding
-          ],
-        ),
+        child: _buildHeroSection(),
       ),
     );
   }
 
   Widget _buildHeroSection() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 60, 20, 40),
-      child: Column(
-        children: [
-          Text(
-            "What's on your mind?",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 8),
-          Text(
-            "Select any one and proceed",
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 40),
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              SizedBox(height: 10),
+              Text(
+                "What's on your mind?",
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 8),
+              Text(
+                "Select any one and proceed",
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 30),
 
-          // Main action buttons
-          _buildActionButton(
-            title: "Plan my future",
-            subtitle: "Turn ideas into a clear path forward.",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CategoryToolsPage(
-                    category: 'vision',
-                    categoryName: 'Plan my future',
-                    tools: _tools['vision']!,
-                  ),
-                ),
-              );
-            },
+              // Main action buttons
+              _buildActionButton(
+                title: "Plan my future",
+                subtitle: "Turn ideas into a clear path forward.",
+                color: Color(0xFF81D0FF), // Light blue background
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CategoryToolsPage(
+                        category: 'vision',
+                        categoryName: 'Plan my future',
+                        tools: _tools['vision']!,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 16),
+              _buildActionButton(
+                title: "Reset my emotions",
+                subtitle: "Release what's heavy and feel lighter.",
+                color: Color(0xFF60BAFF), // Medium blue background
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CategoryToolsPage(
+                        category: 'mind',
+                        categoryName: 'Reset my emotions',
+                        tools: _tools['mind']!,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 16),
+              _buildActionButton(
+                title: "Clear my mind",
+                subtitle: "Get a fresh start for renewed focus",
+                color: Color(0xFF5AB8EE), // Darker blue background
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CategoryToolsPage(
+                        category: 'activity',
+                        categoryName: 'Clear my mind',
+                        tools: _tools['activity']!,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 20), // Bottom padding
+            ],
           ),
-          SizedBox(height: 16),
-          _buildActionButton(
-            title: "Reset my emotions",
-            subtitle: "Release what's heavy and feel lighter.",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CategoryToolsPage(
-                    category: 'mind',
-                    categoryName: 'Reset my emotions',
-                    tools: _tools['mind']!,
-                  ),
-                ),
-              );
-            },
-          ),
-          SizedBox(height: 16),
-          _buildActionButton(
-            title: "Clear my mind",
-            subtitle: "Get a fresh start for renewed focus",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CategoryToolsPage(
-                    category: 'activity',
-                    categoryName: 'Clear my mind',
-                    tools: _tools['activity']!,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -309,17 +269,17 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
   Widget _buildActionButton({
     required String title,
     required String subtitle,
+    required Color color,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
-          color: Color(0xFFE8FAFF),
+          color: color,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Color(0xFF23C4F7).withOpacity(0.3)),
         ),
         child: Row(
           children: [
@@ -330,17 +290,17 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  SizedBox(height: 3),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
+                      fontSize: 13,
+                      color: Colors.black87,
                     ),
                   ),
                 ],
@@ -348,240 +308,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
             ),
             Icon(
               Icons.arrow_forward_ios,
-              color: Color(0xFF23C4F7),
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickLinksSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          _buildQuickLinkButton('Thought Shredder'),
-          _buildQuickLinkButton('Coloring sheets'),
-          _buildQuickLinkButton('Memory game', isNew: true),
-          _buildQuickLinkButton('Sliding puzzle'),
-          _buildQuickLinkButton('To do list'),
-          _buildQuickLinkButton('2025 interactive calendars'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickLinkButton(String text, {bool isNew = false}) {
-    return OutlinedButton(
-      onPressed: () {
-        // Navigate based on the button text
-        switch (text) {
-          case 'Thought Shredder':
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const ThoughtShredderPage()),
-            );
-            break;
-          case 'Coloring sheets':
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ColorMeNowPage()),
-            );
-            break;
-          case 'Memory game':
-            Navigator.pushNamed(context, MemoryGamePage.routeName);
-            break;
-          case 'Sliding puzzle':
-            Navigator.pushNamed(context, SlidingPuzzlePage.routeName);
-            break;
-          case 'To do list':
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const AnnualPlannerPage()),
-            );
-            break;
-          case '2025 interactive calendars':
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const AnnualCalenderPage()),
-            );
-            break;
-          default:
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('This feature is not available yet')),
-            );
-            break;
-        }
-      },
-      style: OutlinedButton.styleFrom(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        side: BorderSide(color: Colors.grey.shade400),
-        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      ),
-      child: isNew
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(text, style: TextStyle(fontSize: 14, color: Colors.black)),
-                SizedBox(width: 5),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Color(0xFF23C4F7),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    'New',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : Text(text, style: TextStyle(fontSize: 14, color: Colors.black)),
-    );
-  }
-
-
-  Widget _buildRecentActivitySection() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Recent Activity",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 15),
-          _isLoadingActivities
-              ? Center(child: CircularProgressIndicator())
-              : _recentActivities.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No recent activity...',
-                        style: TextStyle(color: Colors.grey, fontSize: 16),
-                      ),
-                    )
-                  : Column(
-                      children: _recentActivities
-                          .take(4) // Show only 4 most recent activities
-                          .map((activity) => _buildActivityItem(activity))
-                          .toList(),
-                    ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivityItem(RecentActivityItem activity) {
-    // Format the timestamp
-    final now = DateTime.now();
-    final difference = now.difference(activity.timestamp);
-
-    String timeAgo;
-    if (difference.inDays > 0) {
-      timeAgo =
-          '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
-    } else if (difference.inHours > 0) {
-      timeAgo =
-          '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
-    } else if (difference.inMinutes > 0) {
-      timeAgo =
-          '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
-    } else {
-      timeAgo = 'Just now';
-    }
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 12),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ],
-          border: Border.all(color: Colors.grey.shade200)),
-      child: InkWell(
-        onTap: () {
-          Navigator.pushNamed(context, activity.routeName);
-        },
-        child: Row(
-          children: [
-            // Activity image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                activity.imagePath,
-                width: 60,
-                height: 60,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  print('Error loading image: ${activity.imagePath}');
-                  return Container(
-                    width: 60,
-                    height: 60,
-                    color: Colors.grey[200],
-                    child: Icon(Icons.image_not_supported,
-                        color: Colors.grey[400]),
-                  );
-                },
-              ),
-            ),
-            SizedBox(width: 16),
-
-            // Activity details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    activity.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    timeAgo,
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Arrow icon
-            Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.grey.shade400,
+              color: Colors.black,
               size: 18,
             ),
           ],
@@ -589,6 +316,11 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
       ),
     );
   }
+
+
+
+
+
 
 
   String get pageName => 'Dashboard';
@@ -611,8 +343,40 @@ class CategoryToolsPage extends StatefulWidget {
 }
 
 class _CategoryToolsPageState extends State<CategoryToolsPage>
-    with ActivityTrackerMixin {
+    with ActivityTrackerMixin, TickerProviderStateMixin {
   bool _isHovered = false;
+  late PageController _pageController;
+  AnimationController? _progressAnimationController;
+  Animation<double>? _progressAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.8);
+    
+    // Initialize progress animation
+    _progressAnimationController = AnimationController(
+      duration: Duration(seconds: 2),
+      vsync: this,
+    );
+    _progressAnimation = Tween<double>(
+      begin: 0.0,
+      end: 0.25, // 25% progress for category tools page
+    ).animate(CurvedAnimation(
+      parent: _progressAnimationController!,
+      curve: Curves.easeInOut,
+    ));
+    
+    // Start the animation
+    _progressAnimationController!.forward();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _progressAnimationController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -635,32 +399,18 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
       ),
       body: Column(
         children: [
-          // Top padding
-          SizedBox(height: 70),
           
           // Fixed text above images
           Container(
             width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.categoryName,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                SizedBox(height: 6),
-                Text(
                   "Take the first step — choose a tool.",
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     color: Colors.grey[600],
                   ),
                 ),
@@ -668,11 +418,12 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
             ),
           ),
           
-          SizedBox(height: 20),
+          SizedBox(height: 15),
 
            // Sliding tools view - moved to bottom
            Expanded(
              child: PageView.builder(
+               controller: _pageController,
                itemCount: widget.tools.length,
                itemBuilder: (context, index) {
                  final tool = widget.tools[index];
@@ -681,6 +432,96 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
              ),
            ),
 
+          // Progress bar at the bottom
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFF8FBFF),
+                  Colors.white,
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Tool Selection Progress',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    AnimatedBuilder(
+                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                      builder: (context, child) {
+                        return Text(
+                          '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}% Complete',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF23C4F7),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Container(
+                  height: 10,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(5),
+                    color: Colors.grey[200],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(5),
+                    child: AnimatedBuilder(
+                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                      builder: (context, child) {
+                        return LinearProgressIndicator(
+                          value: _progressAnimation?.value ?? 0.0,
+                          backgroundColor: Colors.transparent,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Choose a tool to continue your journey and unlock more progress!',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+
         ],
       ),
     );
@@ -688,45 +529,48 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
 
   Widget _buildToolSlide(Map<String, dynamic> tool, int index) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 20),
+      margin: EdgeInsets.symmetric(horizontal: 10),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
            // Tool image
-           Container(
-             height: 500,
-             width: double.infinity,
-             decoration: BoxDecoration(
-               borderRadius: BorderRadius.circular(20),
-               boxShadow: [
-                 BoxShadow(
-                   color: Colors.grey.withOpacity(0.2),
-                   spreadRadius: 2,
-                   blurRadius: 10,
-                   offset: Offset(0, 5),
+           Expanded(
+             flex: 3,
+             child: Container(
+               width: double.infinity,
+               height: 300, // Fixed height for consistent sizing
+               decoration: BoxDecoration(
+                 borderRadius: BorderRadius.circular(20),
+                 boxShadow: [
+                   BoxShadow(
+                     color: Colors.grey.withOpacity(0.2),
+                     spreadRadius: 2,
+                     blurRadius: 10,
+                     offset: Offset(0, 5),
+                   ),
+                 ],
+               ),
+               child: ClipRRect(
+                 borderRadius: BorderRadius.circular(20),
+                 child: Image.asset(
+                   tool['image'] as String,
+                   fit: BoxFit.cover,
+                   errorBuilder: (context, error, stackTrace) {
+                     return Container(
+                       color: Colors.grey[200],
+                       child: Icon(
+                         Icons.image_not_supported,
+                         size: 80,
+                         color: Colors.grey[400],
+                       ),
+                     );
+                   },
                  ),
-               ],
-             ),
-             child: ClipRRect(
-               borderRadius: BorderRadius.circular(20),
-               child: Image.asset(
-                 tool['image'] as String,
-                 fit: BoxFit.cover,
-                 errorBuilder: (context, error, stackTrace) {
-                   return Container(
-                     color: Colors.grey[200],
-                     child: Icon(
-                       Icons.image_not_supported,
-                       size: 80,
-                       color: Colors.grey[400],
-                     ),
-                   );
-                 },
                ),
              ),
            ),
           
-           SizedBox(height: 30),
+           SizedBox(height: 20),
           
            // Action button
            Container(
@@ -741,17 +585,17 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
                  style: ElevatedButton.styleFrom(
                    backgroundColor: _isHovered ? Colors.grey[100] : Colors.white,
                    foregroundColor: Colors.black,
-                   padding: EdgeInsets.symmetric(vertical: 15),
+                   padding: EdgeInsets.symmetric(vertical: 12),
                    shape: RoundedRectangleBorder(
                      borderRadius: BorderRadius.circular(25),
                      side: BorderSide(color: Colors.grey.shade300),
                    ),
-                   elevation: _isHovered ? 4 : 2,
+                   elevation: _isHovered ? 9 : 2,
                  ),
                  child: Text(
                    tool['name'] as String,
                    style: TextStyle(
-                     fontSize: 18,
+                     fontSize: 16,
                      fontWeight: FontWeight.bold,
                      color: Colors.black,
                    ),
@@ -759,6 +603,7 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
                ),
              ),
            ),
+           SizedBox(height: 50),
         ],
       ),
     );
@@ -787,15 +632,13 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
   String _getRouteName(String toolName) {
     // Return appropriate route names for navigation
     switch (toolName) {
-      case 'Start guided journey':
-        return widget.category == 'vision' ? '/vision-journey' : '/distract-journey';
-      case 'Vision Boards':
+      case 'Plan your annual goals':
         return '/vision-board';
-      case 'Weekly Planners':
+      case 'Plan your Weekly goals':
         return '/weekly-planner';
-      case 'To do List':
+      case 'Plan your Monthly goals':
         return '/annual-planner';
-      case 'Fun Calendars':
+      case 'Plan your Daily goals':
         return '/annual-calendar';
       case 'Thought Shredder':
         return '/thought-shredder';
@@ -820,32 +663,25 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
 
   void _handleVisionToolNavigation(String toolName) {
     switch (toolName) {
-      case 'Start guided journey':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => const VisionBoardTravelJourneyPage()),
-        );
-        break;
-      case 'Vision Boards':
+      case 'Plan your annual goals':
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const VisionBoardTemplateSelectionPage()),
         );
         break;
-      case 'Weekly Planners':
+      case 'Plan your Weekly goals':
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const WeeklyPlannerPage()),
         );
         break;
-      case 'To do List':
+      case 'Plan your Monthly goals':
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const AnnualPlannerPage()),
         );
         break;
-      case 'Fun Calendars':
+      case 'Plan your Daily goals':
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const AnnualCalenderPage()),
@@ -893,13 +729,6 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
 
   void _handleActivityToolNavigation(String toolName) {
     switch (toolName) {
-      case 'Start Guided Journey':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => const DistractMyMindJourney()),
-        );
-        break;
       case 'Digital Coloring':
         Navigator.push(
           context,

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'premium_them_vision_board.dart';
-import 'post_it_theme_vision_board.dart';
-import 'coffee_hues_theme_vision_board.dart';
-import 'winter_warmth_theme_vision_board.dart';
-import 'box_them_vision_board.dart';
-import 'ruby_reds_theme_vision_board.dart';
+import '../vision_bord/premium_them_vision_board.dart';
+import '../vision_bord/post_it_theme_vision_board.dart';
+import '../vision_bord/coffee_hues_theme_vision_board.dart';
+import '../vision_bord/winter_warmth_theme_vision_board.dart';
+import '../vision_bord/box_them_vision_board.dart';
+import '../vision_bord/ruby_reds_theme_vision_board.dart';
 import 'vision_board_category_picker.dart';
 
 class VisionBoardThemePickerPage extends StatelessWidget {

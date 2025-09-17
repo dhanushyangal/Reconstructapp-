@@ -3,19 +3,42 @@ import 'package:share_plus/share_plus.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:home_widget/home_widget.dart';
 import 'dart:convert';
 import '../services/database_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
-import 'active_dashboard_page.dart'; // Import for activity tracking
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
 import '../utils/platform_features.dart';
-import 'active_tasks_page.dart';
+import '../pages/active_tasks_page.dart';
 
-// Add manual login dialog widget
+class TodoItem {
+  String id;
+  String text;
+  bool isDone;
+
+  TodoItem({
+    required this.id,
+    required this.text,
+    this.isDone = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'text': text,
+        'isDone': isDone,
+      };
+
+  factory TodoItem.fromJson(Map<String, dynamic> json) => TodoItem(
+        id: json['id'],
+        text: json['text'],
+        isDone: json['isDone'],
+      );
+}
+
 class ManualLoginDialog extends StatefulWidget {
   const ManualLoginDialog({super.key});
 
@@ -68,7 +91,6 @@ class _ManualLoginDialogState extends State<ManualLoginDialog> {
       actions: [
         TextButton(
           onPressed: () async {
-            // Clear user info
             await UserService.instance.clearUserInfo();
             if (!mounted) return;
             Navigator.pop(context);
@@ -87,7 +109,6 @@ class _ManualLoginDialogState extends State<ManualLoginDialog> {
                 userName: _usernameController.text,
                 email: _emailController.text,
               );
-              // Test the connection now with new credentials
               if (!mounted) return;
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
@@ -112,46 +133,25 @@ class _ManualLoginDialogState extends State<ManualLoginDialog> {
   }
 }
 
-class TodoItem {
-  String id;
-  String text;
-  bool isDone;
-
-  TodoItem({
-    required this.id,
-    required this.text,
-    this.isDone = false,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'text': text,
-        'isDone': isDone,
-      };
-
-  factory TodoItem.fromJson(Map<String, dynamic> json) => TodoItem(
-        id: json['id'],
-        text: json['text'],
-        isDone: json['isDone'],
-      );
-}
-
-class VisionBoardDetailsPage extends StatefulWidget {
-  final String title;
-
-  const VisionBoardDetailsPage({super.key, required this.title});
+class WinterWarmthThemeVisionBoard extends StatefulWidget {
+  const WinterWarmthThemeVisionBoard({super.key});
 
   // Add route name to make navigation easier
-  static const routeName = '/box-them-vision-board';
+  static const routeName = '/winter-warmth-theme-vision-board';
 
   @override
-  State<VisionBoardDetailsPage> createState() => _VisionBoardDetailsPageState();
+  State<WinterWarmthThemeVisionBoard> createState() =>
+      _WinterWarmthThemeVisionBoardState();
 }
 
-class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
-    with ActivityTrackerMixin {
+class _WinterWarmthThemeVisionBoardState
+    extends State<WinterWarmthThemeVisionBoard> with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
+  final Map<String, List<TodoItem>> _todoLists = {};
+  bool _isSyncing = false;
+  DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
+  bool _hasNetworkConnectivity = true;
   final List<String> visionCategories = [
     'Travel',
     'Self Care',
@@ -175,13 +175,33 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
     'Inspiration',
     'Help'
   ];
-  final Map<String, List<TodoItem>> _todoLists = {};
-  bool _isSyncing = false;
-  DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
-  bool _hasNetworkConnectivity = true;
+
+  final List<Color> cardColors = [
+    Color.fromARGB(255, 194, 183, 163),
+    Color(0xFF330f0f),
+    Color(0xFFb78c56),
+    Color.fromARGB(255, 45, 41, 0),
+    Color(0xFF929092),
+    Color(0xFF741102),
+    Color(0xFF9e8c66),
+    Color(0xFF462a19),
+    Color(0xFF929274),
+    Color(0xFF8c5b3e),
+    Color(0xFF513c17),
+    Color(0xFF873c1c),
+    Color(0xFFaf8264),
+    Color(0xFF1b160a),
+    Color(0xFF9aa09c),
+    Color(0xFF233e48),
+    Color(0xFF4e5345),
+    Color(0xFF490001),
+    Color.fromARGB(255, 253, 216, 168),
+    Color.fromARGB(255, 147, 125, 104),
+    Color.fromARGB(255, 37, 53, 63),
+  ];
 
   @override
-  String get pageName => 'Box Theme Vision Board';
+  String get pageName => 'Winter Warmth Vision Board';
 
   @override
   void initState() {
@@ -206,7 +226,7 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
       });
     });
 
-    // Set up periodic sync - but less frequent and with conditions
+    // Set up periodic sync
     Timer.periodic(const Duration(minutes: 15), (timer) {
       if (mounted) {
         _checkAndSyncIfNeeded();
@@ -215,7 +235,7 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
       }
     });
 
-    // Track activity
+    // Add activity tracking
     _trackActivity();
   }
 
@@ -225,7 +245,7 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
 
     for (var category in visionCategories) {
       try {
-        final savedTodos = prefs.getString('BoxThem_todos_$category');
+        final savedTodos = prefs.getString('winterwarmth_todos_$category');
         if (savedTodos != null) {
           final List<dynamic> decoded = json.decode(savedTodos);
           setState(() {
@@ -240,8 +260,6 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
         debugPrint('Error parsing local tasks for $category: $e');
       }
     }
-
-    return Future.value();
   }
 
   // Check database connectivity
@@ -257,12 +275,10 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
 
   // Sync with database in background (only if conditions are right)
   Future<void> _checkAndSyncIfNeeded() async {
-    // Don't sync if we're already syncing or if we synced recently (within 5 minutes)
     if (_isSyncing || DateTime.now().difference(_lastSyncTime).inMinutes < 5) {
       return;
     }
 
-    // Check connectivity before attempting sync
     final hasConnectivity = await _checkDatabaseConnectivity();
 
     if (hasConnectivity) {
@@ -281,17 +297,14 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
     try {
       final userInfo = await UserService.instance.getUserInfo();
 
-      // Only try to load from database if we have valid user info
       if (userInfo['userName']?.isNotEmpty == true &&
           userInfo['email']?.isNotEmpty == true) {
-        // Load all tasks at once from database (single API call)
-        final allTasksFromDb =
-            await DatabaseService.instance.loadUserTasks(userInfo, 'BoxThem');
+        final allTasksFromDb = await DatabaseService.instance
+            .loadUserTasks(userInfo, 'WinterWarmth');
 
         if (allTasksFromDb.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
 
-          // Process all tasks from database
           for (var dbTask in allTasksFromDb) {
             final category = dbTask['card_id'];
             if (_todoLists.containsKey(category)) {
@@ -299,17 +312,16 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
                 final tasksJson = dbTask['tasks'] as String;
                 final List<dynamic> decoded = json.decode(tasksJson);
 
-                // Update state with database data
                 setState(() {
                   _todoLists[category] =
                       decoded.map((item) => TodoItem.fromJson(item)).toList();
                   _controllers[category]?.text = _formatDisplayText(category);
                 });
 
-                // Update local storage with database data
-                await prefs.setString('BoxThem_todos_$category', tasksJson);
+                await prefs.setString(
+                    'winterwarmth_todos_$category', tasksJson);
                 await HomeWidget.saveWidgetData(
-                    'BoxThem_todos_$category', tasksJson);
+                    'winterwarmth_todos_$category', tasksJson);
 
                 debugPrint(
                     'Updated local storage for $category with database data');
@@ -320,7 +332,6 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
           }
         }
 
-        // Update last sync time
         _lastSyncTime = DateTime.now();
       }
     } catch (e) {
@@ -334,13 +345,6 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
     }
   }
 
-  String _formatDisplayText(String category) {
-    final todos = _todoLists[category];
-    if (todos == null || todos.isEmpty) return '';
-
-    return todos.map((item) => "• ${item.text}").join("\n");
-  }
-
   // Improved to prioritize local storage
   Future<void> _saveTodoList(String category) async {
     final prefs = await SharedPreferences.getInstance();
@@ -348,8 +352,8 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
         .encode(_todoLists[category]?.map((item) => item.toJson()).toList());
 
     // Always save locally first (fast operation)
-    await prefs.setString('BoxThem_todos_$category', encoded);
-    await HomeWidget.saveWidgetData('BoxThem_todos_$category', encoded);
+    await prefs.setString('winterwarmth_todos_$category', encoded);
+    await HomeWidget.saveWidgetData('winterwarmth_todos_$category', encoded);
 
     // Update the widget
     await HomeWidget.updateWidget(
@@ -357,43 +361,24 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
       iOSName: 'VisionBoardWidget',
     );
 
-    // Only try to save to database if we have network connectivity
-    if (!_hasNetworkConnectivity) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Task saved locally (offline mode)'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-      return;
-    }
-
-    // Try to save to database in the background
+    // Try to save to database immediately
     try {
       final isLoggedIn = await DatabaseService.instance.isUserLoggedIn();
 
       if (isLoggedIn) {
-        // Get user info
         final userInfo = await UserService.instance.getUserInfo();
 
-        // Save to the API without waiting for the result
-        DatabaseService.instance
-            .saveTodoItem(userInfo, category, encoded, 'BoxThem')
-            .then((success) {
-          if (success && mounted) {
-            // Optionally show a brief confirmation
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Task synced to cloud'),
-                duration: Duration(seconds: 1),
-              ),
-            );
-          }
-        }).catchError((e) {
-          debugPrint('Background save to database failed: $e');
-        });
+        final success = await DatabaseService.instance
+            .saveTodoItem(userInfo, category, encoded, 'WinterWarmth');
+
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Task saved to cloud'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -401,7 +386,6 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
             action: SnackBarAction(
               label: 'Login',
               onPressed: () {
-                // Navigate to login page
                 Navigator.of(context).pushNamed('/login');
               },
             ),
@@ -409,129 +393,23 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
         );
       }
     } catch (e) {
-      debugPrint('Error in database save preparation: $e');
-    }
-  }
-
-  @override
-  void dispose() {
-    for (var controller in _controllers.values) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  Future<void> _takeScreenshotAndShare() async {
-    try {
-      final image = await screenshotController.capture();
-      if (image == null) return;
-
-      final directory = await getApplicationDocumentsDirectory();
-      final imagePath = '${directory.path}/vision_board.png';
-      final imageFile = File(imagePath);
-      await imageFile.writeAsBytes(image);
-
-      await Share.shareXFiles([XFile(imagePath)],
-          text: 'My Vision Board for 2025');
-    } catch (e) {
-      debugPrint('Error sharing vision board: $e');
-    }
-  }
-
-  Widget _buildVisionCard(String title) {
-    return GestureDetector(
-      onTap: () => _showTodoDialog(title),
-      onLongPress: () async {
-        // Send message to update widget with edit mode
-        await HomeWidget.saveWidgetData('edit_mode', title);
-        await HomeWidget.updateWidget(
-          androidName: 'VisionBoardWidget',
-          iOSName: 'VisionBoardWidget',
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/vision-board-ruled.png'),
-            fit: BoxFit.cover,
+      debugPrint('Error saving to database: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Task saved locally only'),
+            duration: Duration(seconds: 2),
           ),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withAlpha(50),
-              spreadRadius: 2,
-              blurRadius: 6,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 17,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: GestureDetector(
-                    onTap: () {
-                      _showTodoDialog(title);
-                    },
-                    child: _todoLists[title]?.isEmpty ?? true
-                        ? const Text(
-                            'Write your\nvision here',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 16,
-                              height: 1.4,
-                            ),
-                          )
-                        : Text.rich(
-                            TextSpan(
-                              children: _todoLists[title]?.map((todo) {
-                                    return TextSpan(
-                                      text: "• ${todo.text}\n",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        decoration: todo.isDone == true
-                                            ? TextDecoration.lineThrough
-                                            : TextDecoration.none,
-                                        color: todo.isDone == true
-                                            ? Colors.grey
-                                            : Colors.black,
-                                      ),
-                                    );
-                                  }).toList() ??
-                                  [],
-                            ),
-                          ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+        );
+      }
+    }
+  }
+
+  String _formatDisplayText(String category) {
+    final todos = _todoLists[category];
+    if (todos == null || todos.isEmpty) return '';
+
+    return todos.map((item) => "• ${item.text}").join("\n");
   }
 
   void _showTodoDialog(String category) {
@@ -554,11 +432,129 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
     );
   }
 
+  Future<void> loadData() async {
+    try {
+      final data = await HomeWidget.getWidgetData<String>('winter_warmth_data');
+      if (data != null) {
+        setState(() {
+          // Update your state based on widget data
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading widget data: $e');
+    }
+  }
+
+  Future<void> _takeScreenshotAndShare() async {
+    try {
+      final image = await screenshotController.capture();
+      if (image == null) return;
+
+      final directory = await getApplicationDocumentsDirectory();
+      final imagePath = '${directory.path}/winter_warmth_vision_board.png';
+      final imageFile = File(imagePath);
+      await imageFile.writeAsBytes(image);
+
+      await Share.shareXFiles([XFile(imagePath)],
+          text: 'My Winter Warmth Vision Board');
+    } catch (e) {
+      debugPrint('Error sharing vision board: $e');
+    }
+  }
+
+  Widget _buildVisionCard(String title, Color color) {
+    return GestureDetector(
+      onTap: () => _showTodoDialog(title),
+      child: Container(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: const Color.fromARGB(255, 255, 255, 255).withAlpha(50),
+              spreadRadius: 2,
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              ),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: Color.fromARGB(255, 255, 255, 255),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      _showTodoDialog(title);
+                    },
+                    child: _todoLists[title]?.isEmpty ?? true
+                        ? const Text(
+                            'Write your\nvision here',
+                            style: TextStyle(
+                              color: Color.fromARGB(255, 160, 171, 150),
+                              fontSize: 16,
+                              height: 1.4,
+                            ),
+                          )
+                        : Text.rich(
+                            TextSpan(
+                              children: _todoLists[title]?.map((todo) {
+                                    return TextSpan(
+                                      text: "• ${todo.text}\n",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        decoration: todo.isDone == true
+                                            ? TextDecoration.lineThrough
+                                            : TextDecoration.none,
+                                        color: todo.isDone == true
+                                            ? const Color.fromARGB(
+                                                255, 255, 255, 255)
+                                            : const Color.fromARGB(
+                                                255, 255, 255, 255),
+                                      ),
+                                    );
+                                  }).toList() ??
+                                  [],
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: const Text('Winter Warmth Theme Vision Board'),
         actions: [
           // Add a sync button
           _isSyncing
@@ -617,7 +613,6 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
               child: Screenshot(
                 controller: screenshotController,
                 child: Container(
-                  color: Colors.grey[100],
                   padding: const EdgeInsets.all(12.0),
                   child: GridView.builder(
                     shrinkWrap: true,
@@ -630,8 +625,8 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
                       crossAxisSpacing: 10,
                     ),
                     itemCount: visionCategories.length,
-                    itemBuilder: (context, index) =>
-                        _buildVisionCard(visionCategories[index]),
+                    itemBuilder: (context, index) => _buildVisionCard(
+                        visionCategories[index], cardColors[index]),
                   ),
                 ),
               ),
@@ -641,9 +636,8 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                PlatformFeatureWidget(
-                  featureName: 'add_widgets',
-                  child: ElevatedButton.icon(
+                if (PlatformFeatures.isFeatureAvailable('add_widgets'))
+                  ElevatedButton.icon(
                     onPressed: () async {
                       final url =
                           'https://youtube.com/shorts/IAeczaEygUM?feature=share';
@@ -652,8 +646,7 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
                           mode: LaunchMode.externalApplication)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                              content:
-                                  Text('Could not open YouTube shorts: $url')),
+                              content: Text('Could not open YouTube shorts: $url')),
                         );
                       }
                     },
@@ -670,7 +663,6 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
                       ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -691,30 +683,6 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
                     ),
                   ),
                 ),
-                if (_isSyncing)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.grey.shade600),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Syncing with cloud...',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade600),
-                        ),
-                      ],
-                    ),
-                  ),
               ],
             ),
           ),
@@ -723,14 +691,14 @@ class _VisionBoardDetailsPageState extends State<VisionBoardDetailsPage>
     );
   }
 
-  // Complete implementation of _trackActivity method
+  // Method to track activity in recent activities
   Future<void> _trackActivity() async {
     try {
       final activity = RecentActivityItem(
-        name: 'Box Theme Vision Board',
-        imagePath: 'assets/vision-board-ruled.png',
+        name: 'Winter Warmth Theme Vision Board',
+        imagePath: 'assets/images/winter.png',
         timestamp: DateTime.now(),
-        routeName: VisionBoardDetailsPage.routeName,
+        routeName: WinterWarmthThemeVisionBoard.routeName,
       );
 
       await ActivityTracker().trackActivity(activity);
@@ -858,7 +826,6 @@ class TodoListDialogState extends State<TodoListDialog> {
                     androidName: 'VisionBoardWidget',
                     iOSName: 'VisionBoardWidget',
                   );
-                  if (!mounted) return;
                   Navigator.pop(context);
                 },
                 child: const Text('Save'),

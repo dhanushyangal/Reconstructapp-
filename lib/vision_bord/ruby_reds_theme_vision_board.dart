@@ -10,10 +10,10 @@ import '../services/database_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
-import 'active_dashboard_page.dart'; // Import for activity tracking
-import '../utils/activity_tracker_mixin.dart'; // Import activity tracking mixin
-import '../utils/platform_features.dart'; // Import for platform feature check
-import 'active_tasks_page.dart';
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
+import '../utils/activity_tracker_mixin.dart';
+import '../utils/platform_features.dart';
+import '../pages/active_tasks_page.dart';
 
 class TodoItem {
   String id;
@@ -133,25 +133,21 @@ class _ManualLoginDialogState extends State<ManualLoginDialog> {
   }
 }
 
-class PremiumThemeVisionBoard extends StatefulWidget {
-  const PremiumThemeVisionBoard({super.key});
+class RubyRedsThemeVisionBoard extends StatefulWidget {
+  const RubyRedsThemeVisionBoard({super.key});
 
   // Add route name to make navigation easier
-  static const routeName = '/premium-theme-vision-board';
+  static const routeName = '/ruby-reds-theme-vision-board';
 
   @override
-  State<PremiumThemeVisionBoard> createState() =>
-      _PremiumThemeVisionBoardState();
+  State<RubyRedsThemeVisionBoard> createState() =>
+      _RubyRedsThemeVisionBoardState();
 }
 
-class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
+class _RubyRedsThemeVisionBoardState extends State<RubyRedsThemeVisionBoard>
     with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
-  final Map<String, List<TodoItem>> _todoLists = {};
-  bool _isSyncing = false;
-  DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
-  bool _hasNetworkConnectivity = true;
   final List<String> visionCategories = [
     'Travel',
     'Self Care',
@@ -176,9 +172,37 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
     'Help'
   ];
 
-  // Custom page name for activity tracking
+  final List<Color> cardColors = [
+    Color(0xFF4A0404), // Deep Ruby
+    Color(0xFF8B0000), // Dark Red
+    Color(0xFFA91B0D), // Ruby Red
+    Color(0xFFB22222), // Firebrick
+    Color(0xFFC41E3A), // Cardinal Red
+    Color(0xFFDC143C), // Crimson
+    Color(0xFFE34234), // Cinnabar
+    Color(0xFFCD5C5C), // Indian Red
+    Color(0xFFE35D6A), // Light Carmine Pink
+    Color(0xFFFF6B6B), // Pastel Red
+    Color(0xFFDB7093), // Pale Violet Red
+    Color(0xFFDC143C), // Crimson Red
+    Color(0xFFB22222), // Fire Brick
+    Color(0xFFA91B0D), // Ruby Red
+    Color(0xFF8B0000), // Dark Red
+    Color(0xFF800000), // Maroon
+    Color(0xFF4A0404), // Deep Ruby
+    Color(0xFFCD5C5C), // Indian Red
+    Color(0xFFE34234), // Cinnabar
+    Color(0xFFDC143C), // Crimson
+    Color(0xFFB22222) // Fire Brick
+  ];
+
+  final Map<String, List<TodoItem>> _todoLists = {};
+  bool _isSyncing = false;
+  DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
+  bool _hasNetworkConnectivity = true;
+
   @override
-  String get pageName => 'Premium Vision Board';
+  String get pageName => 'Ruby Reds Vision Board';
 
   @override
   void initState() {
@@ -212,24 +236,8 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
       }
     });
 
-    // Track this page visit in recent activities
+    // Add activity tracking
     _trackActivity();
-  }
-
-  // Method to track activity in recent activities
-  Future<void> _trackActivity() async {
-    try {
-      final activity = RecentActivityItem(
-        name: 'Premium Theme Vision Board',
-        imagePath: 'assets/images/premium.png',
-        timestamp: DateTime.now(),
-        routeName: PremiumThemeVisionBoard.routeName,
-      );
-
-      await ActivityTracker().trackActivity(activity);
-    } catch (e) {
-      print('Error tracking activity: $e');
-    }
   }
 
   // Load all data from local storage (fast operation)
@@ -238,7 +246,7 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
 
     for (var category in visionCategories) {
       try {
-        final savedTodos = prefs.getString('premium_todos_$category');
+        final savedTodos = prefs.getString('rubyreds_todos_$category');
         if (savedTodos != null) {
           final List<dynamic> decoded = json.decode(savedTodos);
           setState(() {
@@ -293,7 +301,7 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
       if (userInfo['userName']?.isNotEmpty == true &&
           userInfo['email']?.isNotEmpty == true) {
         final allTasksFromDb =
-            await DatabaseService.instance.loadUserTasks(userInfo, 'Premium');
+            await DatabaseService.instance.loadUserTasks(userInfo, 'RubyReds');
 
         if (allTasksFromDb.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
@@ -311,9 +319,9 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
                   _controllers[category]?.text = _formatDisplayText(category);
                 });
 
-                await prefs.setString('premium_todos_$category', tasksJson);
+                await prefs.setString('rubyreds_todos_$category', tasksJson);
                 await HomeWidget.saveWidgetData(
-                    'premium_todos_$category', tasksJson);
+                    'rubyreds_todos_$category', tasksJson);
 
                 debugPrint(
                     'Updated local storage for $category with database data');
@@ -344,8 +352,8 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
         .encode(_todoLists[category]?.map((item) => item.toJson()).toList());
 
     // Always save locally first (fast operation)
-    await prefs.setString('premium_todos_$category', encoded);
-    await HomeWidget.saveWidgetData('premium_todos_$category', encoded);
+    await prefs.setString('rubyreds_todos_$category', encoded);
+    await HomeWidget.saveWidgetData('rubyreds_todos_$category', encoded);
 
     // Update the widget
     await HomeWidget.updateWidget(
@@ -361,7 +369,7 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
         final userInfo = await UserService.instance.getUserInfo();
 
         final success = await DatabaseService.instance
-            .saveTodoItem(userInfo, category, encoded, 'Premium');
+            .saveTodoItem(userInfo, category, encoded, 'RubyReds');
 
         if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -404,33 +412,70 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
     return todos.map((item) => "• ${item.text}").join("\n");
   }
 
+  void _showTodoDialog(String category) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: TodoListDialog(
+          category: category,
+          todoItems: _todoLists[category] ?? [],
+          onSave: (updatedItems) async {
+            setState(() {
+              _todoLists[category] = updatedItems;
+              _controllers[category]?.text = _formatDisplayText(category);
+            });
+            await _saveTodoList(category);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> loadData() async {
+    try {
+      final data = await HomeWidget.getWidgetData<String>('vision_data');
+      if (data != null) {
+        setState(() {
+          // Update your state based on widget data
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading widget data: $e');
+    }
+  }
+
   Future<void> _takeScreenshotAndShare() async {
     try {
       final image = await screenshotController.capture();
       if (image == null) return;
 
       final directory = await getApplicationDocumentsDirectory();
-      final imagePath = '${directory.path}/premium_vision_board.png';
+      final imagePath = '${directory.path}/ruby_reds_vision_board.png';
       final imageFile = File(imagePath);
       await imageFile.writeAsBytes(image);
 
       await Share.shareXFiles([XFile(imagePath)],
-          text: 'My Premium Vision Board for 2025');
+          text: 'My Ruby Reds Vision Board for 2025');
     } catch (e) {
       debugPrint('Error sharing vision board: $e');
     }
   }
 
-  Widget _buildVisionCard(String title) {
+  @override
+  void dispose() {
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Widget _buildVisionCard(String title, Color color) {
     return GestureDetector(
-      onTap: () {
-        // Track user interaction with vision card
-        trackButtonTap('Vision Card', additionalDetails: title);
-        _showTodoDialog(title);
-      },
+      onTap: () => _showTodoDialog(title),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.black,
+          color: color,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -448,15 +493,15 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.black,
+                color: color,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
               ),
               child: Text(
                 title,
                 style: const TextStyle(
-                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 17,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -511,31 +556,11 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
     );
   }
 
-  void _showTodoDialog(String category) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: TodoListDialog(
-          category: category,
-          todoItems: _todoLists[category] ?? [],
-          onSave: (updatedItems) async {
-            setState(() {
-              _todoLists[category] = updatedItems;
-              _controllers[category]?.text = _formatDisplayText(category);
-            });
-            await _saveTodoList(category);
-          },
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Premium Theme Vision Board'),
+        title: const Text('Ruby Reds Theme Vision Board'),
         actions: [
           // Add a sync button
           _isSyncing
@@ -576,9 +601,6 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
                   const Spacer(),
                   TextButton(
                     onPressed: () async {
-                      // Track user interaction
-                      trackButtonTap('Check Connectivity');
-
                       final result = await _checkDatabaseConnectivity();
                       setState(() {
                         _hasNetworkConnectivity = result;
@@ -597,7 +619,6 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
               child: Screenshot(
                 controller: screenshotController,
                 child: Container(
-                  color: Colors.grey[100],
                   padding: const EdgeInsets.all(12.0),
                   child: GridView.builder(
                     shrinkWrap: true,
@@ -610,8 +631,10 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
                       crossAxisSpacing: 10,
                     ),
                     itemCount: visionCategories.length,
-                    itemBuilder: (context, index) =>
-                        _buildVisionCard(visionCategories[index]),
+                    itemBuilder: (context, index) => _buildVisionCard(
+                      visionCategories[index],
+                      cardColors[index],
+                    ),
                   ),
                 ),
               ),
@@ -624,10 +647,6 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
                 if (PlatformFeatures.isFeatureAvailable('add_widgets'))
                   ElevatedButton.icon(
                     onPressed: () async {
-                      // Track user interaction
-                      trackButtonTap('Add Widgets',
-                          additionalDetails: 'YouTube tutorial');
-
                       final url =
                           'https://youtube.com/shorts/IAeczaEygUM?feature=share';
                       final uri = Uri.parse(url);
@@ -635,8 +654,7 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
                           mode: LaunchMode.externalApplication)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                              content:
-                                  Text('Could not open YouTube shorts: $url')),
+                              content: Text('Could not open YouTube shorts: $url')),
                         );
                       }
                     },
@@ -679,6 +697,22 @@ class _PremiumThemeVisionBoardState extends State<PremiumThemeVisionBoard>
         ],
       ),
     );
+  }
+
+  // Method to track activity in recent activities
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Ruby Reds Theme Vision Board',
+        imagePath: 'assets/images/ruby.png',
+        timestamp: DateTime.now(),
+        routeName: RubyRedsThemeVisionBoard.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 }
 
@@ -741,7 +775,11 @@ class TodoListDialogState extends State<TodoListDialog> {
         children: [
           Text(
             widget.category,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color.fromARGB(255, 0, 0, 0),
+            ),
           ),
           const SizedBox(height: 16),
           TextField(
@@ -749,8 +787,12 @@ class TodoListDialogState extends State<TodoListDialog> {
             decoration: InputDecoration(
               hintText: 'Add a new task',
               suffixIcon: IconButton(
-                icon: const Icon(Icons.add),
+                icon:
+                    const Icon(Icons.add, color: Color.fromARGB(255, 0, 0, 0)),
                 onPressed: _addItem,
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Color(0xFF8B0000)),
               ),
             ),
             onSubmitted: (_) => _addItem(),
@@ -765,7 +807,10 @@ class TodoListDialogState extends State<TodoListDialog> {
                 return ListTile(
                   leading: Checkbox(
                     value: item.isDone,
-                    onChanged: (value) => _toggleItem(item),
+                    activeColor: Color(0xFF8B0000),
+                    onChanged: (value) {
+                      _toggleItem(item);
+                    },
                   ),
                   title: Text(
                     item.text,
@@ -776,7 +821,7 @@ class TodoListDialogState extends State<TodoListDialog> {
                     ),
                   ),
                   trailing: IconButton(
-                    icon: const Icon(Icons.delete),
+                    icon: const Icon(Icons.delete, color: Color(0xFF8B0000)),
                     onPressed: () => _removeItem(item),
                   ),
                 );
@@ -789,7 +834,10 @@ class TodoListDialogState extends State<TodoListDialog> {
             children: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: Color.fromRGBO(93, 126, 163, 1)),
+                ),
               ),
               ElevatedButton(
                 onPressed: () async {
@@ -800,6 +848,9 @@ class TodoListDialogState extends State<TodoListDialog> {
                   );
                   Navigator.pop(context);
                 },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color.fromARGB(255, 255, 255, 255),
+                ),
                 child: const Text('Save'),
               ),
             ],

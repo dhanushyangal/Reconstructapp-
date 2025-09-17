@@ -10,10 +10,10 @@ import '../services/database_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
-import 'active_dashboard_page.dart'; // Import for activity tracking
+import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
-import '../utils/platform_features.dart'; // Import for platform features
-import 'active_tasks_page.dart';
+import '../utils/platform_features.dart';
+import '../pages/active_tasks_page.dart';
 
 class TodoItem {
   String id;
@@ -133,24 +133,21 @@ class _ManualLoginDialogState extends State<ManualLoginDialog> {
   }
 }
 
-class PostItThemeVisionBoard extends StatefulWidget {
-  const PostItThemeVisionBoard({super.key});
+class CoffeeHuesThemeVisionBoard extends StatefulWidget {
+  const CoffeeHuesThemeVisionBoard({super.key});
 
   // Add route name to make navigation easier
-  static const routeName = '/post-it-theme-vision-board';
+  static const routeName = '/coffee-hues-theme-vision-board';
 
   @override
-  State<PostItThemeVisionBoard> createState() => _PostItThemeVisionBoardState();
+  State<CoffeeHuesThemeVisionBoard> createState() =>
+      _CoffeeHuesThemeVisionBoardState();
 }
 
-class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
+class _CoffeeHuesThemeVisionBoardState extends State<CoffeeHuesThemeVisionBoard>
     with ActivityTrackerMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
-  final Map<String, List<TodoItem>> _todoLists = {};
-  bool _isSyncing = false;
-  DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
-  bool _hasNetworkConnectivity = true;
   final List<String> visionCategories = [
     'Travel',
     'Self Care',
@@ -176,31 +173,36 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
   ];
 
   final List<Color> cardColors = [
-    Colors.orange, // Travel
-    Color.fromARGB(255, 244, 118, 142), // Self Care
-    Color.fromRGBO(235, 196, 95, 1), // Forgive
-    Color.fromARGB(255, 55, 78, 49), // Love
-    Color.fromARGB(255, 164, 219, 117), // Family
-    Color.fromARGB(255, 170, 238, 217), // Career
-    Color.fromARGB(255, 64, 83, 162), // Health
-    Color.fromARGB(255, 98, 126, 138), // Hobbies
-    Color.fromARGB(255, 67, 141, 204), // Knowledge
-    Color.fromARGB(255, 253, 60, 5), // Social
-    Color.fromARGB(255, 255, 150, 38), // Reading
-    Color.fromARGB(255, 62, 173, 154), // Food
-    Color.fromARGB(255, 254, 181, 89), // Music
-    Color.fromARGB(255, 255, 243, 208), // Tech
-    Color.fromARGB(255, 207, 174, 203), // DIY
-    Color.fromARGB(255, 250, 188, 139), // Luxury
-    Color.fromARGB(255, 45, 30, 99), // Income
-    Color.fromARGB(255, 251, 87, 86), // BMI (default to pink if null)
-    Color.fromARGB(255, 240, 166, 225), // Invest (default to purple if null)
-    Color.fromARGB(255, 255, 255, 255), // Inspiration (default to blue if null)
-    Color.fromARGB(255, 34, 0, 201) // Help
+    Color(0xFF3C2A21), // Dark Brown
+    Color(0xFF765341), // Medium Brown
+    Color(0xFFBEA99B), // Light Beige
+    Color(0xFFF5E6D3), // Cream
+    Color(0xFF8B593E), // Rustic Brown
+    Color(0xFFD2B48C), // Light Brown
+    Color(0xFFBE9B7B), // Warm Beige
+    Color(0xFF6F4E37), // Coffee Brown
+    Color(0xFFDEB887), // Burlywood
+    Color(0xFF000000), // Black
+    Color(0xFFA87C5D), // Mocha
+    Color(0xFF967969), // Taupe
+    Color(0xFFB38B6D), // Light Coffee
+    Color(0xFFCBAC88), // Sand
+    Color(0xFF8B7355), // Olive Brown
+    Color(0xFF483C32), // Dark Taupe
+    Color(0xFF6B4423), // Saddle Brown
+    Color(0xFF7B3F00), // Chocolate
+    Color(0xFF8B4513), // Dark Brown
+    Color(0xFFD2B48C), // Tan
+    Color(0xFF6F4E37), // Coffee Brown
   ];
 
+  final Map<String, List<TodoItem>> _todoLists = {};
+  bool _isSyncing = false;
+  DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
+  bool _hasNetworkConnectivity = true;
+
   @override
-  String get pageName => 'Post-It Vision Board';
+  String get pageName => 'Coffee Hues Vision Board';
 
   @override
   void initState() {
@@ -234,7 +236,7 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
       }
     });
 
-    // Add activity tracking
+    // Add _trackActivity method call
     _trackActivity();
   }
 
@@ -244,7 +246,7 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
 
     for (var category in visionCategories) {
       try {
-        final savedTodos = prefs.getString('postit_todos_$category');
+        final savedTodos = prefs.getString('coffeehues_todos_$category');
         if (savedTodos != null) {
           final List<dynamic> decoded = json.decode(savedTodos);
           setState(() {
@@ -298,8 +300,8 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
 
       if (userInfo['userName']?.isNotEmpty == true &&
           userInfo['email']?.isNotEmpty == true) {
-        final allTasksFromDb =
-            await DatabaseService.instance.loadUserTasks(userInfo, 'PostIt');
+        final allTasksFromDb = await DatabaseService.instance
+            .loadUserTasks(userInfo, 'CoffeeHues');
 
         if (allTasksFromDb.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
@@ -317,9 +319,9 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
                   _controllers[category]?.text = _formatDisplayText(category);
                 });
 
-                await prefs.setString('postit_todos_$category', tasksJson);
+                await prefs.setString('coffeehues_todos_$category', tasksJson);
                 await HomeWidget.saveWidgetData(
-                    'postit_todos_$category', tasksJson);
+                    'coffeehues_todos_$category', tasksJson);
 
                 debugPrint(
                     'Updated local storage for $category with database data');
@@ -350,8 +352,8 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
         .encode(_todoLists[category]?.map((item) => item.toJson()).toList());
 
     // Always save locally first (fast operation)
-    await prefs.setString('postit_todos_$category', encoded);
-    await HomeWidget.saveWidgetData('postit_todos_$category', encoded);
+    await prefs.setString('coffeehues_todos_$category', encoded);
+    await HomeWidget.saveWidgetData('coffeehues_todos_$category', encoded);
 
     // Update the widget
     await HomeWidget.updateWidget(
@@ -367,7 +369,7 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
         final userInfo = await UserService.instance.getUserInfo();
 
         final success = await DatabaseService.instance
-            .saveTodoItem(userInfo, category, encoded, 'PostIt');
+            .saveTodoItem(userInfo, category, encoded, 'CoffeeHues');
 
         if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -432,7 +434,7 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
 
   Future<void> loadData() async {
     try {
-      final data = await HomeWidget.getWidgetData<String>('vision_data');
+      final data = await HomeWidget.getWidgetData<String>('coffee_vision_data');
       if (data != null) {
         setState(() {
           // Update your state based on widget data
@@ -443,137 +445,135 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
     }
   }
 
-  Future<void> updateWidget() async {
-    try {
-      await HomeWidget.saveWidgetData<String>(
-          'vision_data', 'Your vision data here');
-      await HomeWidget.updateWidget(
-        androidName: 'VisionBoardWidget',
-        iOSName: 'VisionBoardWidget',
-      );
-    } catch (e) {
-      debugPrint('Error updating widget: $e');
-    }
-  }
-
-  @override
-  void dispose() {
-    for (var controller in _controllers.values) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
   Future<void> _takeScreenshotAndShare() async {
     try {
       final image = await screenshotController.capture();
       if (image == null) return;
 
       final directory = await getApplicationDocumentsDirectory();
-      final imagePath = '${directory.path}/postit_vision_board.png';
+      final imagePath = '${directory.path}/coffee_vision_board.png';
       final imageFile = File(imagePath);
       await imageFile.writeAsBytes(image);
 
       await Share.shareXFiles([XFile(imagePath)],
-          text: 'My Post-It Vision Board for 2025');
+          text: 'My Coffee Hues Vision Board for 2025');
     } catch (e) {
       debugPrint('Error sharing vision board: $e');
     }
   }
 
   Widget _buildVisionCard(String title, Color color) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withAlpha(50),
-            spreadRadius: 2,
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+    return GestureDetector(
+      onTap: () => _showTodoDialog(title),
+      child: Container(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withAlpha(50),
+              spreadRadius: 2,
+              blurRadius: 6,
+              offset: const Offset(0, 3),
             ),
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 17,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              width: double.infinity,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
+                color: color,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
               ),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: GestureDetector(
-                  onTap: () {
-                    _showTodoDialog(title);
-                  },
-                  child: _todoLists[title]?.isEmpty ?? true
-                      ? const Text(
-                          'Write your\nvision here',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 16,
-                            height: 1.4,
-                          ),
-                        )
-                      : Text.rich(
-                          TextSpan(
-                            children: _todoLists[title]?.map((todo) {
-                                  return TextSpan(
-                                    text: "• ${todo.text}\n",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      decoration: todo.isDone == true
-                                          ? TextDecoration.lineThrough
-                                          : TextDecoration.none,
-                                      color: todo.isDone == true
-                                          ? Colors.grey
-                                          : (title == 'Love' ||
-                                                  title == 'Invest' ||
-                                                  title == 'Help'
-                                              ? const Color.fromARGB(
-                                                  255, 255, 255, 255)
-                                              : Colors.black),
-                                    ),
-                                  );
-                                }).toList() ??
-                                [],
-                          ),
-                        ),
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: title == 'Love'
+                      ? const Color.fromARGB(255, 0, 0, 0)
+                      : Colors.white,
                 ),
               ),
             ),
-          ),
-        ],
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      _showTodoDialog(title);
+                    },
+                    child: _todoLists[title]?.isEmpty ?? true
+                        ? const Text(
+                            'Write your\nvision here',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                              height: 1.4,
+                            ),
+                          )
+                        : Text.rich(
+                            TextSpan(
+                              children: _todoLists[title]?.map((todo) {
+                                    return TextSpan(
+                                      text: "• ${todo.text}\n",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        decoration: todo.isDone == true
+                                            ? TextDecoration.lineThrough
+                                            : TextDecoration.none,
+                                        color: todo.isDone == true
+                                            ? Colors.white
+                                            : title == 'Love'
+                                                ? const Color.fromARGB(
+                                                    255, 0, 0, 0)
+                                                : Colors.white,
+                                      ),
+                                    );
+                                  }).toList() ??
+                                  [],
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  // Add _trackActivity method to track when this page is visited
+  Future<void> _trackActivity() async {
+    try {
+      final activity = RecentActivityItem(
+        name: 'Coffee Hues Theme Vision Board',
+        imagePath: 'assets/images/coffee.png',
+        timestamp: DateTime.now(),
+        routeName: CoffeeHuesThemeVisionBoard.routeName,
+      );
+
+      await ActivityTracker().trackActivity(activity);
+    } catch (e) {
+      print('Error tracking activity: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Post-It Theme Vision Board'),
+        title: const Text('Coffee Hues Theme Vision Board'),
         actions: [
           // Add a sync button
           _isSyncing
@@ -632,8 +632,8 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
               child: Screenshot(
                 controller: screenshotController,
                 child: Container(
-                  color: Colors.grey[100],
                   padding: const EdgeInsets.all(12.0),
+                  color: const Color.fromARGB(255, 255, 255, 255),
                   child: GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -646,7 +646,9 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
                     ),
                     itemCount: visionCategories.length,
                     itemBuilder: (context, index) => _buildVisionCard(
-                        visionCategories[index], cardColors[index]),
+                      visionCategories[index],
+                      cardColors[index],
+                    ),
                   ),
                 ),
               ),
@@ -666,7 +668,8 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
                           mode: LaunchMode.externalApplication)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                              content: Text('Could not open YouTube shorts: $url')),
+                              content:
+                                  Text('Could not open YouTube shorts: $url')),
                         );
                       }
                     },
@@ -709,22 +712,6 @@ class _PostItThemeVisionBoardState extends State<PostItThemeVisionBoard>
         ],
       ),
     );
-  }
-
-  // Complete implementation of _trackActivity method
-  Future<void> _trackActivity() async {
-    try {
-      final activity = RecentActivityItem(
-        name: 'Post-it Theme Vision Board',
-        imagePath: 'assets/images/postit.png',
-        timestamp: DateTime.now(),
-        routeName: PostItThemeVisionBoard.routeName,
-      );
-
-      await ActivityTracker().trackActivity(activity);
-    } catch (e) {
-      print('Error tracking activity: $e');
-    }
   }
 }
 
