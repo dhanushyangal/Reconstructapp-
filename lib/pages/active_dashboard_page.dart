@@ -15,6 +15,7 @@ import '../Activity_Tools/color_me_now.dart';
 import 'dart:convert';
 import '../utils/activity_tracker_mixin.dart';
 import '../vision_bord_plan/vision_board_template_selection_page.dart';
+import '../components/nav_logpage.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -120,13 +121,13 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
   // Tool data organized by category
   final Map<String, List<Map<String, dynamic>>> _tools = {
     'vision': [
-      {'name': 'Plan your annual goals', 'image': 'assets\Plan_my_future-images\annual.png'},
-      {'name': 'Plan your Weekly goals', 'image': 'assets\Plan_my_future-images\weekly.png'},
+      {'name': 'Plan your annual goals', 'image': 'assets/Plan_my_future-images/annual.png'},
+      {'name': 'Plan your Weekly goals', 'image': 'assets/Plan_my_future-images/weekly.png'},
       {
         'name': 'Plan your Monthly goals',
-        'image': 'assets\Plan_my_future-images\monthly.png'
+        'image': 'assets/Plan_my_future-images/monthly.png'
       },
-      {'name': 'Plan your Daily goals', 'image': 'assets\Plan_my_future-images\daily.png'}
+      {'name': 'Plan your Daily goals', 'image': 'assets/Plan_my_future-images/daily.png'}
     ],
     'mind': [
       {
@@ -380,114 +381,32 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.categoryName,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+    return NavLogPage(
+      title: widget.categoryName,
+      showBackButton: true,
+      selectedIndex: 2, // Dashboard index
+      onNavigationTap: (index) {
+        // Navigate to different pages based on index
+        switch (index) {
+          case 0:
+            Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+            break;
+          case 1:
+            Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
+            break;
+          case 2:
+            Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
+            break;
+          case 3:
+            Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
+            break;
+          case 4:
+            Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
+            break;
+        }
+      },
       body: Column(
         children: [
-          // Progress bar at the top
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white,
-                  Color(0xFFF8FBFF),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Tool Selection Progress',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                    AnimatedBuilder(
-                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
-                      builder: (context, child) {
-                        return Text(
-                          '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}% Complete',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF23C4F7),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                Container(
-                  height: 10,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(5),
-                    color: Colors.grey[200],
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.2),
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: AnimatedBuilder(
-                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
-                      builder: (context, child) {
-                        return LinearProgressIndicator(
-                          value: _progressAnimation?.value ?? 0.0,
-                          backgroundColor: Colors.transparent,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'Choose a tool to continue your journey and unlock more progress!',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontStyle: FontStyle.italic,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
           
           // Fixed text above images
           Container(
@@ -509,7 +428,7 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
           
           SizedBox(height: 15),
 
-           // Sliding tools view
+           // Sliding tools view - moved to bottom
            Expanded(
              child: PageView.builder(
                controller: _pageController,
@@ -520,6 +439,51 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
                },
              ),
            ),
+
+          // Progress bar at the bottom
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5),
+                      color: Colors.grey[200],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(5),
+                      child: AnimatedBuilder(
+                        animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                        builder: (context, child) {
+                          return LinearProgressIndicator(
+                            value: _progressAnimation?.value ?? 0.0,
+                            backgroundColor: Colors.transparent,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16),
+                AnimatedBuilder(
+                  animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                  builder: (context, child) {
+                    return Text(
+                      '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF23C4F7),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
 
         ],
       ),

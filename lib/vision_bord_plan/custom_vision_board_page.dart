@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../utils/activity_tracker_mixin.dart';
 import '../utils/platform_features.dart';
 import '../pages/active_tasks_page.dart';
+import '../components/nav_logpage.dart';
 
 class TodoItem {
   String id;
@@ -538,112 +539,51 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.template),
-        automaticallyImplyLeading: false,
-        actions: [
-          _isSyncing
-              ? const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
+    return NavLogPage(
+      title: widget.template,
+      showBackButton: false,
+      selectedIndex: 2, // Dashboard index
+      actions: [
+        _isSyncing
+            ? const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.sync),
-                  tooltip: 'Sync with cloud',
-                  onPressed: _syncWithDatabase,
                 ),
-        ],
-      ),
+              )
+            : IconButton(
+                icon: const Icon(Icons.sync),
+                tooltip: 'Sync with cloud',
+                onPressed: _syncWithDatabase,
+              ),
+      ],
+      onNavigationTap: (index) {
+        // Navigate to different pages based on index
+        switch (index) {
+          case 0:
+            Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+            break;
+          case 1:
+            Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
+            break;
+          case 2:
+            Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
+            break;
+          case 3:
+            Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
+            break;
+          case 4:
+            Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
+            break;
+        }
+      },
       body: Column(
         children: [
-          // Progress bar at the top
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white,
-                  Color(0xFFF8FBFF),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Vision Board Creation Progress',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                    AnimatedBuilder(
-                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
-                      builder: (context, child) {
-                        return Text(
-                          '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}% Complete',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF23C4F7),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                Container(
-                  height: 10,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(5),
-                    color: Colors.grey[200],
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.2),
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: AnimatedBuilder(
-                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
-                      builder: (context, child) {
-                        return LinearProgressIndicator(
-                          value: _progressAnimation?.value ?? 0.0,
-                          backgroundColor: Colors.transparent,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
           if (!_hasNetworkConnectivity)
             Container(
               width: double.infinity,
@@ -775,6 +715,51 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                       ],
                     ),
                   ),
+              ],
+            ),
+          ),
+          
+          // Progress bar at the bottom
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5),
+                      color: Colors.grey[200],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(5),
+                      child: AnimatedBuilder(
+                        animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                        builder: (context, child) {
+                          return LinearProgressIndicator(
+                            value: _progressAnimation?.value ?? 0.0,
+                            backgroundColor: Colors.transparent,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16),
+                AnimatedBuilder(
+                  animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                  builder: (context, child) {
+                    return Text(
+                      '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF23C4F7),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
