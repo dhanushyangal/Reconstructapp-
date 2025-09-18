@@ -295,6 +295,86 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
       ),
       body: Column(
         children: [
+          // Progress bar at the top
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white,
+                  Color(0xFFF8FBFF),
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Life Areas Selection Progress',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    AnimatedBuilder(
+                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                      builder: (context, child) {
+                        return Text(
+                          '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}% Complete',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF23C4F7),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Container(
+                  height: 10,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(5),
+                    color: Colors.grey[200],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(5),
+                    child: AnimatedBuilder(
+                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                      builder: (context, child) {
+                        return LinearProgressIndicator(
+                          value: _progressAnimation?.value ?? 0.0,
+                          backgroundColor: Colors.transparent,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
           // Life areas container
           Expanded(
             child: Container(
@@ -364,86 +444,6 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
                   ),
                 ],
               ),
-            ),
-          ),
-          
-          // Progress bar at the bottom
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFF8FBFF),
-                  Colors.white,
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Life Areas Selection Progress',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                    AnimatedBuilder(
-                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
-                      builder: (context, child) {
-                        return Text(
-                          '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}% Complete',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF23C4F7),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                Container(
-                  height: 10,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(5),
-                    color: Colors.grey[200],
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.2),
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: AnimatedBuilder(
-                      animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
-                      builder: (context, child) {
-                        return LinearProgressIndicator(
-                          value: _progressAnimation?.value ?? 0.0,
-                          backgroundColor: Colors.transparent,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
           // Bottom action button

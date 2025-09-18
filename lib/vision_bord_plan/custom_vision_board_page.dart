@@ -564,60 +564,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
       ),
       body: Column(
         children: [
-          if (!_hasNetworkConnectivity)
-            Container(
-              width: double.infinity,
-              color: Colors.amber.shade100,
-              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 16),
-              child: Row(
-                children: [
-                  const Icon(Icons.offline_bolt, size: 16, color: Colors.amber),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Offline mode - changes saved locally',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () async {
-                      final result = await _checkDatabaseConnectivity();
-                      setState(() {
-                        _hasNetworkConnectivity = result;
-                      });
-                      if (result) {
-                        _syncWithDatabase();
-                      }
-                    },
-                    child: const Text('Check', style: TextStyle(fontSize: 12)),
-                  ),
-                ],
-              ),
-            ),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Screenshot(
-                controller: screenshotController,
-                child: Container(
-                  color: Colors.grey[100],
-                  padding: const EdgeInsets.all(12.0),
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: _getOptimalCrossAxisCount(widget.selectedAreas.length),
-                      childAspectRatio: _getOptimalAspectRatio(widget.selectedAreas.length),
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                    ),
-                    itemCount: widget.selectedAreas.length,
-                    itemBuilder: (context, index) =>
-                        _buildVisionCard(widget.selectedAreas[index], index),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Progress bar at the bottom
+          // Progress bar at the top
           Container(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
@@ -625,15 +572,15 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF8FBFF),
                   Colors.white,
+                  Color(0xFFF8FBFF),
                 ],
               ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.grey.withOpacity(0.1),
                   blurRadius: 8,
-                  offset: Offset(0, -2),
+                  offset: Offset(0, 2),
                 ),
               ],
             ),
@@ -694,6 +641,60 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                   ),
                 ),
               ],
+            ),
+          ),
+          
+          if (!_hasNetworkConnectivity)
+            Container(
+              width: double.infinity,
+              color: Colors.amber.shade100,
+              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 16),
+              child: Row(
+                children: [
+                  const Icon(Icons.offline_bolt, size: 16, color: Colors.amber),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Offline mode - changes saved locally',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () async {
+                      final result = await _checkDatabaseConnectivity();
+                      setState(() {
+                        _hasNetworkConnectivity = result;
+                      });
+                      if (result) {
+                        _syncWithDatabase();
+                      }
+                    },
+                    child: const Text('Check', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Screenshot(
+                controller: screenshotController,
+                child: Container(
+                  color: Colors.grey[100],
+                  padding: const EdgeInsets.all(12.0),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: _getOptimalCrossAxisCount(widget.selectedAreas.length),
+                      childAspectRatio: _getOptimalAspectRatio(widget.selectedAreas.length),
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                    ),
+                    itemCount: widget.selectedAreas.length,
+                    itemBuilder: (context, index) =>
+                        _buildVisionCard(widget.selectedAreas[index], index),
+                  ),
+                ),
+              ),
             ),
           ),
           Padding(

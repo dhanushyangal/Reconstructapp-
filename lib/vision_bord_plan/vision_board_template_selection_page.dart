@@ -297,37 +297,7 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
       ),
       body: Column(
         children: [
-          SizedBox(height: 30),
-          // Templates grid
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: GridView.count(
-                crossAxisCount: 2,
-                childAspectRatio: 0.85,
-                mainAxisSpacing: 20,
-                crossAxisSpacing: 20,
-                children: [
-                  _buildTemplateCard(
-                    context,
-                    'assets\Plan_your_annual_goals-images\Annual-boxy.png',
-                    'Boxy theme board'),
-                  _buildTemplateCard(
-                    context,
-                    'assets\Plan_your_annual_goals-images\Annual-post.png',
-                    'Post it theme board'),
-                  _buildTemplateCard(context, 
-                  'assets\Plan_your_annual_goals-images\Annual-premium.png',
-                      'Premium black board'),
-                  _buildTemplateCard(
-                    context,
-                    'assets\Plan_your_annual_goals-images\Annual-floral.png',
-                    'Floral theme board'),
-                ],
-              ),
-            ),
-          ),
-          // Progress bar at the bottom
+          // Progress bar at the top
           Container(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
@@ -335,15 +305,15 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF8FBFF),
                   Colors.white,
+                  Color(0xFFF8FBFF),
                 ],
               ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.grey.withOpacity(0.1),
                   blurRadius: 8,
-                  offset: Offset(0, -2),
+                  offset: Offset(0, 2),
                 ),
               ],
             ),
@@ -404,6 +374,36 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
                   ),
                 ),
               ],
+            ),
+          ),
+          SizedBox(height: 30),
+          // Templates grid
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: GridView.count(
+                crossAxisCount: 2,
+                childAspectRatio: 0.85,
+                mainAxisSpacing: 20,
+                crossAxisSpacing: 20,
+                children: [
+                  _buildTemplateCard(
+                    context,
+                    'assets\Plan_your_annual_goals-images\Annual-boxy.png',
+                    'Boxy theme board'),
+                  _buildTemplateCard(
+                    context,
+                    'assets\Plan_your_annual_goals-images\Annual-post.png',
+                    'Post it theme board'),
+                  _buildTemplateCard(context, 
+                  'assets\Plan_your_annual_goals-images\Annual-premium.png',
+                      'Premium black board'),
+                  _buildTemplateCard(
+                    context,
+                    'assets\Plan_your_annual_goals-images\Annual-floral.png',
+                    'Floral theme board'),
+                ],
+              ),
             ),
           ),
         ],

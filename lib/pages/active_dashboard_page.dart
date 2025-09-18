@@ -399,40 +399,7 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
       ),
       body: Column(
         children: [
-          
-          // Fixed text above images
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Take the first step — choose a tool.",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          SizedBox(height: 15),
-
-           // Sliding tools view - moved to bottom
-           Expanded(
-             child: PageView.builder(
-               controller: _pageController,
-               itemCount: widget.tools.length,
-               itemBuilder: (context, index) {
-                 final tool = widget.tools[index];
-                 return _buildToolSlide(tool, index);
-               },
-             ),
-           ),
-
-          // Progress bar at the bottom
+          // Progress bar at the top
           Container(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
@@ -440,15 +407,15 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF8FBFF),
                   Colors.white,
+                  Color(0xFFF8FBFF),
                 ],
               ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.grey.withOpacity(0.1),
                   blurRadius: 8,
-                  offset: Offset(0, -2),
+                  offset: Offset(0, 2),
                 ),
               ],
             ),
@@ -521,6 +488,38 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
               ],
             ),
           ),
+          
+          // Fixed text above images
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Take the first step — choose a tool.",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          SizedBox(height: 15),
+
+           // Sliding tools view
+           Expanded(
+             child: PageView.builder(
+               controller: _pageController,
+               itemCount: widget.tools.length,
+               itemBuilder: (context, index) {
+                 final tool = widget.tools[index];
+                 return _buildToolSlide(tool, index);
+               },
+             ),
+           ),
 
         ],
       ),
