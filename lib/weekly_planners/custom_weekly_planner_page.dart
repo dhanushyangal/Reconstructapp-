@@ -3,7 +3,7 @@ import 'package:screenshot/screenshot.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
 import 'dart:convert';
-import '../services/database_service.dart';
+import '../services/weekly_planner_service.dart';
 import '../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,35 +13,31 @@ import '../pages/active_tasks_page.dart';
 import '../components/nav_logpage.dart';
 
 class TodoItem {
-  String id;
   String text;
-  bool isDone;
+  bool completed;
 
   TodoItem({
-    required this.id,
     required this.text,
-    this.isDone = false,
+    this.completed = false,
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
         'text': text,
-        'isDone': isDone,
+        'completed': completed,
       };
 
   factory TodoItem.fromJson(Map<String, dynamic> json) => TodoItem(
-        id: json['id'],
         text: json['text'],
-        isDone: json['isDone'],
+        completed: json['completed'] ?? false,
       );
 }
 
-class CustomVisionBoardPage extends StatefulWidget {
+class CustomWeeklyPlannerPage extends StatefulWidget {
   final String template;
   final String imagePath;
   final List<String> selectedAreas;
 
-  const CustomVisionBoardPage({
+  const CustomWeeklyPlannerPage({
     super.key,
     required this.template,
     required this.imagePath,
@@ -49,10 +45,10 @@ class CustomVisionBoardPage extends StatefulWidget {
   });
 
   @override
-  State<CustomVisionBoardPage> createState() => _CustomVisionBoardPageState();
+  State<CustomWeeklyPlannerPage> createState() => _CustomWeeklyPlannerPageState();
 }
 
-class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
+class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
@@ -61,72 +57,45 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
   DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
   bool _hasNetworkConnectivity = true;
 
-  String get pageName => 'Custom Vision Board - ${widget.template}';
+  String get pageName => 'Custom Weekly Planner - ${widget.template}';
 
-  // Theme-specific colors and styles
+  // Theme-specific styles for weekly planners
   Map<String, dynamic> get _themeConfig {
     switch (widget.template) {
-      case 'Box theme Vision Board':
+      case 'Floral Weekly Planner':
         return {
-          'type': 'box',
-          'backgroundImage': 'assets/vision-board-ruled.png',
-          'cardBackground': Colors.white,
-          'textColor': Colors.black,
-          'placeholderColor': Colors.grey,
-          'storagePrefix': 'BoxThem',
+          'type': 'floral',
+          'textColor': Colors.black87,
+          'placeholderColor': Colors.grey[600]!,
+          'storagePrefix': 'WeeklyFloral',
         };
-      case 'PostIt theme Vision Board':
+      case 'Watercolor Weekly Planner':
         return {
-          'type': 'postit',
-          'cardColors': [
-            Colors.orange,
-            Color.fromARGB(255, 244, 118, 142),
-            Color.fromRGBO(235, 196, 95, 1),
-            Color.fromARGB(255, 55, 78, 49),
-            Color.fromARGB(255, 164, 219, 117),
-            Color.fromARGB(255, 170, 238, 217),
-            Color.fromARGB(255, 64, 83, 162),
-            Color.fromARGB(255, 98, 126, 138),
-            Color.fromARGB(255, 67, 141, 204),
-          ],
-          'textColor': Colors.black,
-          'placeholderColor': Colors.grey,
-          'storagePrefix': 'BoxThem',
+          'type': 'watercolor',
+          'textColor': Colors.black87,
+          'placeholderColor': Colors.grey[600]!,
+          'storagePrefix': 'WeeklyWatercolor',
         };
-      case 'Premium theme Vision Board':
+      case 'Patterns Weekly Planner':
         return {
-          'type': 'premium',
-          'cardBackground': Colors.black,
-          'textColor': Colors.white,
-          'placeholderColor': Colors.grey,
-          'storagePrefix': 'BoxThem',
+          'type': 'patterns',
+          'textColor': Colors.black87,
+          'placeholderColor': Colors.grey[600]!,
+          'storagePrefix': 'WeeklyPatterns',
         };
-      case 'Winter Warmth theme Vision Board':
+      case 'Japanese Weekly Planner':
         return {
-          'type': 'winter',
-          'cardColors': [
-            Color.fromARGB(255, 194, 183, 163),
-            Color(0xFF330f0f),
-            Color(0xFFb78c56),
-            Color.fromARGB(255, 45, 41, 0),
-            Color(0xFF929092),
-            Color(0xFF741102),
-            Color(0xFF9e8c66),
-            Color(0xFF462a19),
-            Color(0xFF929274),
-          ],
-          'textColor': Colors.white,
-          'placeholderColor': Color.fromARGB(255, 160, 171, 150),
-          'storagePrefix': 'BoxThem',
+          'type': 'japanese',
+          'textColor': Colors.black87,
+          'placeholderColor': Colors.grey[600]!,
+          'storagePrefix': 'WeeklyJapanese',
         };
       default:
         return {
-          'type': 'box',
-          'backgroundImage': 'assets/vision-board-ruled.png',
-          'cardBackground': Colors.white,
-          'textColor': Colors.black,
-          'placeholderColor': Colors.grey,
-          'storagePrefix': 'BoxThem',
+          'type': 'floral',
+          'textColor': Colors.black87,
+          'placeholderColor': Colors.grey[600]!,
+          'storagePrefix': 'WeeklyDefault',
         };
     }
   }
@@ -186,10 +155,10 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
             _controllers[category]?.text = _formatDisplayText(category);
           });
           debugPrint(
-              'Loaded ${_todoLists[category]?.length ?? 0} tasks from local storage for $category');
+              'Loaded ${_todoLists[category]?.length ?? 0} weekly tasks from local storage for $category');
         }
       } catch (e) {
-        debugPrint('Error parsing local tasks for $category: $e');
+        debugPrint('Error parsing local weekly tasks for $category: $e');
       }
     }
   }
@@ -197,8 +166,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
   // Check database connectivity
   Future<bool> _checkDatabaseConnectivity() async {
     try {
-      final result = await DatabaseService.instance.testConnection();
-      return result['success'] == true;
+      return await WeeklyPlannerService.instance.testConnection();
     } catch (e) {
       debugPrint('Database connectivity check failed: $e');
       return false;
@@ -234,7 +202,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
       if (userInfo['userName']?.isNotEmpty == true &&
           userInfo['email']?.isNotEmpty == true) {
         final allTasksFromDb =
-            await DatabaseService.instance.loadUserTasks(userInfo, storagePrefix);
+            await WeeklyPlannerService.instance.loadUserTasks(userInfo, theme: themeConfig['type']);
 
         if (allTasksFromDb.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
@@ -243,7 +211,11 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
             final category = dbTask['card_id'];
             if (_todoLists.containsKey(category)) {
               try {
-                final tasksJson = dbTask['tasks'] as String;
+                final tasksJson = dbTask['tasks'] as String?;
+                if (tasksJson == null || tasksJson.isEmpty) {
+                  debugPrint('No tasks data for $category, skipping');
+                  continue;
+                }
                 final List<dynamic> decoded = json.decode(tasksJson);
 
                 setState(() {
@@ -263,12 +235,48 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
               }
             }
           }
+
+          // Update the widget after syncing
+          await HomeWidget.updateWidget(
+            androidName: 'WeeklyPlannerWidget',
+            iOSName: 'WeeklyPlannerWidget',
+          );
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Synced with cloud'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
         }
 
         _lastSyncTime = DateTime.now();
+      } else {
+        debugPrint('No user info found');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Please set user information to sync'),
+              action: SnackBarAction(
+                label: 'Set Info',
+                onPressed: () => _showManualLoginDialog(),
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error syncing with database: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error syncing with cloud'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -292,8 +300,8 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
 
     // Update the widget
     await HomeWidget.updateWidget(
-      androidName: 'VisionBoardWidget',
-      iOSName: 'VisionBoardWidget',
+      androidName: 'WeeklyPlannerWidget',
+      iOSName: 'WeeklyPlannerWidget',
     );
 
     // Only try to save to database if we have network connectivity
@@ -301,7 +309,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Task saved locally (offline mode)'),
+            content: Text('Weekly task saved locally (offline mode)'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -311,18 +319,18 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
 
     // Try to save to database in the background
     try {
-      final isLoggedIn = await DatabaseService.instance.isUserLoggedIn();
+      final userInfo = await UserService.instance.getUserInfo();
+      final isLoggedIn = userInfo['userName']?.isNotEmpty == true;
 
       if (isLoggedIn) {
-        final userInfo = await UserService.instance.getUserInfo();
 
-        DatabaseService.instance
-            .saveTodoItem(userInfo, category, encoded, storagePrefix)
+        WeeklyPlannerService.instance
+            .saveTodoItem(userInfo, category, encoded, theme: themeConfig['type'])
             .then((success) {
           if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Task synced to cloud'),
+                content: Text('Weekly task synced to cloud'),
                 duration: Duration(seconds: 1),
               ),
             );
@@ -363,23 +371,13 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
     super.dispose();
   }
 
-
-  Widget _buildVisionCard(String title, int index) {
+  Widget _buildWeeklyPlannerCard(String title, int index) {
     final themeConfig = _themeConfig;
-    final cardColors = themeConfig['cardColors'] as List<Color>?;
-    final cardBackground = themeConfig['cardBackground'] as Color?;
-    final backgroundImage = themeConfig['backgroundImage'] as String?;
     final textColor = themeConfig['textColor'] as Color;
     final placeholderColor = themeConfig['placeholderColor'] as Color;
 
-    Color cardColor;
-    if (cardColors != null && index < cardColors.length) {
-      cardColor = cardColors[index];
-    } else if (cardBackground != null) {
-      cardColor = cardBackground;
-    } else {
-      cardColor = Colors.white;
-    }
+    // Get the appropriate image path based on theme and index
+    String imagePath = _getCardImagePath(themeConfig['type'], index);
 
     Widget cardContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,35 +386,31 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           width: double.infinity,
           decoration: BoxDecoration(
-            color: cardColor,
+            color: Colors.white.withOpacity(0.4),
             borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
           ),
-            child: Row(
-              children: [
-                if (_isCustomCreatedCard(title)) ...[
-                  Icon(
-                    Icons.star,
-                    color: themeConfig['type'] == 'premium' || themeConfig['type'] == 'winter'
-                        ? Colors.white
-                        : Colors.black,
-                    size: 20,
-                  ),
-                  SizedBox(width: 8),
-                ],
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 17,
-                      color: themeConfig['type'] == 'premium' || themeConfig['type'] == 'winter'
-                          ? Colors.white
-                          : Colors.black,
-                    ),
+          child: Row(
+            children: [
+              if (_isCustomCreatedCard(title)) ...[
+                Icon(
+                  Icons.star,
+                  color: Colors.black,
+                  size: 20,
+                ),
+                SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                    color: Colors.black,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
         ),
         Expanded(
           child: Container(
@@ -430,7 +424,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                 onTap: () => _showTodoDialog(title),
                 child: _todoLists[title]?.isEmpty ?? true
                     ? Text(
-                        _isCustomCreatedCard(title) ? 'Create your\ncustom vision' : 'Write your\nvision here',
+                        _isCustomCreatedCard(title) ? 'Create your\nweekly focus' : 'Plan your\nweekly goals',
                         style: TextStyle(
                           color: placeholderColor,
                           fontSize: 16,
@@ -444,10 +438,10 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                                   text: "• ${todo.text}\n",
                                   style: TextStyle(
                                     fontSize: 16,
-                                    decoration: todo.isDone == true
+                                    decoration: todo.completed == true
                                         ? TextDecoration.lineThrough
                                         : TextDecoration.none,
-                                    color: todo.isDone == true
+                                    color: todo.completed == true
                                         ? Colors.grey
                                         : textColor,
                                   ),
@@ -468,19 +462,12 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
       onLongPress: () async {
         await HomeWidget.saveWidgetData('edit_mode', title);
         await HomeWidget.updateWidget(
-          androidName: 'VisionBoardWidget',
-          iOSName: 'VisionBoardWidget',
+          androidName: 'WeeklyPlannerWidget',
+          iOSName: 'WeeklyPlannerWidget',
         );
       },
       child: Container(
         decoration: BoxDecoration(
-          image: backgroundImage != null
-              ? DecorationImage(
-                  image: AssetImage(backgroundImage),
-                  fit: BoxFit.cover,
-                )
-              : null,
-          color: backgroundImage == null ? cardColor : null,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -491,9 +478,20 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
             ),
           ],
         ),
-        child: backgroundImage != null
-            ? cardContent
-            : cardContent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  imagePath,
+                  fit: BoxFit.fill,
+                ),
+              ),
+              cardContent,
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -575,7 +573,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                   const Icon(Icons.offline_bolt, size: 16, color: Colors.amber),
                   const SizedBox(width: 8),
                   const Text(
-                    'Offline mode - changes saved locally',
+                    'Offline mode - weekly changes saved locally',
                     style: TextStyle(fontSize: 12),
                   ),
                   const Spacer(),
@@ -612,7 +610,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                     ),
                     itemCount: widget.selectedAreas.length,
                     itemBuilder: (context, index) =>
-                        _buildVisionCard(widget.selectedAreas[index], index),
+                        _buildWeeklyPlannerCard(widget.selectedAreas[index], index),
                   ),
                 ),
               ),
@@ -661,7 +659,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                   },
                   icon: const Icon(Icons.save, color: Colors.blue),
                   label: const Text(
-                    'Save Vision Board',
+                    'Save Weekly Planner',
                     style: TextStyle(fontSize: 18, color: Colors.blue),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -689,7 +687,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Syncing with cloud...',
+                          'Syncing weekly planner with cloud...',
                           style: TextStyle(
                               fontSize: 12, color: Colors.grey.shade600),
                         ),
@@ -705,20 +703,39 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
   }
 
   void _trackActivity() {
-    trackClick('Custom Vision Board - ${widget.template}');
+    trackClick('Custom Weekly Planner - ${widget.template}');
   }
 
   // Helper method to detect if a card is custom created (not in predefined list)
   bool _isCustomCreatedCard(String title) {
-    // List of predefined life areas
+    // List of predefined weekly focus areas
     final predefinedAreas = [
-      'Travel', 'Career', 'Family', 'Income', 'Health', 'Fitness',
-      'Social life', 'Self care', 'Skill', 'Education', 'Relationships',
-      'Spirituality', 'Hobbies', 'Personal Growth', 'Financial Planning',
-      'Home & Living', 'Technology', 'Environment', 'Community',
-      'Creativity', 'Adventure', 'Wellness', 'Custom Card'
+      'Custom Card', // Add custom card option
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
     ];
     return !predefinedAreas.contains(title);
+  }
+
+  // Helper method to get the appropriate image path based on theme and index
+  String _getCardImagePath(String themeType, int index) {
+    switch (themeType) {
+      case 'floral':
+        return 'assets/floral_weekly/floral_${(index % 7) + 1}.png';
+      case 'watercolor':
+        return 'assets/watercolor/watercolor_${(index % 7) + 1}.png';
+      case 'patterns':
+        return 'assets/pattern_weekly/pattern${(index % 7) + 1}.png';
+      case 'japanese':
+        return 'assets/japaness_weekly/japanese${(index % 7) + 1}.png';
+      default:
+        return 'assets/floral_weekly/floral_${(index % 7) + 1}.png';
+    }
   }
 
   // Dynamic grid layout methods
@@ -735,7 +752,14 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
     if (areaCount <= 4) return 0.8; // 2x2 grid
     if (areaCount <= 9) return 0.7; // 3x3 grid
     if (areaCount <= 16) return 0.6; // 4x4 grid
-    return 0.5; // For more than 16 areas
+    return 0.5;
+  }
+
+  void _showManualLoginDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => const ManualLoginDialog(),
+    ).then((_) => _syncWithDatabase());
   }
 }
 
@@ -769,7 +793,6 @@ class TodoListDialogState extends State<TodoListDialog> {
     if (_textController.text.isNotEmpty) {
       setState(() {
         _items.add(TodoItem(
-          id: DateTime.now().toString(),
           text: _textController.text,
         ));
         _textController.clear();
@@ -779,7 +802,7 @@ class TodoListDialogState extends State<TodoListDialog> {
 
   void _toggleItem(TodoItem item) {
     setState(() {
-      item.isDone = !item.isDone;
+      item.completed = !item.completed;
     });
   }
 
@@ -804,7 +827,7 @@ class TodoListDialogState extends State<TodoListDialog> {
           TextField(
             controller: _textController,
             decoration: InputDecoration(
-              hintText: 'Add a new task',
+              hintText: 'Add a new weekly task',
               suffixIcon: IconButton(
                 icon: const Icon(Icons.add),
                 onPressed: _addItem,
@@ -821,7 +844,7 @@ class TodoListDialogState extends State<TodoListDialog> {
                 final item = _items[index];
                 return ListTile(
                   leading: Checkbox(
-                    value: item.isDone,
+                    value: item.completed,
                     onChanged: (value) {
                       _toggleItem(item);
                     },
@@ -830,8 +853,8 @@ class TodoListDialogState extends State<TodoListDialog> {
                     item.text,
                     style: TextStyle(
                       decoration:
-                          item.isDone ? TextDecoration.lineThrough : null,
-                      color: item.isDone ? Colors.grey : Colors.black,
+                          item.completed ? TextDecoration.lineThrough : null,
+                      color: item.completed ? Colors.grey : Colors.black,
                     ),
                   ),
                   trailing: IconButton(
@@ -854,8 +877,8 @@ class TodoListDialogState extends State<TodoListDialog> {
                 onPressed: () async {
                   widget.onSave(_items);
                   await HomeWidget.updateWidget(
-                    androidName: 'VisionBoardWidget',
-                    iOSName: 'VisionBoardWidget',
+                    androidName: 'WeeklyPlannerWidget',
+                    iOSName: 'WeeklyPlannerWidget',
                   );
                   if (!mounted) return;
                   Navigator.pop(context);
@@ -866,6 +889,100 @@ class TodoListDialogState extends State<TodoListDialog> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class ManualLoginDialog extends StatefulWidget {
+  const ManualLoginDialog({super.key});
+
+  @override
+  State<ManualLoginDialog> createState() => _ManualLoginDialogState();
+}
+
+class _ManualLoginDialogState extends State<ManualLoginDialog> {
+  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUserInfo();
+  }
+
+  Future<void> _loadCurrentUserInfo() async {
+    final userInfo = await UserService.instance.getUserInfo();
+    setState(() {
+      _usernameController.text = userInfo['userName'] ?? '';
+      _emailController.text = userInfo['email'] ?? '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Set User Information'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _usernameController,
+            decoration: const InputDecoration(labelText: 'Username'),
+          ),
+          TextField(
+            controller: _emailController,
+            decoration: const InputDecoration(labelText: 'Email'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            await UserService.instance.clearUserInfo();
+            if (!mounted) return;
+            Navigator.pop(context);
+          },
+          child: const Text('Clear'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (_usernameController.text.isNotEmpty &&
+                _emailController.text.isNotEmpty) {
+              await UserService.instance.setManualUserInfo(
+                userName: _usernameController.text,
+                email: _emailController.text,
+              );
+              if (!mounted) return;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('User information saved'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please enter both username and email'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

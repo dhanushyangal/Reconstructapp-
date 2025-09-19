@@ -188,7 +188,11 @@ class _FloralThemeAnnualPlannerState extends State<FloralThemeAnnualPlanner>
             final month = dbTask['card_id'];
             if (_todoLists.containsKey(month)) {
               try {
-                final tasksJson = dbTask['tasks'] as String;
+                final tasksJson = dbTask['tasks'] as String?;
+                if (tasksJson == null || tasksJson.isEmpty) {
+                  debugPrint('No tasks data for $month, skipping');
+                  continue;
+                }
                 final List<dynamic> decoded = json.decode(tasksJson);
 
                 setState(() {
@@ -384,7 +388,7 @@ class _FloralThemeAnnualPlannerState extends State<FloralThemeAnnualPlanner>
           image: DecorationImage(
             image:
                 AssetImage('assets/floral_weekly/floral_${monthIndex + 1}.png'),
-            fit: BoxFit.cover,
+            fit: BoxFit.fill,
           ),
           boxShadow: [
             BoxShadow(

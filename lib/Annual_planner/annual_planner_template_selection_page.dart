@@ -4,27 +4,27 @@ import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../utils/activity_tracker_mixin.dart';
-import 'life_areas_selection_page.dart';
 import '../components/nav_logpage.dart';
+import 'annual_life_areas_selection_page.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
 
-class VisionBoardTemplateSelectionPage extends StatefulWidget {
-  const VisionBoardTemplateSelectionPage({super.key});
+class AnnualPlannerTemplateSelectionPage extends StatefulWidget {
+  const AnnualPlannerTemplateSelectionPage({super.key});
 
   @override
-  State<VisionBoardTemplateSelectionPage> createState() => _VisionBoardTemplateSelectionPageState();
+  State<AnnualPlannerTemplateSelectionPage> createState() => _AnnualPlannerTemplateSelectionPageState();
 }
 
-class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSelectionPage>
+class _AnnualPlannerTemplateSelectionPageState extends State<AnnualPlannerTemplateSelectionPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   bool _isPremium = false;
   bool _isLoading = true;
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
 
-  String get pageName => 'Vision Board Templates';
+  String get pageName => 'Monthly Planner Templates';
 
   @override
   void initState() {
@@ -67,7 +67,7 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
       final subscriptionManager = SubscriptionManager();
       final hasAccess = await subscriptionManager.hasAccess();
 
-      debugPrint('VisionBoardTemplateSelectionPage - Premium status check:');
+      debugPrint('AnnualPlannerTemplateSelectionPage - Premium status check:');
       debugPrint('- hasCompletedPayment: $hasCompletedPayment');
       debugPrint('- premiumFeaturesEnabled: $premiumFeaturesEnabled');
       debugPrint('- hasAccess from SubscriptionManager: $hasAccess');
@@ -95,7 +95,7 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
         }
       }
     } catch (e) {
-      debugPrint('Error checking premium status in VisionBoardTemplateSelectionPage: $e');
+      debugPrint('Error checking premium status in AnnualPlannerTemplateSelectionPage: $e');
       // On error, fall back to basic local check
       final prefs = await SharedPreferences.getInstance();
       final isPremium = prefs.getBool(_hasCompletedPaymentKey) ?? false;
@@ -113,8 +113,8 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
   bool _isTemplateLocked(String title) {
     if (_isPremium) return false; // Premium users get access to everything
 
-    // Only Boxy theme is free
-    return title != 'Boxy theme board';
+    // Only Floral theme is free
+    return title != 'Floral Monthly Planner';
   }
 
   // Method to show payment page directly like profile page
@@ -189,22 +189,13 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
           return;
         }
         trackClick('$title template');
-        // Navigate to life areas selection page
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => LifeAreasSelectionPage(
-              template: title,
-              imagePath: imagePath,
-            ),
-          ),
-        );
+        _navigateToTemplate(title);
       },
       child: Column(
         children: [
           // Image card with shadow
           Container(
-            height: 250, // Increased height to 220 for better image fit
+            height: 250,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -223,7 +214,7 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
                   borderRadius: BorderRadius.circular(12),
                   child: Image.asset(
                     imagePath,
-                    fit: BoxFit.contain,
+                    fit: BoxFit.cover,
                     width: double.infinity,
                     height: double.infinity,
                   ),
@@ -248,15 +239,15 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
             ),
           ),
           
-          SizedBox(height: 16), // Reduced spacing to fix overflow
+          SizedBox(height: 16),
           
           // Label below the card
           Container(
             width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 3), // Minimal padding to save space
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 3),
             decoration: BoxDecoration(
               color: const Color.fromARGB(255, 255, 255, 255),
-              borderRadius: BorderRadius.circular(20), // Increased from 8 to 20 for more rounded borders
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: const Color.fromARGB(255, 255, 255, 255),
                 width: 1,
@@ -265,10 +256,10 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
             child: Text(
               title,
               style: TextStyle(
-                fontWeight: FontWeight.w600, // Increased from w500 to w600
-                fontSize: 14, // Reduced to save space
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
                 color: isLocked ? Colors.grey : Colors.black87,
-                letterSpacing: 0.2, // Reduced letter spacing
+                letterSpacing: 0.2,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
@@ -276,6 +267,36 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _navigateToTemplate(String template) {
+    String imagePath;
+    switch (template) {
+      case 'Floral Monthly Planner':
+        imagePath = 'assets/Plan_your_monthly_goals-images/floral.png';
+        break;
+      case 'Watercolor Monthly Planner':
+        imagePath = 'assets/Plan_your_monthly_goals-images/watercolor.png';
+        break;
+      case 'Post-it Monthly Planner':
+        imagePath = 'assets/Plan_your_monthly_goals-images/post.png';
+        break;
+      case 'Premium Monthly Planner':
+        imagePath = 'assets/Plan_your_monthly_goals-images/premium.png';
+        break;
+      default:
+        imagePath = 'assets/Plan_your_monthly_goals-images/floral.png';
+    }
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AnnualLifeAreasSelectionPage(
+          template: template,
+          imagePath: imagePath,
+        ),
       ),
     );
   }
@@ -291,7 +312,7 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
     }
 
     return NavLogPage(
-      title: 'Choose a theme for your monthly goals board',
+      title: 'Choose a theme for your monthly goals planner',
       showBackButton: false,
       selectedIndex: 2, // Dashboard index
       onNavigationTap: (index) {
@@ -364,14 +385,14 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
           // Main title with better spacing
           Container(
             width: double.infinity,
-            padding: EdgeInsets.fromLTRB(24, 12, 24, 8), // Further reduced padding to save space
+            padding: EdgeInsets.fromLTRB(24, 12, 24, 8),
             child: Text(
-              'Choose a theme for your monthly goals board',
+              'Choose a theme for your monthly goals planner',
               style: TextStyle(
-                fontSize: 18, // Further reduced to save space
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.black,
-                height: 1.0, // Further reduced line height
+                height: 1.0,
               ),
               textAlign: TextAlign.left,
             ),
@@ -380,28 +401,29 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
           // Templates grid with better spacing
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 0), // Reduced from 24 to 20
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 0),
               child: GridView.count(
                 crossAxisCount: 2,
-                childAspectRatio: 0.62, // Fine-tuned to eliminate 4.4px overflow
-                mainAxisSpacing: 16, // Restored proper spacing
-                crossAxisSpacing: 16, // Restored proper spacing
+                childAspectRatio: 0.62,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
                 children: [
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_annual_goals-images/Annual-boxy.png',
-                    'Boxy theme board'),
+                    'assets/Plan_your_monthly_goals-images/floral.png',
+                    'Floral Monthly Planner'),
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_annual_goals-images/Annual-post.png',
-                    'Post it theme board'),
-                  _buildTemplateCard(context, 
-                  'assets/Plan_your_annual_goals-images/Annual-premium.png',
-                      'Premium black board'),
+                    'assets/Plan_your_monthly_goals-images/watercolor.png',
+                    'Watercolor Monthly Planner'),
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_annual_goals-images/Annual-floral.png',
-                    'Floral theme board'),
+                    'assets/Plan_your_monthly_goals-images/post.png',
+                      'Post-it Monthly Planner'),
+                  _buildTemplateCard(
+                    context,
+                    'assets/Plan_your_monthly_goals-images/premium.png',
+                    'Premium Monthly Planner'),
                 ],
               ),
             ),

@@ -18,6 +18,27 @@ class NavLogPage extends StatelessWidget {
     this.onNavigationTap,
   });
 
+  // Default navigation handler if none provided
+  void _handleDefaultNavigation(BuildContext context, int index) {
+    switch (index) {
+      case 0:
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+        break;
+      case 1:
+        Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
+        break;
+      case 2:
+        Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
+        break;
+      case 3:
+        Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
+        break;
+      case 4:
+        Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -40,7 +61,13 @@ class NavLogPage extends StatelessWidget {
       body: body,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
-        onTap: onNavigationTap,
+        onTap: (index) {
+          if (onNavigationTap != null) {
+            onNavigationTap!(index);
+          } else {
+            _handleDefaultNavigation(context, index);
+          }
+        },
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),

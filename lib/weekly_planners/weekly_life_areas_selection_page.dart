@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/activity_tracker_mixin.dart';
-import 'custom_vision_board_page.dart';
+import 'custom_weekly_planner_page.dart';
 import '../components/nav_logpage.dart';
 
-class LifeAreasSelectionPage extends StatefulWidget {
+class WeeklyLifeAreasSelectionPage extends StatefulWidget {
   final String template;
   final String imagePath;
 
-  const LifeAreasSelectionPage({
+  const WeeklyLifeAreasSelectionPage({
     super.key,
     required this.template,
     required this.imagePath,
   });
 
   @override
-  State<LifeAreasSelectionPage> createState() => _LifeAreasSelectionPageState();
+  State<WeeklyLifeAreasSelectionPage> createState() => _WeeklyLifeAreasSelectionPageState();
 }
 
-class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
+class _WeeklyLifeAreasSelectionPageState extends State<WeeklyLifeAreasSelectionPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   Set<String> _selectedAreas = {};
   bool _isLoading = false;
@@ -26,41 +26,7 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
 
-  String get pageName => 'Life Areas Selection';
-
-  @override
-  void dispose() {
-    _customNameController.dispose();
-    _progressAnimationController?.dispose();
-    super.dispose();
-  }
-
-  // All 22 life areas plus custom option
-  final List<String> _allLifeAreas = [
-    'Custom Card', // Add custom card option
-    'Travel',
-    'Career',
-    'Family',
-    'Income',
-    'Health',
-    'Fitness',
-    'Social life',
-    'Self care',
-    'Skill',
-    'Education',
-    'Relationships',
-    'Spirituality',
-    'Hobbies',
-    'Personal Growth',
-    'Financial Planning',
-    'Home & Living',
-    'Technology',
-    'Environment',
-    'Community',
-    'Creativity',
-    'Adventure',
-    'Wellness',
-  ];
+  String get pageName => 'Weekly Life Areas Selection';
 
   @override
   void initState() {
@@ -85,6 +51,25 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
     // Start with empty selection - no pre-selected areas
     _selectedAreas = <String>{};
   }
+
+  @override
+  void dispose() {
+    _customNameController.dispose();
+    _progressAnimationController?.dispose();
+    super.dispose();
+  }
+
+  // Weekly-focused life areas plus custom option
+  final List<String> _allLifeAreas = [
+    'Custom Card', // Add custom card option
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday'
+  ];
 
   void _toggleArea(String area) {
     if (area == 'Custom Card') {
@@ -111,12 +96,12 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Enter a name for your custom life area:'),
+              Text('Enter a name for your custom weekly focus area:'),
               SizedBox(height: 16),
               TextField(
                 controller: _customNameController,
                 decoration: InputDecoration(
-                  hintText: 'e.g., My Dream Job, Travel Goals, etc.',
+                  hintText: 'e.g., My Weekly Goal, Daily Routine, etc.',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -172,11 +157,11 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
     );
   }
 
-  Future<void> _proceedToVisionBoard() async {
+  Future<void> _proceedToWeeklyPlanner() async {
     if (_selectedAreas.length < 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please select at least 1 life area to continue'),
+          content: Text('Please select at least 1 weekly focus area to continue'),
           backgroundColor: Colors.red,
         ),
       );
@@ -189,13 +174,13 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
 
     try {
       // Track the activity
-      trackClick('${widget.template} - Life areas selected: ${_selectedAreas.length}');
+      trackClick('${widget.template} - Weekly areas selected: ${_selectedAreas.length}');
 
       // Save selected areas to preferences
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('selected_life_areas', _selectedAreas.toList());
-      await prefs.setString('selected_template', widget.template);
-      await prefs.setString('selected_template_image', widget.imagePath);
+      await prefs.setStringList('selected_weekly_areas', _selectedAreas.toList());
+      await prefs.setString('selected_weekly_template', widget.template);
+      await prefs.setString('selected_weekly_template_image', widget.imagePath);
 
       // Show success screen first
       _showSuccessScreen();
@@ -217,15 +202,15 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
 
   void _showSuccessScreen() {
     // Navigate to success screen
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-        builder: (context) => VisionBoardSuccessPage(
-                            template: widget.template,
-                            imagePath: widget.imagePath,
-                            selectedAreas: _selectedAreas.toList(),
-                          ),
-                        ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WeeklyPlannerSuccessPage(
+          template: widget.template,
+          imagePath: widget.imagePath,
+          selectedAreas: _selectedAreas.toList(),
+        ),
+      ),
     );
   }
 
@@ -288,7 +273,7 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
   @override
   Widget build(BuildContext context) {
     return NavLogPage(
-      title: 'Select life-areas to focus on for the year',
+      title: 'Select weekly focus areas for your planner',
       showBackButton: false,
       selectedIndex: 2, // Dashboard index
       onNavigationTap: (index) {
@@ -380,7 +365,7 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
                       borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
                     ),
                     child: Text(
-                      'Selected: ${_selectedAreas.length} areas',
+                      'Selected: ${_selectedAreas.length} weekly focus areas',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -434,7 +419,7 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
             width: double.infinity,
             padding: EdgeInsets.all(16),
             child: ElevatedButton(
-              onPressed: _isLoading ? null : _proceedToVisionBoard,
+              onPressed: _isLoading ? null : _proceedToWeeklyPlanner,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Color(0xFF23C4F7),
                 foregroundColor: Colors.white,
@@ -454,7 +439,7 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
                       ),
                     )
                   : Text(
-                      'Continue with ${_selectedAreas.length} area${_selectedAreas.length == 1 ? '' : 's'}',
+                      'Continue with ${_selectedAreas.length} weekly focus area${_selectedAreas.length == 1 ? '' : 's'}',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -468,12 +453,12 @@ class _LifeAreasSelectionPageState extends State<LifeAreasSelectionPage>
   }
 }
 
-class VisionBoardSuccessPage extends StatefulWidget {
+class WeeklyPlannerSuccessPage extends StatefulWidget {
   final String template;
   final String imagePath;
   final List<String> selectedAreas;
 
-  const VisionBoardSuccessPage({
+  const WeeklyPlannerSuccessPage({
     super.key,
     required this.template,
     required this.imagePath,
@@ -481,10 +466,10 @@ class VisionBoardSuccessPage extends StatefulWidget {
   });
 
   @override
-  State<VisionBoardSuccessPage> createState() => _VisionBoardSuccessPageState();
+  State<WeeklyPlannerSuccessPage> createState() => _WeeklyPlannerSuccessPageState();
 }
 
-class _VisionBoardSuccessPageState extends State<VisionBoardSuccessPage>
+class _WeeklyPlannerSuccessPageState extends State<WeeklyPlannerSuccessPage>
     with TickerProviderStateMixin {
   AnimationController? _animationController;
   Animation<double>? _scaleAnimation;
@@ -673,7 +658,7 @@ class _VisionBoardSuccessPageState extends State<VisionBoardSuccessPage>
                             child: Column(
                               children: [
                                 Text(
-                                  "Your board is ready!",
+                                  "Your weekly planner is ready!",
                                   style: TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
@@ -683,7 +668,7 @@ class _VisionBoardSuccessPageState extends State<VisionBoardSuccessPage>
                                 ),
                                 SizedBox(height: 16),
                                 Text(
-                                  "You've selected ${widget.selectedAreas.length} life area${widget.selectedAreas.length == 1 ? '' : 's'} to focus on. Let's create your personalized vision board!",
+                                  "You've selected ${widget.selectedAreas.length} weekly focus area${widget.selectedAreas.length == 1 ? '' : 's'}. Let's create your personalized weekly planner!",
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: Colors.grey[600],
@@ -698,11 +683,11 @@ class _VisionBoardSuccessPageState extends State<VisionBoardSuccessPage>
                                   width: double.infinity,
                                   child: ElevatedButton(
                                     onPressed: () {
-                                      // Navigate to custom vision board page
+                                      // Navigate to custom weekly planner page
                                       Navigator.pushReplacement(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => CustomVisionBoardPage(
+                                          builder: (context) => CustomWeeklyPlannerPage(
                                             template: widget.template,
                                             imagePath: widget.imagePath,
                                             selectedAreas: widget.selectedAreas,
@@ -720,7 +705,7 @@ class _VisionBoardSuccessPageState extends State<VisionBoardSuccessPage>
                                       elevation: 4,
                                     ),
                                     child: Text(
-                                      "Let's Plan Your Future",
+                                      "Let's Plan Your Week",
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -744,3 +729,5 @@ class _VisionBoardSuccessPageState extends State<VisionBoardSuccessPage>
     );
   }
 }
+
+

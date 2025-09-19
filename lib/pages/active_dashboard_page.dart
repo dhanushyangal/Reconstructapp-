@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import '../vision_bord/vision_board_page.dart';
 import '../Annual_calender/annual_calendar_page.dart';
-import '../weekly_planners/weekly_planner_page.dart';
 import '../Mind_tools/thought_shredder_page.dart';
 import '../Mind_tools/make_me_smile_page.dart';
 import '../Mind_tools/break_things_page.dart';
 import '../Activity_Tools/memory_game_page.dart';
 import '../Activity_Tools/riddle_quiz_page.dart';
-import '../Annual_planner/annual_planner_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../Mind_tools/bubble_wrap_popper_page.dart';
 import '../Activity_Tools/sliding_puzzle_page.dart';
@@ -15,6 +13,8 @@ import '../Activity_Tools/color_me_now.dart';
 import 'dart:convert';
 import '../utils/activity_tracker_mixin.dart';
 import '../vision_bord_plan/vision_board_template_selection_page.dart';
+import '../weekly_planners/weekly_planner_template_selection_page.dart';
+import '../Annual_planner/annual_planner_template_selection_page.dart';
 import '../components/nav_logpage.dart';
 
 // Class to represent a Recent Activity item
@@ -164,14 +164,14 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
         automaticallyImplyLeading: false,
       ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.white, Color(0xFFE8FAFF)],
-          ),
-        ),
-        child: _buildHeroSection(),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.white, Color(0xFFE8FAFF)],
+                ),
+              ),
+              child: _buildHeroSection(),
       ),
     );
   }
@@ -181,86 +181,86 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
       child: Center(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-          child: Column(
+      child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
-            children: [
+        children: [
               SizedBox(height: 10),
-              Text(
-                "What's on your mind?",
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 8),
-              Text(
-                "Select any one and proceed",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
+          Text(
+            "What's on your mind?",
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 8),
+          Text(
+            "Select any one and proceed",
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
               SizedBox(height: 30),
 
-              // Main action buttons
-              _buildActionButton(
-                title: "Plan my future",
-                subtitle: "Turn ideas into a clear path forward.",
+          // Main action buttons
+          _buildActionButton(
+            title: "Plan my future",
+            subtitle: "Turn ideas into a clear path forward.",
                 color: Color(0xFF81D0FF), // Light blue background
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CategoryToolsPage(
-                        category: 'vision',
-                        categoryName: 'Plan my future',
-                        tools: _tools['vision']!,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              SizedBox(height: 16),
-              _buildActionButton(
-                title: "Reset my emotions",
-                subtitle: "Release what's heavy and feel lighter.",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CategoryToolsPage(
+                    category: 'vision',
+                    categoryName: 'Plan my future',
+                    tools: _tools['vision']!,
+                  ),
+                ),
+              );
+            },
+          ),
+          SizedBox(height: 16),
+          _buildActionButton(
+            title: "Reset my emotions",
+            subtitle: "Release what's heavy and feel lighter.",
                 color: Color(0xFF60BAFF), // Medium blue background
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CategoryToolsPage(
-                        category: 'mind',
-                        categoryName: 'Reset my emotions',
-                        tools: _tools['mind']!,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              SizedBox(height: 16),
-              _buildActionButton(
-                title: "Clear my mind",
-                subtitle: "Get a fresh start for renewed focus",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CategoryToolsPage(
+                    category: 'mind',
+                    categoryName: 'Reset my emotions',
+                    tools: _tools['mind']!,
+                  ),
+                ),
+              );
+            },
+          ),
+          SizedBox(height: 16),
+          _buildActionButton(
+            title: "Clear my mind",
+            subtitle: "Get a fresh start for renewed focus",
                 color: Color(0xFF5AB8EE), // Darker blue background
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CategoryToolsPage(
-                        category: 'activity',
-                        categoryName: 'Clear my mind',
-                        tools: _tools['activity']!,
-                      ),
-                    ),
-                  );
-                },
-              ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CategoryToolsPage(
+                    category: 'activity',
+                    categoryName: 'Clear my mind',
+                    tools: _tools['activity']!,
+                  ),
+                ),
+              );
+            },
+          ),
               SizedBox(height: 20), // Bottom padding
-            ],
+        ],
           ),
         ),
       ),
@@ -407,40 +407,7 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
       },
       body: Column(
         children: [
-          
-          // Fixed text above images
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Take the first step — choose a tool.",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          SizedBox(height: 15),
-
-           // Sliding tools view - moved to bottom
-           Expanded(
-             child: PageView.builder(
-               controller: _pageController,
-               itemCount: widget.tools.length,
-               itemBuilder: (context, index) {
-                 final tool = widget.tools[index];
-                 return _buildToolSlide(tool, index);
-               },
-             ),
-           ),
-
-          // Progress bar at the bottom
+          // Progress bar at the top
           Container(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
@@ -484,6 +451,58 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
               ],
             ),
           ),
+          
+          // Category name header with better styling
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(24, 16, 24, 16),
+            child: Text(
+          widget.categoryName,
+          style: TextStyle(
+                fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+                height: 1.2,
+              ),
+              textAlign: TextAlign.left,
+            ),
+          ),
+          
+          // Fixed text above images with better styling
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Take the first step — choose a tool.",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          SizedBox(height: 20),
+
+           // Enhanced sliding tools view
+           Expanded(
+             child: Container(
+               padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+             child: PageView.builder(
+                 controller: _pageController,
+               itemCount: widget.tools.length,
+               itemBuilder: (context, index) {
+                 final tool = widget.tools[index];
+                 return _buildToolSlide(tool, index);
+               },
+               ),
+             ),
+           ),
 
         ],
       ),
@@ -496,20 +515,20 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-           // Tool image
+           // Tool image with enhanced styling
            Expanded(
              flex: 3,
              child: Container(
                width: double.infinity,
-               height: 300, // Fixed height for consistent sizing
                decoration: BoxDecoration(
+                 color: Colors.white,
                  borderRadius: BorderRadius.circular(20),
                  boxShadow: [
                    BoxShadow(
                      color: Colors.grey.withOpacity(0.2),
-                     spreadRadius: 2,
-                     blurRadius: 10,
-                     offset: Offset(0, 5),
+                     spreadRadius: 0,
+                     blurRadius: 8,
+                     offset: Offset(0, 4),
                    ),
                  ],
                ),
@@ -517,7 +536,9 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
                  borderRadius: BorderRadius.circular(20),
                  child: Image.asset(
                    tool['image'] as String,
-                   fit: BoxFit.cover,
+                   fit: BoxFit.contain,
+                   width: double.infinity,
+                   height: double.infinity,
                    errorBuilder: (context, error, stackTrace) {
                      return Container(
                        color: Colors.grey[200],
@@ -535,32 +556,42 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
           
            SizedBox(height: 20),
           
-           // Action button
+           // Enhanced action button with better styling
            Container(
-             width: double.infinity,
-             child: MouseRegion(
-               onEnter: (_) => setState(() => _isHovered = true),
-               onExit: (_) => setState(() => _isHovered = false),
-               child: ElevatedButton(
-                 onPressed: () {
-                   _navigateToTool(tool['name'] as String);
-                 },
-                 style: ElevatedButton.styleFrom(
-                   backgroundColor: _isHovered ? Colors.grey[100] : Colors.white,
-                   foregroundColor: Colors.black,
-                   padding: EdgeInsets.symmetric(vertical: 12),
-                   shape: RoundedRectangleBorder(
-                     borderRadius: BorderRadius.circular(25),
-                     side: BorderSide(color: Colors.grey.shade300),
+               width: double.infinity,
+             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+             decoration: BoxDecoration(
+               color: Colors.white,
+               borderRadius: BorderRadius.circular(20),
+               border: Border.all(
+                 color: Colors.grey[300] ?? Colors.grey,
+                 width: 1,
+               ),
+             ),
+               child: MouseRegion(
+                 onEnter: (_) => setState(() => _isHovered = true),
+                 onExit: (_) => setState(() => _isHovered = false),
+                 child: ElevatedButton(
+                   onPressed: () {
+                     _navigateToTool(tool['name'] as String);
+                   },
+                   style: ElevatedButton.styleFrom(
+                   backgroundColor: _isHovered ? Colors.grey[50] : Colors.transparent,
+                     foregroundColor: Colors.black,
+                     padding: EdgeInsets.symmetric(vertical: 12),
+                     shape: RoundedRectangleBorder(
+                     borderRadius: BorderRadius.circular(16),
+                     ),
+                   elevation: 0,
+                   shadowColor: Colors.transparent,
                    ),
-                   elevation: _isHovered ? 9 : 2,
-                 ),
-                 child: Text(
-                   tool['name'] as String,
-                   style: TextStyle(
-                     fontSize: 16,
-                     fontWeight: FontWeight.bold,
-                     color: Colors.black,
+                   child: Text(
+                     tool['name'] as String,
+                     style: TextStyle(
+                     fontSize: 15,
+                     fontWeight: FontWeight.w600,
+                     color: Colors.black87,
+                     letterSpacing: 0.3,
                    ),
                  ),
                ),
@@ -635,13 +666,13 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
       case 'Plan your Weekly goals':
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const WeeklyPlannerPage()),
+          MaterialPageRoute(builder: (context) => const WeeklyPlannerTemplateSelectionPage()),
         );
         break;
       case 'Plan your Monthly goals':
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const AnnualPlannerPage()),
+          MaterialPageRoute(builder: (context) => const AnnualPlannerTemplateSelectionPage()),
         );
         break;
       case 'Plan your Daily goals':
