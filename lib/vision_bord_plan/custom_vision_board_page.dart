@@ -66,6 +66,60 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
   // Theme-specific colors and styles
   Map<String, dynamic> get _themeConfig {
     switch (widget.template) {
+      case 'Boxy theme board':
+        return {
+          'type': 'box',
+          'backgroundImage': 'assets/vision-board-ruled.png',
+          'cardBackground': Colors.white,
+          'textColor': Colors.black,
+          'placeholderColor': Colors.grey,
+          'storagePrefix': 'BoxThem',
+        };
+      case 'Post it theme board':
+        return {
+          'type': 'postit',
+          'cardColors': [
+            Colors.orange,
+            Color.fromARGB(255, 244, 118, 142),
+            Color.fromRGBO(235, 196, 95, 1),
+            Color.fromARGB(255, 55, 78, 49),
+            Color.fromARGB(255, 164, 219, 117),
+            Color.fromARGB(255, 170, 238, 217),
+            Color.fromARGB(255, 64, 83, 162),
+            Color.fromARGB(255, 98, 126, 138),
+            Color.fromARGB(255, 67, 141, 204),
+          ],
+          'textColor': Colors.black,
+          'placeholderColor': Colors.grey,
+          'storagePrefix': 'BoxThem',
+        };
+      case 'Premium black board':
+        return {
+          'type': 'premium',
+          'cardBackground': Colors.black,
+          'textColor': Colors.white,
+          'placeholderColor': Colors.grey,
+          'storagePrefix': 'BoxThem',
+        };
+      case 'Floral theme board':
+        return {
+          'type': 'winter',
+          'cardColors': [
+            Color.fromARGB(255, 194, 183, 163),
+            Color(0xFF330f0f),
+            Color(0xFFb78c56),
+            Color.fromARGB(255, 45, 41, 0),
+            Color(0xFF929092),
+            Color(0xFF741102),
+            Color(0xFF9e8c66),
+            Color(0xFF462a19),
+            Color(0xFF929274),
+          ],
+          'textColor': Colors.white,
+          'placeholderColor': Color.fromARGB(255, 160, 171, 150),
+          'storagePrefix': 'BoxThem',
+        };
+      // Keep the old names for backward compatibility
       case 'Box theme Vision Board':
         return {
           'type': 'box',

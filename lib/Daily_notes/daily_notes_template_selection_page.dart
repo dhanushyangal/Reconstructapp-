@@ -4,27 +4,27 @@ import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../utils/activity_tracker_mixin.dart';
-import 'life_areas_selection_page.dart';
+import 'daily_notes_custom_page.dart';
 import '../components/nav_logpage.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
 
-class VisionBoardTemplateSelectionPage extends StatefulWidget {
-  const VisionBoardTemplateSelectionPage({super.key});
+class DailyNotesTemplateSelectionPage extends StatefulWidget {
+  const DailyNotesTemplateSelectionPage({super.key});
 
   @override
-  State<VisionBoardTemplateSelectionPage> createState() => _VisionBoardTemplateSelectionPageState();
+  State<DailyNotesTemplateSelectionPage> createState() => _DailyNotesTemplateSelectionPageState();
 }
 
-class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSelectionPage>
+class _DailyNotesTemplateSelectionPageState extends State<DailyNotesTemplateSelectionPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   bool _isPremium = false;
   bool _isLoading = true;
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
 
-  String get pageName => 'Vision Board Templates';
+  String get pageName => 'Daily Notes Templates';
 
   @override
   void initState() {
@@ -67,7 +67,7 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
       final subscriptionManager = SubscriptionManager();
       final hasAccess = await subscriptionManager.hasAccess();
 
-      debugPrint('VisionBoardTemplateSelectionPage - Premium status check:');
+      debugPrint('DailyNotesTemplateSelectionPage - Premium status check:');
       debugPrint('- hasCompletedPayment: $hasCompletedPayment');
       debugPrint('- premiumFeaturesEnabled: $premiumFeaturesEnabled');
       debugPrint('- hasAccess from SubscriptionManager: $hasAccess');
@@ -95,7 +95,7 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
         }
       }
     } catch (e) {
-      debugPrint('Error checking premium status in VisionBoardTemplateSelectionPage: $e');
+      debugPrint('Error checking premium status in DailyNotesTemplateSelectionPage: $e');
       // On error, fall back to basic local check
       final prefs = await SharedPreferences.getInstance();
       final isPremium = prefs.getBool(_hasCompletedPaymentKey) ?? false;
@@ -113,8 +113,8 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
   bool _isTemplateLocked(String title) {
     if (_isPremium) return false; // Premium users get access to everything
 
-    // Only Boxy theme is free
-    return title != 'Boxy theme board';
+    // Only Post-it theme is free
+    return title != 'Post-it Daily Notes';
   }
 
   // Method to show payment page directly like profile page
@@ -189,11 +189,11 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
           return;
         }
         trackClick('$title template');
-        // Navigate to life areas selection page
+        // Navigate directly to custom page
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => LifeAreasSelectionPage(
+            builder: (context) => DailyNotesCustomPage(
               template: title,
               imagePath: imagePath,
             ),
@@ -291,7 +291,7 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
     }
 
     return NavLogPage(
-      title: 'Choose a theme for your monthly goals board',
+      title: 'Choose a theme for your daily notes',
       showBackButton: false,
       selectedIndex: 2, // Dashboard index
       onNavigationTap: (index) {
@@ -366,7 +366,7 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
             width: double.infinity,
             padding: EdgeInsets.fromLTRB(24, 12, 24, 8), // Further reduced padding to save space
             child: Text(
-              'Choose a theme for your monthly goals board',
+              'Choose a theme for your daily notes',
               style: TextStyle(
                 fontSize: 18, // Further reduced to save space
                 fontWeight: FontWeight.bold,
@@ -389,19 +389,20 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
                 children: [
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_annual_goals-images/Annual-boxy.png',
-                    'Boxy theme board'),
+                    'assets/Plan_your_daily_goals-images/post.png',
+                    'Post-it Daily Notes'),
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_annual_goals-images/Annual-post.png',
-                    'Post it theme board'),
-                  _buildTemplateCard(context, 
-                  'assets/Plan_your_annual_goals-images/Annual-premium.png',
-                      'Premium black board'),
+                    'assets/Plan_your_daily_goals-images/premium.png',
+                    'Premium Daily Notes'),
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_annual_goals-images/Annual-floral.png',
-                    'Floral theme board'),  
+                    'assets/Plan_your_daily_goals-images/floral.png',
+                    'Floral Daily Notes'),
+                  _buildTemplateCard(
+                    context,
+                    'assets/Plan_your_daily_goals-images/boxy.png',
+                    'Boxy Daily Notes'),
                 ],
               ),
             ),

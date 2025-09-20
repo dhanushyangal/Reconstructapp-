@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../vision_bord/vision_board_page.dart';
-import '../Annual_calender/annual_calendar_page.dart';
 import '../Mind_tools/thought_shredder_page.dart';
 import '../Mind_tools/make_me_smile_page.dart';
 import '../Mind_tools/break_things_page.dart';
@@ -15,6 +14,7 @@ import '../utils/activity_tracker_mixin.dart';
 import '../vision_bord_plan/vision_board_template_selection_page.dart';
 import '../weekly_planners/weekly_planner_template_selection_page.dart';
 import '../Annual_planner/annual_planner_template_selection_page.dart';
+import '../Daily_notes/daily_notes_template_selection_page.dart';
 import '../components/nav_logpage.dart';
 
 // Class to represent a Recent Activity item
@@ -127,7 +127,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
         'name': 'Plan your Monthly goals',
         'image': 'assets/Plan_my_future-images/monthly.png'
       },
-      {'name': 'Plan your Daily goals', 'image': 'assets/Plan_my_future-images/daily.png'}
+      {'name': 'Plan your Daily goals', 'image': 'assets/Plan_my_future-images/daily.png'},
     ],
     'mind': [
       {
@@ -633,7 +633,7 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
       case 'Plan your Monthly goals':
         return '/annual-planner';
       case 'Plan your Daily goals':
-        return '/annual-calendar';
+        return '/daily-notes-template';
       case 'Thought Shredder':
         return '/thought-shredder';
       case 'Smile Therapy':
@@ -678,7 +678,7 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
       case 'Plan your Daily goals':
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const AnnualCalenderPage()),
+          MaterialPageRoute(builder: (context) => const DailyNotesTemplateSelectionPage()),
         );
         break;
       default:
