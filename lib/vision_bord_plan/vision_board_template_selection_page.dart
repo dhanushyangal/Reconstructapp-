@@ -204,7 +204,7 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
         children: [
           // Image card with shadow
           Container(
-            height: 250, // Increased height to 220 for better image fit
+            height: 220,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -248,7 +248,7 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
             ),
           ),
           
-          SizedBox(height: 16), // Reduced spacing to fix overflow
+          SizedBox(height: 12),
           
           // Label below the card
           Container(
@@ -380,12 +380,12 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
           // Templates grid with better spacing
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 0), // Reduced from 24 to 20
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 0),
               child: GridView.count(
                 crossAxisCount: 2,
-                childAspectRatio: 0.62, // Fine-tuned to eliminate 4.4px overflow
-                mainAxisSpacing: 16, // Restored proper spacing
-                crossAxisSpacing: 16, // Restored proper spacing
+                childAspectRatio: 0.65,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 16,
                 children: [
                   _buildTemplateCard(
                     context,

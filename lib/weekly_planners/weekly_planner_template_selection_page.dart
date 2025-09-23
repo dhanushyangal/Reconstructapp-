@@ -195,7 +195,7 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
         children: [
           // Image card with shadow
           Container(
-            height: 250,
+            height: 220,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -239,7 +239,7 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
             ),
           ),
           
-          SizedBox(height: 16),
+          SizedBox(height: 12),
           
           // Label below the card
           Container(
@@ -404,8 +404,8 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 0),
               child: GridView.count(
                 crossAxisCount: 2,
-                childAspectRatio: 0.62,
-                mainAxisSpacing: 16,
+                childAspectRatio: 0.65,
+                mainAxisSpacing: 12,
                 crossAxisSpacing: 16,
                 children: [
                   _buildTemplateCard(
