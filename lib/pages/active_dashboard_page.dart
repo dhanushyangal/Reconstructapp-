@@ -16,7 +16,6 @@ import '../weekly_planners/weekly_planner_template_selection_page.dart';
 import '../Annual_planner/annual_planner_template_selection_page.dart';
 import '../Daily_notes/daily_notes_template_selection_page.dart';
 import '../components/nav_logpage.dart';
-import 'release_negative_thoughts_page.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -142,23 +141,6 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
         'image': 'assets/Mind_tools/bubble-popper.png'
       }
     ],
-    'reset_emotions': [
-      {
-        'name': 'Release negative thoughts',
-        'image': 'assets/Reset_my_emotions-images/Release_negative_thoughts.png',
-        'subcategory': true
-      },
-      {
-        'name': 'Build self love',
-        'image': 'assets/Reset_my_emotions-images/build_self_love.png',
-        'subcategory': true
-      },
-      {
-        'name': 'Master your breathing',
-        'image': 'assets/Reset_my_emotions-images/master_your_breathing.png',
-        'subcategory': true
-      }
-    ],
     'activity': [
       {
         'name': 'Digital Coloring',
@@ -251,9 +233,9 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
                 context,
                 MaterialPageRoute(
                   builder: (context) => CategoryToolsPage(
-                    category: 'reset_emotions',
+                    category: 'mind',
                     categoryName: 'Reset my emotions',
-                    tools: _tools['reset_emotions']!,
+                    tools: _tools['mind']!,
                   ),
                 ),
               );
@@ -636,8 +618,6 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
       _handleVisionToolNavigation(toolName);
     } else if (widget.category == 'mind') {
       _handleMindToolNavigation(toolName);
-    } else if (widget.category == 'reset_emotions') {
-      _handleResetEmotionsToolNavigation(toolName);
     } else if (widget.category == 'activity') {
       _handleActivityToolNavigation(toolName);
     }
@@ -662,12 +642,6 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
         return '/break-things';
       case 'Bubble Wrap Popper':
         return '/bubble-wrap-popper';
-      case 'Release negative thoughts':
-        return '/release-negative-thoughts';
-      case 'Build self love':
-        return '/build-self-love';
-      case 'Master your breathing':
-        return '/master-breathing';
       case 'Digital Coloring':
         return '/color-me-now';
       case 'Memory Game':
@@ -747,28 +721,6 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
     }
   }
 
-  void _handleResetEmotionsToolNavigation(String toolName) {
-    switch (toolName) {
-      case 'Release negative thoughts':
-        // Navigate to the new Release Negative Thoughts page
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const ReleaseNegativeThoughtsPage(),
-          ),
-        );
-        break;
-      case 'Build self love':
-        _showComingSoonDialog('Build self love');
-        break;
-      case 'Master your breathing':
-        _showComingSoonDialog('Master your breathing');
-        break;
-      default:
-        break;
-    }
-  }
-
   void _handleActivityToolNavigation(String toolName) {
     switch (toolName) {
       case 'Digital Coloring':
@@ -789,80 +741,6 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
       default:
         break;
     }
-  }
-
-  void _showComingSoonDialog(String featureName) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Icon(
-                Icons.construction,
-                color: Colors.orange,
-                size: 28,
-              ),
-              SizedBox(width: 12),
-              Text(
-                'Coming Soon',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$featureName is currently under development.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 16),
-              Text(
-                'We\'re working hard to bring you this amazing feature soon!',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[500],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: Color(0xFF23C4F7),
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                'Got it',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   String get pageName => widget.categoryName;
