@@ -5,26 +5,53 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
-import 'weekly_life_areas_selection_page.dart';
+import '../Activity_Tools/elephant_color_page.dart';
+import '../Activity_Tools/color_me_page.dart';
+import '../Activity_Tools/figure_color_page.dart';
+import '../Activity_Tools/face_color_page.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
 
-class WeeklyPlannerTemplateSelectionPage extends StatefulWidget {
-  const WeeklyPlannerTemplateSelectionPage({super.key});
+class DigitalColoringPage extends StatefulWidget {
+  const DigitalColoringPage({super.key});
 
   @override
-  State<WeeklyPlannerTemplateSelectionPage> createState() => _WeeklyPlannerTemplateSelectionPageState();
+  State<DigitalColoringPage> createState() => _DigitalColoringPageState();
 }
 
-class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTemplateSelectionPage>
+class _DigitalColoringPageState extends State<DigitalColoringPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   bool _isPremium = false;
   bool _isLoading = true;
+
+  // Animation controllers for progress bar
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
 
-  String get pageName => 'Weekly Planner Templates';
+  // Digital coloring sheets data
+  final List<Map<String, dynamic>> _coloringSheets = [
+    {
+      'name': 'Elephant Coloring',
+      'image': 'assets/coloring_sheet/Coloringsheet5.png',
+      'page': 'elephant',
+    },
+    {
+      'name': 'Bird Coloring',
+      'image': 'assets/coloring_sheet/Coloringsheet1.png',
+      'page': 'bird',
+    },
+    {
+      'name': 'Figure Coloring',
+      'image': 'assets/coloring_sheet/Coloringsheet2.png',
+      'page': 'figure',
+    },
+    {
+      'name': 'Face Coloring',
+      'image': 'assets/coloring_sheet/Coloringsheet3.png',
+      'page': 'face',
+    },
+  ];
 
   @override
   void initState() {
@@ -36,8 +63,8 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
       vsync: this,
     );
     _progressAnimation = Tween<double>(
-      begin: 0.0,
-      end: 0.50, // 50% progress for step 2
+      begin: 0.25,
+      end: 0.5, // 50% progress for digital coloring page
     ).animate(CurvedAnimation(
       parent: _progressAnimationController!,
       curve: Curves.easeInOut,
@@ -67,7 +94,7 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
       final subscriptionManager = SubscriptionManager();
       final hasAccess = await subscriptionManager.hasAccess();
 
-      debugPrint('WeeklyPlannerTemplateSelectionPage - Premium status check:');
+      debugPrint('DigitalColoringPage - Premium status check:');
       debugPrint('- hasCompletedPayment: $hasCompletedPayment');
       debugPrint('- premiumFeaturesEnabled: $premiumFeaturesEnabled');
       debugPrint('- hasAccess from SubscriptionManager: $hasAccess');
@@ -95,7 +122,7 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
         }
       }
     } catch (e) {
-      debugPrint('Error checking premium status in WeeklyPlannerTemplateSelectionPage: $e');
+      debugPrint('Error checking premium status in DigitalColoringPage: $e');
       // On error, fall back to basic local check
       final prefs = await SharedPreferences.getInstance();
       final isPremium = prefs.getBool(_hasCompletedPaymentKey) ?? false;
@@ -109,12 +136,12 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
     }
   }
 
-  // Check if a template should be locked (free vs premium)
-  bool _isTemplateLocked(String title) {
+  // Check if a coloring sheet should be locked (free vs premium)
+  bool _isColoringSheetLocked(String sheetName) {
     if (_isPremium) return false; // Premium users get access to everything
 
-    // Only Floral theme is free
-    return title != 'Floral Weekly Planner';
+    // Only Elephant Coloring is free
+    return sheetName != 'Elephant Coloring';
   }
 
   // Method to show payment page directly like profile page
@@ -147,10 +174,10 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
         return AlertDialog(
           title: Text(isGuest ? 'Sign In Required' : 'Premium Feature'),
           content: Text(isGuest 
-            ? 'This template requires you to sign in or create an account. '
-              'Sign in to save your progress and access all templates.'
-            : 'This template is only available for premium users. '
-                  'Upgrade to premium to unlock all templates.'),
+            ? 'This coloring sheet requires you to sign in or create an account. '
+              'Sign in to save your progress and access all coloring sheets.'
+            : 'This coloring sheet is only available for premium users. '
+                  'Upgrade to premium to unlock all coloring sheets.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -179,121 +206,6 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
     );
   }
 
-  Widget _buildTemplateCard(BuildContext context, String imagePath, String title) {
-    final bool isLocked = _isTemplateLocked(title);
-
-    return GestureDetector(
-      onTap: () {
-        if (isLocked) {
-          _showPremiumDialog(context);
-          return;
-        }
-        trackClick('$title template');
-        _navigateToTemplate(title);
-      },
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(12)),
-                    child: Image.asset(
-                      imagePath,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey[200],
-                          child: Icon(
-                            Icons.image_not_supported,
-                            size: 60,
-                            color: Colors.grey[400],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  if (isLocked)
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                          color: Colors.black.withOpacity(0.3),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            Icons.lock,
-                            color: Colors.white,
-                            size: 40,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isLocked ? Colors.grey : Colors.black,
-                      ),
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _navigateToTemplate(String template) {
-    String imagePath;
-    switch (template) {
-      case 'Floral Weekly Planner':
-        imagePath = 'assets/Plan_your_weekly_goals-images/floral.png';
-        break;
-      case 'Watercolor Weekly Planner':
-        imagePath = 'assets/Plan_your_weekly_goals-images/watercolor.png';
-        break;
-      case 'Patterns Weekly Planner':
-        imagePath = 'assets/Plan_your_weekly_goals-images/post.png';
-        break;
-      case 'Japanese Weekly Planner':
-        imagePath = 'assets/Plan_your_weekly_goals-images/japanese.png';
-        break;
-      default:
-        imagePath = 'assets/Plan_your_weekly_goals-images/floral.png';
-    }
-    
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => WeeklyLifeAreasSelectionPage(
-          template: template,
-          imagePath: imagePath,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -305,8 +217,8 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
     }
 
     return NavLogPage(
-      title: 'Choose a theme for your weekly goals planner',
-      showBackButton: false,
+      title: 'Digital Coloring',
+      showBackButton: true,
       selectedIndex: 2, // Dashboard index
       onNavigationTap: (index) {
         // Navigate to different pages based on index
@@ -375,47 +287,31 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
             ),
           ),
           
-          // Main title with better spacing
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.fromLTRB(24, 12, 24, 8),
-            child: Text(
-              'Choose a theme for your weekly goals planner',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-                height: 1.0,
-              ),
-              textAlign: TextAlign.left,
-            ),
-          ),
-          
-          // Templates grid with better spacing
+          // Main content
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 0),
-              child: GridView.count(
-                crossAxisCount: 2,
-                childAspectRatio: 0.65,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 16,
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildTemplateCard(
-                    context,
-                    'assets/Plan_your_weekly_goals-images/floral.png',
-                    'Floral Weekly Planner'),
-                  _buildTemplateCard(
-                    context,
-                    'assets/Plan_your_weekly_goals-images/watercolor.png',
-                    'Watercolor Weekly Planner'),
-                  _buildTemplateCard(context, 
-                  'assets/Plan_your_weekly_goals-images/post.png',
-                      'Patterns Weekly Planner'),
-                  _buildTemplateCard(
-                    context,
-                    'assets/Plan_your_weekly_goals-images/japanese.png',
-                    'Japanese Weekly Planner'),
+                  const Text(
+                    'Choose your coloring sheet',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+
+                  const SizedBox(height: 56),
+                  Expanded(
+                    child: GridView.count(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.75,
+                      children: [
+                        _buildColoringSheetCard(context, _coloringSheets[0]),
+                        _buildColoringSheetCard(context, _coloringSheets[1]),
+                        _buildColoringSheetCard(context, _coloringSheets[2]),
+                        _buildColoringSheetCard(context, _coloringSheets[3]),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -424,4 +320,129 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
       ),
     );
   }
+
+  Widget _buildColoringSheetCard(BuildContext context, Map<String, dynamic> sheet) {
+    final bool isLocked = _isColoringSheetLocked(sheet['name']);
+
+    return GestureDetector(
+      onTap: () {
+        if (isLocked) {
+          _showPremiumDialog(context);
+          return;
+        }
+        _navigateToColoringSheet(sheet['name']);
+      },
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: Image.asset(
+                      sheet['image'],
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: Icon(
+                            Icons.image_not_supported,
+                            size: 60,
+                            color: Colors.grey[400],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  if (isLocked)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                          color: Colors.black.withOpacity(0.3),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.lock,
+                            color: Colors.white,
+                            size: 40,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      sheet['name'],
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isLocked ? Colors.grey : Colors.black,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _navigateToColoringSheet(String sheetName) {
+    // Track the activity
+    trackClick('digital_coloring_$sheetName');
+
+    // Find the sheet data
+    final sheet = _coloringSheets.firstWhere((s) => s['name'] == sheetName);
+    final pageType = sheet['page'] as String;
+
+    // Navigate to the appropriate coloring page
+    switch (pageType) {
+      case 'elephant':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ElephantColorPage()),
+        );
+        break;
+      case 'bird':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ColorMePage()),
+        );
+        break;
+      case 'figure':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const FigureColorPage()),
+        );
+        break;
+      case 'face':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const FaceColorPage()),
+        );
+        break;
+      default:
+        break;
+    }
+  }
+
+  String get pageName => 'Digital Coloring';
 }

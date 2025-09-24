@@ -200,82 +200,75 @@ class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSe
           ),
         );
       },
-      child: Column(
-        children: [
-          // Image card with shadow
-          Container(
-            height: 220,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
-                  spreadRadius: 0,
-                  blurRadius: 8,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    imagePath,
-                    fit: BoxFit.contain,
-                    width: double.infinity,
-                    height: double.infinity,
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: Image.asset(
+                      imagePath,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: Icon(
+                            Icons.image_not_supported,
+                            size: 60,
+                            color: Colors.grey[400],
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
-                if (isLocked)
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.black.withOpacity(0.3),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.lock,
-                          color: Colors.white,
-                          size: 40,
+                  if (isLocked)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                          color: Colors.black.withOpacity(0.3),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.lock,
+                            color: Colors.white,
+                            size: 40,
+                          ),
                         ),
                       ),
                     ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isLocked ? Colors.grey : Colors.black,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-              ],
-            ),
-          ),
-          
-          SizedBox(height: 12),
-          
-          // Label below the card
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 3), // Minimal padding to save space
-            decoration: BoxDecoration(
-              color: const Color.fromARGB(255, 255, 255, 255),
-              borderRadius: BorderRadius.circular(20), // Increased from 8 to 20 for more rounded borders
-              border: Border.all(
-                color: const Color.fromARGB(255, 255, 255, 255),
-                width: 1,
+                ],
               ),
             ),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontWeight: FontWeight.w600, // Increased from w500 to w600
-                fontSize: 14, // Reduced to save space
-                color: isLocked ? Colors.grey : Colors.black87,
-                letterSpacing: 0.2, // Reduced letter spacing
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

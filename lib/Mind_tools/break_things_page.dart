@@ -5,8 +5,8 @@ import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
-
-import 'dashboard_traker.dart'; // Import the dashboard tracker
+import '../components/nav_logpage.dart';
+import '../pages/mind_tool_success_page.dart';
 
 class BreakThingsPage extends StatefulWidget {
   const BreakThingsPage({super.key});
@@ -35,10 +35,30 @@ class _BreakThingsPageState extends State<BreakThingsPage>
 
   // Controllers for animations
   Map<int, AnimationController> animationControllers = {};
+  
+  // Progress bar animation
+  AnimationController? _progressAnimationController;
+  Animation<double>? _progressAnimation;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize progress animation
+    _progressAnimationController = AnimationController(
+      duration: Duration(seconds: 2),
+      vsync: this,
+    );
+    _progressAnimation = Tween<double>(
+      begin: 0.5,
+      end: 0.75, // 75% progress for mind tools
+    ).animate(CurvedAnimation(
+      parent: _progressAnimationController!,
+      curve: Curves.easeInOut,
+    ));
+    
+    // Start the animation
+    _progressAnimationController!.forward();
 
     // Initialize the grid of objects
     _initializeBreakableItems();
@@ -177,11 +197,24 @@ class _BreakThingsPageState extends State<BreakThingsPage>
       }
       brokenCount = 0;
     });
+    
+    // Navigate to success page after reset
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MindToolSuccessPage(
+          toolName: 'Break Things',
+          nextToolName: 'Build Self Love',
+          nextToolRoute: '/build-self-love',
+        ),
+      ),
+    );
   }
 
   @override
   void dispose() {
     _audioPlayer.dispose();
+    _progressAnimationController?.dispose();
 
     // Dispose all animation controllers
     for (var controller in animationControllers.values) {
@@ -193,17 +226,86 @@ class _BreakThingsPageState extends State<BreakThingsPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Break Things'),
-      ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+    return NavLogPage(
+      title: 'Break Things',
+      showBackButton: true,
+      selectedIndex: 2, // Dashboard index
+      onNavigationTap: (index) {
+        // Navigate to different pages based on index
+        switch (index) {
+          case 0:
+            Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+            break;
+          case 1:
+            Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
+            break;
+          case 2:
+            Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
+            break;
+          case 3:
+            Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
+            break;
+          case 4:
+            Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
+            break;
+        }
+      },
+      body: Column(
+        children: [
+          // Progress bar at the top
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
               children: [
+                Expanded(
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5),
+                      color: Colors.grey[200],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(5),
+                      child: AnimatedBuilder(
+                        animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                        builder: (context, child) {
+                          return LinearProgressIndicator(
+                            value: _progressAnimation?.value ?? 0.0,
+                            backgroundColor: Colors.transparent,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16),
+                AnimatedBuilder(
+                  animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                  builder: (context, child) {
+                    return Text(
+                      '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF23C4F7),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          
+          // Main content
+          Expanded(
+            child: SingleChildScrollView(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                 const Text(
                   'Click and break things!',
                   style: TextStyle(
@@ -330,23 +432,29 @@ class _BreakThingsPageState extends State<BreakThingsPage>
 
                 const SizedBox(height: 24),
 
-                ElevatedButton(
-                  onPressed: _resetAllItems,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 32, vertical: 16),
-                  ),
-                  child: const Text(
-                    'Reset All Items',
-                    style: TextStyle(fontSize: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _resetAllItems,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 16),
+                    ),
+                    child: const Text(
+                      'Reset All Items',
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
                 ),
-              ],
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import '../components/nav_logpage.dart';
+import '../pages/coloring_success_page.dart';
 
 class FaceColorPage extends StatefulWidget {
   const FaceColorPage({super.key});
@@ -8,11 +10,15 @@ class FaceColorPage extends StatefulWidget {
   State<FaceColorPage> createState() => _FaceColorPageState();
 }
 
-class _FaceColorPageState extends State<FaceColorPage> {
+class _FaceColorPageState extends State<FaceColorPage> with TickerProviderStateMixin {
   // Current drawing properties
   Color currentColor = Colors.black;
   double currentStrokeWidth = 8.0;
   final List<DrawingPoint?> points = [];
+
+  // Animation controllers for progress bar
+  AnimationController? _progressAnimationController;
+  Animation<double>? _progressAnimation;
 
   // Fixed colors for face parts - now marked as static const for emphasis that they're permanent
   static const Color bodyColor = Colors.white;
@@ -43,13 +49,111 @@ class _FaceColorPageState extends State<FaceColorPage> {
   final Size faceCanvasSize = const Size(350, 450);
 
   @override
+  void initState() {
+    super.initState();
+    
+    // Initialize progress animation
+    _progressAnimationController = AnimationController(
+      duration: Duration(seconds: 2),
+      vsync: this,
+    );
+    _progressAnimation = Tween<double>(
+      begin: 0.5,
+      end: 0.75, // 75% progress for face coloring page
+    ).animate(CurvedAnimation(
+      parent: _progressAnimationController!,
+      curve: Curves.easeInOut,
+    ));
+    
+    // Start the animation
+    _progressAnimationController!.forward();
+  }
+
+  @override
+  void dispose() {
+    _progressAnimationController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Color Me - Face'),
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        actions: [
+    return NavLogPage(
+      title: 'Face Coloring',
+      showBackButton: true,
+      selectedIndex: 2, // Dashboard index
+      onNavigationTap: (index) {
+        // Navigate to different pages based on index
+        switch (index) {
+          case 0:
+            Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+            break;
+          case 1:
+            Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
+            break;
+          case 2:
+            Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
+            break;
+          case 3:
+            Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
+            break;
+          case 4:
+            Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
+            break;
+        }
+      },
+      body: Column(
+        children: [
+          // Progress bar at the top
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5),
+                      color: Colors.grey[200],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(5),
+                      child: AnimatedBuilder(
+                        animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                        builder: (context, child) {
+                          return LinearProgressIndicator(
+                            value: _progressAnimation?.value ?? 0.0,
+                            backgroundColor: Colors.transparent,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16),
+                AnimatedBuilder(
+                  animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                  builder: (context, child) {
+                    return Text(
+                      '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF23C4F7),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          
+          // Clear button
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Clear drawing',
@@ -59,8 +163,8 @@ class _FaceColorPageState extends State<FaceColorPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
+          ),
+          
           // Drawing area
           Expanded(
             flex: 5,
@@ -198,6 +302,44 @@ class _FaceColorPageState extends State<FaceColorPage> {
                   ),
                 );
               },
+            ),
+          ),
+
+          // Next button
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ColoringSuccessPage(
+                        toolName: 'Face Coloring',
+                        nextToolName: 'Back to Dashboard',
+                        nextToolRoute: '',
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF23C4F7),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Next',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
           ),
         ],

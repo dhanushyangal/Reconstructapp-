@@ -5,8 +5,8 @@ import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
-
-import 'dashboard_traker.dart'; // Import the dashboard tracker
+import '../components/nav_logpage.dart';
+import '../pages/mind_tool_success_page.dart';
 
 class ThoughtShredderPage extends StatefulWidget {
   const ThoughtShredderPage({super.key});
@@ -30,10 +30,30 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
   final List<double> _stripOffsets = [];
   final List<Color> _stripColors = [];
   final AudioPlayer _audioPlayer = AudioPlayer();
+  
+  // Progress bar animation
+  AnimationController? _progressAnimationController;
+  Animation<double>? _progressAnimation;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize progress animation
+    _progressAnimationController = AnimationController(
+      duration: Duration(seconds: 2),
+      vsync: this,
+    );
+    _progressAnimation = Tween<double>(
+      begin: 0.5,
+      end: 0.75, // 75% progress for mind tools
+    ).animate(CurvedAnimation(
+      parent: _progressAnimationController!,
+      curve: Curves.easeInOut,
+    ));
+    
+    // Start the animation
+    _progressAnimationController!.forward();
 
     // Main animation controller for shredding
     _animationController = AnimationController(
@@ -67,6 +87,18 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
 
         // Record activity in SharedPreferences
         _recordActivity();
+        
+        // Navigate to success page after animation completes
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MindToolSuccessPage(
+              toolName: 'Thought Shredder',
+              nextToolName: 'Build Self Love',
+              nextToolRoute: '/build-self-love',
+            ),
+          ),
+        );
       }
     });
 
@@ -132,6 +164,7 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
     _animationController.dispose();
     _shakeController.dispose();
     _audioPlayer.dispose();
+    _progressAnimationController?.dispose();
     super.dispose();
   }
 
@@ -165,16 +198,85 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Thought Shredder'),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+    return NavLogPage(
+      title: 'Thought Shredder',
+      showBackButton: true,
+      selectedIndex: 2, // Dashboard index
+      onNavigationTap: (index) {
+        // Navigate to different pages based on index
+        switch (index) {
+          case 0:
+            Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+            break;
+          case 1:
+            Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
+            break;
+          case 2:
+            Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
+            break;
+          case 3:
+            Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
+            break;
+          case 4:
+            Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
+            break;
+        }
+      },
+      body: Column(
+        children: [
+          // Progress bar at the top
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5),
+                      color: Colors.grey[200],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(5),
+                      child: AnimatedBuilder(
+                        animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                        builder: (context, child) {
+                          return LinearProgressIndicator(
+                            value: _progressAnimation?.value ?? 0.0,
+                            backgroundColor: Colors.transparent,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16),
+                AnimatedBuilder(
+                  animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                  builder: (context, child) {
+                    return Text(
+                      '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF23C4F7),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          
+          // Main content
+          Expanded(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
               const SizedBox(height: 20),
               const Text(
                 'What are you thinking about?',
@@ -263,9 +365,14 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
                   ),
                   textAlign: TextAlign.center,
                 ),
-            ],
+              
+              const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

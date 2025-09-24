@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
+import '../components/nav_logpage.dart';
+import '../pages/coloring_success_page.dart';
 
 class ColorMePage extends StatefulWidget {
   const ColorMePage({super.key});
@@ -12,13 +14,17 @@ class ColorMePage extends StatefulWidget {
   State<ColorMePage> createState() => _ColorMePageState();
 }
 
-class _ColorMePageState extends State<ColorMePage> {
+class _ColorMePageState extends State<ColorMePage> with TickerProviderStateMixin {
   // Current drawing properties
   Color currentColor = Colors.black;
   double currentStrokeWidth = 8.0;
 
   // Store drawing points
   final List<DrawingPoint?> points = [];
+
+  // Animation controllers for progress bar
+  AnimationController? _progressAnimationController;
+  Animation<double>? _progressAnimation;
 
   // Colors for bird parts
   final Color bodyColor = Colors.white;
@@ -57,6 +63,28 @@ class _ColorMePageState extends State<ColorMePage> {
 
     // Track this page visit in recent activities
     _trackActivity();
+
+    // Initialize progress animation
+    _progressAnimationController = AnimationController(
+      duration: Duration(seconds: 2),
+      vsync: this,
+    );
+    _progressAnimation = Tween<double>(
+      begin: 0.5,
+      end: 0.75, // 75% progress for bird coloring page
+    ).animate(CurvedAnimation(
+      parent: _progressAnimationController!,
+      curve: Curves.easeInOut,
+    ));
+    
+    // Start the animation
+    _progressAnimationController!.forward();
+  }
+
+  @override
+  void dispose() {
+    _progressAnimationController?.dispose();
+    super.dispose();
   }
 
   // Method to track activity
@@ -77,12 +105,83 @@ class _ColorMePageState extends State<ColorMePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Color Me'),
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        actions: [
+    return NavLogPage(
+      title: 'Bird Coloring',
+      showBackButton: true,
+      selectedIndex: 2, // Dashboard index
+      onNavigationTap: (index) {
+        // Navigate to different pages based on index
+        switch (index) {
+          case 0:
+            Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+            break;
+          case 1:
+            Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
+            break;
+          case 2:
+            Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
+            break;
+          case 3:
+            Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
+            break;
+          case 4:
+            Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
+            break;
+        }
+      },
+      body: Column(
+        children: [
+          // Progress bar at the top
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5),
+                      color: Colors.grey[200],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(5),
+                      child: AnimatedBuilder(
+                        animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                        builder: (context, child) {
+                          return LinearProgressIndicator(
+                            value: _progressAnimation?.value ?? 0.0,
+                            backgroundColor: Colors.transparent,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF23C4F7)),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16),
+                AnimatedBuilder(
+                  animation: _progressAnimation ?? const AlwaysStoppedAnimation(0.0),
+                  builder: (context, child) {
+                    return Text(
+                      '${((_progressAnimation?.value ?? 0.0) * 100).toInt()}%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF23C4F7),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          
+          // Clear button
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Clear drawing',
@@ -94,8 +193,8 @@ class _ColorMePageState extends State<ColorMePage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
+          ),
+          
           // Drawing area
           Expanded(
             flex: 5,
@@ -290,6 +389,44 @@ class _ColorMePageState extends State<ColorMePage> {
                   ),
                 );
               },
+            ),
+          ),
+
+          // Next button
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ColoringSuccessPage(
+                        toolName: 'Bird Coloring',
+                        nextToolName: 'Figure Coloring',
+                        nextToolRoute: '/figure-coloring',
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF23C4F7),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Next',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
