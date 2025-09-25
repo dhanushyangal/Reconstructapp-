@@ -516,6 +516,47 @@ class SubscriptionManager extends ChangeNotifier {
     }
   }
 
+  /// Restore previous purchases
+  Future<bool> restorePurchases(BuildContext context) async {
+    try {
+      if (!_isAvailable) {
+        debugPrint('Store is not available for restore');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Store is not available'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
+
+      debugPrint('Starting restore purchases...');
+      
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Restoring purchases...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Initiate restore
+      await _inAppPurchase.restorePurchases();
+      
+      debugPrint('Restore purchases initiated successfully');
+      return true;
+    } catch (e) {
+      debugPrint('Error restoring purchases: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error restoring purchases: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+  }
+
   @override
   void dispose() {
     _subscription.cancel();

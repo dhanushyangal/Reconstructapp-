@@ -2880,10 +2880,47 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                   ],
                 ),
-                // Add cancellation text only for paid premium users (not for free or trial users)
-                if (_isPremium && !isOnTrial)
+                // Add restore purchases button for iOS users or premium users
+                if (PlatformFeatures.isIOS || _isPremium)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton(
+                          onPressed: () async {
+                            try {
+                              final subscriptionManager = SubscriptionManager();
+                              await subscriptionManager.restorePurchases(context);
+                              // Refresh premium status after restore
+                              await _checkPremiumStatusFromDatabase();
+                            } catch (e) {
+                              debugPrint('Error in restore purchases: $e');
+                            }
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'Restore Purchases',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                // Add cancellation text only for paid premium users (not for free or trial users)
+                if (_isPremium && !isOnTrial && PlatformFeatures.isAndroid)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

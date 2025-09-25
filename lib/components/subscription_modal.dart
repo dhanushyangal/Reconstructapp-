@@ -206,6 +206,7 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
           _buildFeaturesList(),
           _buildPricingOptions(),
           _buildActionButton(),
+          _buildRestorePurchasesButton(),
           _buildCancelInfo(),
           _buildFooterText(),
         ],
@@ -559,6 +560,40 @@ Widget _buildFeaturesList() {
             fontSize: 14,
             fontWeight: FontWeight.bold,
             color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRestorePurchasesButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: TextButton(
+        onPressed: () async {
+          try {
+            final subscriptionManager = SubscriptionManager();
+            await subscriptionManager.restorePurchases(context);
+            
+            // Refresh the premium status after restore
+            await _checkPremiumStatus();
+          } catch (e) {
+            debugPrint('Error in restore purchases: $e');
+          }
+        },
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+        ),
+        child: const Text(
+          'Restore Purchases',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.blue,
+            decoration: TextDecoration.underline,
           ),
         ),
       ),
