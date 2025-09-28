@@ -18,6 +18,7 @@ import '../Daily_notes/daily_notes_template_selection_page.dart';
 import '../components/nav_logpage.dart';
 import 'release_negative_thoughts_page.dart';
 import 'digital_coloring_page.dart';
+import 'build_self_love_page.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -785,7 +786,13 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
         );
         break;
       case 'Build self love':
-        _showComingSoonDialog('Build self love');
+        // Navigate to the new Build Self Love page
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const BuildSelfLovePage(),
+          ),
+        );
         break;
       case 'Master your breathing':
         _showComingSoonDialog('Master your breathing');
