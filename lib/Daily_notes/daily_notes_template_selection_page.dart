@@ -4,7 +4,7 @@ import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../utils/activity_tracker_mixin.dart';
-import 'daily_notes_custom_page.dart';
+import '../Plan_my_future/Daily_notes_plan/daily_notes_custom_page.dart';
 import '../components/nav_logpage.dart';
 
 // Key for checking premium status

@@ -3,14 +3,14 @@ import 'package:screenshot/screenshot.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
 import 'dart:convert';
-import '../services/annual_calendar_service.dart';
-import '../services/user_service.dart';
+import '../../services/weekly_planner_service.dart';
+import '../../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
-import '../utils/activity_tracker_mixin.dart';
-import '../utils/platform_features.dart';
-import '../pages/active_tasks_page.dart';
-import '../components/nav_logpage.dart';
+import '../../utils/activity_tracker_mixin.dart';
+import '../../utils/platform_features.dart';
+import '../../pages/active_tasks_page.dart';
+import '../../components/nav_logpage.dart';
 
 class TodoItem {
   String text;
@@ -32,12 +32,12 @@ class TodoItem {
       );
 }
 
-class CustomAnnualPlannerPage extends StatefulWidget {
+class CustomWeeklyPlannerPage extends StatefulWidget {
   final String template;
   final String imagePath;
   final List<String> selectedAreas;
 
-  const CustomAnnualPlannerPage({
+  const CustomWeeklyPlannerPage({
     super.key,
     required this.template,
     required this.imagePath,
@@ -45,10 +45,10 @@ class CustomAnnualPlannerPage extends StatefulWidget {
   });
 
   @override
-  State<CustomAnnualPlannerPage> createState() => _CustomAnnualPlannerPageState();
+  State<CustomWeeklyPlannerPage> createState() => _CustomWeeklyPlannerPageState();
 }
 
-class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
+class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   final screenshotController = ScreenshotController();
   final Map<String, TextEditingController> _controllers = {};
@@ -57,106 +57,45 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
   DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
   bool _hasNetworkConnectivity = true;
 
-  String get pageName => 'Custom Monthly Planner - ${widget.template}';
+  String get pageName => 'Custom Weekly Planner - ${widget.template}';
 
-  // Theme-specific colors and styles for monthly planners
+  // Theme-specific styles for weekly planners
   Map<String, dynamic> get _themeConfig {
     switch (widget.template) {
-      case 'Floral Monthly Planner':
+      case 'Floral Weekly Planner':
         return {
           'type': 'floral',
-          'cardColors': [
-            Color(0xFFE8F5E8), // Light green
-            Color(0xFFF0E8FF), // Light purple
-            Color(0xFFFFE8F0), // Light pink
-            Color(0xFFE8F8FF), // Light blue
-            Color(0xFFFFF8E8), // Light yellow
-            Color(0xFFF8E8FF), // Light lavender
-            Color(0xFFE8FFE8), // Light mint
-            Color(0xFFFFF0E8), // Light peach
-            Color(0xFFE8E8FF), // Light periwinkle
-          ],
           'textColor': Colors.black87,
           'placeholderColor': Colors.grey[600]!,
-          'storagePrefix': 'AnnualFloral',
+          'storagePrefix': 'WeeklyFloral',
         };
-      case 'Watercolor Monthly Planner':
+      case 'Watercolor Weekly Planner':
         return {
           'type': 'watercolor',
-          'cardColors': [
-            Color(0xFFB8E6B8), // Watercolor green
-            Color(0xFFD4B8E6), // Watercolor purple
-            Color(0xFFE6B8D4), // Watercolor pink
-            Color(0xFFB8D4E6), // Watercolor blue
-            Color(0xFFE6D4B8), // Watercolor yellow
-            Color(0xFFD4B8E6), // Watercolor lavender
-            Color(0xFFB8E6D4), // Watercolor mint
-            Color(0xFFE6B8B8), // Watercolor peach
-            Color(0xFFB8B8E6), // Watercolor periwinkle
-          ],
           'textColor': Colors.black87,
           'placeholderColor': Colors.grey[600]!,
-          'storagePrefix': 'AnnualWatercolor',
+          'storagePrefix': 'WeeklyWatercolor',
         };
-      case 'Post-it Monthly Planner':
+      case 'Patterns Weekly Planner':
         return {
-          'type': 'postit',
-          'cardColors': [
-            Color(0xFFFF7F6A), // Coral
-            Color(0xFFFFB347), // Orange
-            Color(0xFFFFB5B5), // Pink
-            Color(0xFF4169E1), // Royal Blue
-            Color(0xFF87CEEB), // Sky Blue
-            Color(0xFFFFF0F5), // Light Pink
-            Color(0xFFFFFF00), // Yellow
-            Color(0xFFFF69B4), // Hot Pink
-            Color(0xFF00CED1), // Turquoise
-            Color(0xFFFF69B4), // Pink Purple
-            Color(0xFF4169E1), // Royal Blue
-            Color(0xFFFF6B6B), // Red Orange
-          ],
+          'type': 'patterns',
           'textColor': Colors.black87,
           'placeholderColor': Colors.grey[600]!,
-          'storagePrefix': 'AnnualPostit',
+          'storagePrefix': 'WeeklyPatterns',
         };
-      case 'Premium Monthly Planner':
+      case 'Japanese Weekly Planner':
         return {
-          'type': 'premium',
-          'cardColors': [
-            Color.fromARGB(255, 0, 0, 0), // Black
-            Color.fromARGB(255, 0, 0, 0), // Black
-            Color.fromARGB(255, 0, 0, 0), // Black
-            Color.fromARGB(255, 0, 0, 0), // Black
-            Color.fromARGB(255, 0, 0, 0), // Black
-            Color.fromARGB(255, 0, 0, 0), // Black
-            Color.fromARGB(255, 0, 0, 0), // Black
-            Color.fromARGB(255, 0, 0, 0), // Black
-            Color.fromARGB(255, 0, 0, 0), // Black
-            Color.fromARGB(255, 0, 0, 0), // Black
-            Color.fromARGB(255, 0, 0, 0), // Black
-            Color.fromARGB(255, 0, 0, 0), // Black
-          ],
-          'textColor': Colors.white,
-          'placeholderColor': Colors.grey[300]!,
-          'storagePrefix': 'AnnualPremium',
+          'type': 'japanese',
+          'textColor': Colors.black87,
+          'placeholderColor': Colors.grey[600]!,
+          'storagePrefix': 'WeeklyJapanese',
         };
       default:
         return {
           'type': 'floral',
-          'cardColors': [
-            Color(0xFFE8F5E8),
-            Color(0xFFF0E8FF),
-            Color(0xFFFFE8F0),
-            Color(0xFFE8F8FF),
-            Color(0xFFFFF8E8),
-            Color(0xFFF8E8FF),
-            Color(0xFFE8FFE8),
-            Color(0xFFFFF0E8),
-            Color(0xFFE8E8FF),
-          ],
           'textColor': Colors.black87,
           'placeholderColor': Colors.grey[600]!,
-          'storagePrefix': 'AnnualDefault',
+          'storagePrefix': 'WeeklyDefault',
         };
     }
   }
@@ -216,10 +155,10 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
             _controllers[category]?.text = _formatDisplayText(category);
           });
           debugPrint(
-              'Loaded ${_todoLists[category]?.length ?? 0} monthly tasks from local storage for $category');
+              'Loaded ${_todoLists[category]?.length ?? 0} weekly tasks from local storage for $category');
         }
       } catch (e) {
-        debugPrint('Error parsing local monthly tasks for $category: $e');
+        debugPrint('Error parsing local weekly tasks for $category: $e');
       }
     }
   }
@@ -227,7 +166,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
   // Check database connectivity
   Future<bool> _checkDatabaseConnectivity() async {
     try {
-      return await AnnualCalendarService.instance.testConnection();
+      return await WeeklyPlannerService.instance.testConnection();
     } catch (e) {
       debugPrint('Database connectivity check failed: $e');
       return false;
@@ -263,19 +202,16 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
       if (userInfo['userName']?.isNotEmpty == true &&
           userInfo['email']?.isNotEmpty == true) {
         final allTasksFromDb =
-            await AnnualCalendarService.instance.loadUserTasks(userInfo, theme: themeConfig['type']);
+            await WeeklyPlannerService.instance.loadUserTasks(userInfo, theme: themeConfig['type']);
 
         if (allTasksFromDb.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
 
           for (var dbTask in allTasksFromDb) {
             final category = dbTask['card_id'];
-            debugPrint('Processing database task for category: $category');
-            debugPrint('Database task data: $dbTask');
             if (_todoLists.containsKey(category)) {
               try {
                 final tasksJson = dbTask['tasks'] as String?;
-                debugPrint('Tasks JSON for $category: $tasksJson');
                 if (tasksJson == null || tasksJson.isEmpty) {
                   debugPrint('No tasks data for $category, skipping');
                   continue;
@@ -302,8 +238,8 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
 
           // Update the widget after syncing
           await HomeWidget.updateWidget(
-            androidName: 'AnnualPlannerWidget',
-            iOSName: 'AnnualPlannerWidget',
+            androidName: 'WeeklyPlannerWidget',
+            iOSName: 'WeeklyPlannerWidget',
           );
 
           if (mounted) {
@@ -364,8 +300,8 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
 
     // Update the widget
     await HomeWidget.updateWidget(
-      androidName: 'AnnualPlannerWidget',
-      iOSName: 'AnnualPlannerWidget',
+      androidName: 'WeeklyPlannerWidget',
+      iOSName: 'WeeklyPlannerWidget',
     );
 
     // Only try to save to database if we have network connectivity
@@ -373,7 +309,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Monthly task saved locally (offline mode)'),
+            content: Text('Weekly task saved locally (offline mode)'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -388,13 +324,13 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
 
       if (isLoggedIn) {
 
-        AnnualCalendarService.instance
+        WeeklyPlannerService.instance
             .saveTodoItem(userInfo, category, encoded, theme: themeConfig['type'])
             .then((success) {
           if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Monthly task synced to cloud'),
+                content: Text('Weekly task synced to cloud'),
                 duration: Duration(seconds: 1),
               ),
             );
@@ -435,20 +371,13 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
     super.dispose();
   }
 
-  Widget _buildAnnualPlannerCard(String title, int index) {
+  Widget _buildWeeklyPlannerCard(String title, int index) {
     final themeConfig = _themeConfig;
-    final cardColors = themeConfig['cardColors'] as List<Color>?;
     final textColor = themeConfig['textColor'] as Color;
     final placeholderColor = themeConfig['placeholderColor'] as Color;
 
-    Color cardColor = Colors.white;
-    if (cardColors != null && index < cardColors.length) {
-      cardColor = cardColors[index];
-    }
-
-    // Check if this theme uses images or colors
-    final themeType = themeConfig['type'] as String;
-    final useImages = themeType == 'floral' || themeType == 'watercolor';
+    // Get the appropriate image path based on theme and index
+    String imagePath = _getCardImagePath(themeConfig['type'], index);
 
     Widget cardContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -457,7 +386,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           width: double.infinity,
           decoration: BoxDecoration(
-            color: useImages ? Colors.white.withOpacity(0.2) : cardColor,
+            color: Colors.white.withOpacity(0.4),
             borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Row(
@@ -465,7 +394,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
               if (_isCustomCreatedCard(title)) ...[
                 Icon(
                   Icons.star,
-                  color: themeConfig['type'] == 'premium' ? Colors.white : Colors.black,
+                  color: Colors.black,
                   size: 20,
                 ),
                 SizedBox(width: 8),
@@ -476,7 +405,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 17,
-                    color: themeConfig['type'] == 'premium' ? Colors.white : Colors.black,
+                    color: Colors.black,
                   ),
                 ),
               ),
@@ -495,7 +424,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
                 onTap: () => _showTodoDialog(title),
                 child: _todoLists[title]?.isEmpty ?? true
                     ? Text(
-                        _isCustomCreatedCard(title) ? 'Create your\nmonthly goals' : 'Plan your\nmonthly goals',
+                        _isCustomCreatedCard(title) ? 'Create your\nweekly focus' : 'Plan your\nweekly goals',
                         style: TextStyle(
                           color: placeholderColor,
                           fontSize: 16,
@@ -533,18 +462,13 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
       onLongPress: () async {
         await HomeWidget.saveWidgetData('edit_mode', title);
         await HomeWidget.updateWidget(
-          androidName: 'AnnualPlannerWidget',
-          iOSName: 'AnnualPlannerWidget',
+          androidName: 'WeeklyPlannerWidget',
+          iOSName: 'WeeklyPlannerWidget',
         );
       },
       child: Container(
         decoration: BoxDecoration(
-          color: useImages ? null : cardColor,
           borderRadius: BorderRadius.circular(12),
-          image: useImages ? DecorationImage(
-            image: AssetImage(_getCardImagePath(themeType, index)),
-            fit: BoxFit.fill,
-          ) : null,
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withAlpha(50),
@@ -554,13 +478,20 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
             ),
           ],
         ),
-        child: useImages ? Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  imagePath,
+                  fit: BoxFit.fill,
+                ),
+              ),
+              cardContent,
+            ],
           ),
-          child: cardContent,
-        ) : cardContent,
+        ),
       ),
     );
   }
@@ -642,7 +573,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
                   const Icon(Icons.offline_bolt, size: 16, color: Colors.amber),
                   const SizedBox(width: 8),
                   const Text(
-                    'Offline mode - monthly changes saved locally',
+                    'Offline mode - weekly changes saved locally',
                     style: TextStyle(fontSize: 12),
                   ),
                   const Spacer(),
@@ -679,7 +610,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
                     ),
                     itemCount: widget.selectedAreas.length,
                     itemBuilder: (context, index) =>
-                        _buildAnnualPlannerCard(widget.selectedAreas[index], index),
+                        _buildWeeklyPlannerCard(widget.selectedAreas[index], index),
                   ),
                 ),
               ),
@@ -728,7 +659,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
                   },
                   icon: const Icon(Icons.save, color: Colors.blue),
                   label: const Text(
-                    'Save Monthly Planner',
+                    'Save Weekly Planner',
                     style: TextStyle(fontSize: 18, color: Colors.blue),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -756,7 +687,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Syncing monthly planner with cloud...',
+                          'Syncing weekly planner with cloud...',
                           style: TextStyle(
                               fontSize: 12, color: Colors.grey.shade600),
                         ),
@@ -772,43 +703,38 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
   }
 
   void _trackActivity() {
-    trackClick('Custom Monthly Planner - ${widget.template}');
+    trackClick('Custom Weekly Planner - ${widget.template}');
   }
 
   // Helper method to detect if a card is custom created (not in predefined list)
   bool _isCustomCreatedCard(String title) {
-    // List of predefined monthly goal areas
+    // List of predefined weekly focus areas
     final predefinedAreas = [
       'Custom Card', // Add custom card option
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December'
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
     ];
     return !predefinedAreas.contains(title);
   }
 
-  // Helper method to get the correct image path based on theme and card index
+  // Helper method to get the appropriate image path based on theme and index
   String _getCardImagePath(String themeType, int index) {
     switch (themeType) {
       case 'floral':
-        return 'assets/floral_weekly/floral_${index + 1}.png';
+        return 'assets/floral_weekly/floral_${(index % 7) + 1}.png';
       case 'watercolor':
-        return 'assets/watercolor/watercolor_${index + 1}.png';
+        return 'assets/watercolor/watercolor_${(index % 7) + 1}.png';
       case 'patterns':
-        return 'assets/pattern_weekly/pattern${index + 1}.png';
+        return 'assets/pattern_weekly/pattern${(index % 7) + 1}.png';
       case 'japanese':
-        return 'assets/japanese_weekly/japanese_${index + 1}.png';
+        return 'assets/japaness_weekly/japanese${(index % 7) + 1}.png';
       default:
-        return 'assets/floral_weekly/floral_${index + 1}.png'; // fallback
+        return 'assets/floral_weekly/floral_${(index % 7) + 1}.png';
     }
   }
 
@@ -826,7 +752,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
     if (areaCount <= 4) return 0.8; // 2x2 grid
     if (areaCount <= 9) return 0.7; // 3x3 grid
     if (areaCount <= 16) return 0.6; // 4x4 grid
-    return 0.5; // For more than 16 areas
+    return 0.5;
   }
 
   void _showManualLoginDialog() {
@@ -901,7 +827,7 @@ class TodoListDialogState extends State<TodoListDialog> {
           TextField(
             controller: _textController,
             decoration: InputDecoration(
-              hintText: 'Add a new monthly goal',
+              hintText: 'Add a new weekly task',
               suffixIcon: IconButton(
                 icon: const Icon(Icons.add),
                 onPressed: _addItem,
@@ -951,8 +877,8 @@ class TodoListDialogState extends State<TodoListDialog> {
                 onPressed: () async {
                   widget.onSave(_items);
                   await HomeWidget.updateWidget(
-                    androidName: 'AnnualPlannerWidget',
-                    iOSName: 'AnnualPlannerWidget',
+                    androidName: 'WeeklyPlannerWidget',
+                    iOSName: 'WeeklyPlannerWidget',
                   );
                   if (!mounted) return;
                   Navigator.pop(context);

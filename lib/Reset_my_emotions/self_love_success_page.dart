@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
-import 'active_dashboard_page.dart';
+import '../pages/active_dashboard_page.dart';
 
 class SelfLoveSuccessPage extends StatefulWidget {
   const SelfLoveSuccessPage({super.key});
@@ -222,3 +222,5 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
 
   String get pageName => 'Self Love Success';
 }
+
+

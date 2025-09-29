@@ -3,14 +3,14 @@ import 'package:screenshot/screenshot.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
 import 'dart:convert';
-import '../services/database_service.dart';
-import '../services/user_service.dart';
+import '../../services/database_service.dart';
+import '../../services/user_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
-import '../utils/activity_tracker_mixin.dart';
-import '../utils/platform_features.dart';
-import '../pages/active_tasks_page.dart';
-import '../components/nav_logpage.dart';
+import '../../utils/activity_tracker_mixin.dart';
+import '../../utils/platform_features.dart';
+import '../../pages/active_tasks_page.dart';
+import '../../components/nav_logpage.dart';
 
 class TodoItem {
   String id;

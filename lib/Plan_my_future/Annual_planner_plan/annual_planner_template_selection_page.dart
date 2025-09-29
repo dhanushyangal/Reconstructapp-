@@ -1,30 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/subscription_manager.dart';
+import '../../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
-import '../services/auth_service.dart';
-import '../utils/activity_tracker_mixin.dart';
-import '../components/nav_logpage.dart';
-import '../Plan_my_future/weekly_planners_plan/weekly_life_areas_selection_page.dart';
+import '../../services/auth_service.dart';
+import '../../utils/activity_tracker_mixin.dart';
+import '../../components/nav_logpage.dart';
+import 'annual_life_areas_selection_page.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
 
-class WeeklyPlannerTemplateSelectionPage extends StatefulWidget {
-  const WeeklyPlannerTemplateSelectionPage({super.key});
+class AnnualPlannerTemplateSelectionPage extends StatefulWidget {
+  const AnnualPlannerTemplateSelectionPage({super.key});
 
   @override
-  State<WeeklyPlannerTemplateSelectionPage> createState() => _WeeklyPlannerTemplateSelectionPageState();
+  State<AnnualPlannerTemplateSelectionPage> createState() => _AnnualPlannerTemplateSelectionPageState();
 }
 
-class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTemplateSelectionPage>
+class _AnnualPlannerTemplateSelectionPageState extends State<AnnualPlannerTemplateSelectionPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   bool _isPremium = false;
   bool _isLoading = true;
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
 
-  String get pageName => 'Weekly Planner Templates';
+  String get pageName => 'Monthly Planner Templates';
 
   @override
   void initState() {
@@ -67,7 +67,7 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
       final subscriptionManager = SubscriptionManager();
       final hasAccess = await subscriptionManager.hasAccess();
 
-      debugPrint('WeeklyPlannerTemplateSelectionPage - Premium status check:');
+      debugPrint('AnnualPlannerTemplateSelectionPage - Premium status check:');
       debugPrint('- hasCompletedPayment: $hasCompletedPayment');
       debugPrint('- premiumFeaturesEnabled: $premiumFeaturesEnabled');
       debugPrint('- hasAccess from SubscriptionManager: $hasAccess');
@@ -95,7 +95,7 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
         }
       }
     } catch (e) {
-      debugPrint('Error checking premium status in WeeklyPlannerTemplateSelectionPage: $e');
+      debugPrint('Error checking premium status in AnnualPlannerTemplateSelectionPage: $e');
       // On error, fall back to basic local check
       final prefs = await SharedPreferences.getInstance();
       final isPremium = prefs.getBool(_hasCompletedPaymentKey) ?? false;
@@ -114,7 +114,7 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
     if (_isPremium) return false; // Premium users get access to everything
 
     // Only Floral theme is free
-    return title != 'Floral Weekly Planner';
+    return title != 'Floral Monthly Planner';
   }
 
   // Method to show payment page directly like profile page
@@ -267,26 +267,26 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
   void _navigateToTemplate(String template) {
     String imagePath;
     switch (template) {
-      case 'Floral Weekly Planner':
-        imagePath = 'assets/Plan_your_weekly_goals-images/floral.png';
+      case 'Floral Monthly Planner':
+        imagePath = 'assets/Plan_your_monthly_goals-images/floral.png';
         break;
-      case 'Watercolor Weekly Planner':
-        imagePath = 'assets/Plan_your_weekly_goals-images/watercolor.png';
+      case 'Watercolor Monthly Planner':
+        imagePath = 'assets/Plan_your_monthly_goals-images/watercolor.png';
         break;
-      case 'Patterns Weekly Planner':
-        imagePath = 'assets/Plan_your_weekly_goals-images/post.png';
+      case 'Post-it Monthly Planner':
+        imagePath = 'assets/Plan_your_monthly_goals-images/post.png';
         break;
-      case 'Japanese Weekly Planner':
-        imagePath = 'assets/Plan_your_weekly_goals-images/japanese.png';
+      case 'Premium Monthly Planner':
+        imagePath = 'assets/Plan_your_monthly_goals-images/premium.png';
         break;
       default:
-        imagePath = 'assets/Plan_your_weekly_goals-images/floral.png';
+        imagePath = 'assets/Plan_your_monthly_goals-images/floral.png';
     }
     
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => WeeklyLifeAreasSelectionPage(
+        builder: (context) => AnnualLifeAreasSelectionPage(
           template: template,
           imagePath: imagePath,
         ),
@@ -305,7 +305,7 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
     }
 
     return NavLogPage(
-      title: 'Choose a theme for your weekly goals planner',
+      title: 'Choose a theme for your monthly goals planner',
       showBackButton: false,
       selectedIndex: 2, // Dashboard index
       onNavigationTap: (index) {
@@ -380,7 +380,7 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
             width: double.infinity,
             padding: EdgeInsets.fromLTRB(24, 12, 24, 8),
             child: Text(
-              'Choose a theme for your weekly goals planner',
+              'Choose a theme for your monthly goals planner',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -403,19 +403,20 @@ class _WeeklyPlannerTemplateSelectionPageState extends State<WeeklyPlannerTempla
                 children: [
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_weekly_goals-images/floral.png',
-                    'Floral Weekly Planner'),
+                    'assets/Plan_your_monthly_goals-images/floral.png',
+                    'Floral Monthly Planner'),
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_weekly_goals-images/watercolor.png',
-                    'Watercolor Weekly Planner'),
-                  _buildTemplateCard(context, 
-                  'assets/Plan_your_weekly_goals-images/post.png',
-                      'Patterns Weekly Planner'),
+                    'assets/Plan_your_monthly_goals-images/watercolor.png',
+                    'Watercolor Monthly Planner'),
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_weekly_goals-images/japanese.png',
-                    'Japanese Weekly Planner'),
+                    'assets/Plan_your_monthly_goals-images/post.png',
+                      'Post-it Monthly Planner'),
+                  _buildTemplateCard(
+                    context,
+                    'assets/Plan_your_monthly_goals-images/premium.png',
+                    'Premium Monthly Planner'),
                 ],
               ),
             ),

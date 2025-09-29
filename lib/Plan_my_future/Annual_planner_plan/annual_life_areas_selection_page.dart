@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/activity_tracker_mixin.dart';
-import '../Plan_my_future/Annual_planner_plan/custom_annual_planner_page.dart';
-import '../components/nav_logpage.dart';
+import '../../utils/activity_tracker_mixin.dart';
+import 'custom_annual_planner_page.dart';
+import '../../components/nav_logpage.dart';
 
 class AnnualLifeAreasSelectionPage extends StatefulWidget {
   final String template;

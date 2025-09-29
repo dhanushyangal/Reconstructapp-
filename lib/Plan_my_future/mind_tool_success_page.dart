@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../components/nav_logpage.dart';
-import 'active_dashboard_page.dart';
+import '../pages/active_dashboard_page.dart';
 
 class MindToolSuccessPage extends StatefulWidget {
   final String toolName;

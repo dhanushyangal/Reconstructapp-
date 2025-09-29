@@ -11,14 +11,14 @@ import '../Activity_Tools/sliding_puzzle_page.dart';
 import '../Activity_Tools/color_me_now.dart';
 import 'dart:convert';
 import '../utils/activity_tracker_mixin.dart';
-import '../vision_bord_plan/vision_board_template_selection_page.dart';
-import '../weekly_planners/weekly_planner_template_selection_page.dart';
-import '../Annual_planner/annual_planner_template_selection_page.dart';
-import '../Daily_notes/daily_notes_template_selection_page.dart';
+import '../Plan_my_future/vision_bord_plan/vision_board_template_selection_page.dart';
+import '../Plan_my_future/weekly_planners_plan/weekly_planner_template_selection_page.dart';
+import '../Plan_my_future/Annual_planner_plan/annual_planner_template_selection_page.dart';
+import '../Plan_my_future/Daily_notes_plan/daily_notes_template_selection_page.dart';
 import '../components/nav_logpage.dart';
-import 'release_negative_thoughts_page.dart';
-import 'digital_coloring_page.dart';
-import 'build_self_love_page.dart';
+import '../Reset_my_emotions/release_negative_thoughts_page.dart';
+import '../Clear_my_mind/digital_coloring_page.dart';
+import '../Reset_my_emotions/build_self_love_page.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {

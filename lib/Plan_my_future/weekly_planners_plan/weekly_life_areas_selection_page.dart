@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/activity_tracker_mixin.dart';
+import '../../utils/activity_tracker_mixin.dart';
 import 'custom_weekly_planner_page.dart';
-import '../components/nav_logpage.dart';
+import '../../components/nav_logpage.dart';
 
 class WeeklyLifeAreasSelectionPage extends StatefulWidget {
   final String template;

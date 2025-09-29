@@ -1,30 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/subscription_manager.dart';
+import '../../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
-import '../services/auth_service.dart';
-import '../utils/activity_tracker_mixin.dart';
-import '../components/nav_logpage.dart';
-import 'annual_life_areas_selection_page.dart';
+import '../../services/auth_service.dart';
+import '../../utils/activity_tracker_mixin.dart';
+import 'life_areas_selection_page.dart';
+import '../../components/nav_logpage.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
 
-class AnnualPlannerTemplateSelectionPage extends StatefulWidget {
-  const AnnualPlannerTemplateSelectionPage({super.key});
+class VisionBoardTemplateSelectionPage extends StatefulWidget {
+  const VisionBoardTemplateSelectionPage({super.key});
 
   @override
-  State<AnnualPlannerTemplateSelectionPage> createState() => _AnnualPlannerTemplateSelectionPageState();
+  State<VisionBoardTemplateSelectionPage> createState() => _VisionBoardTemplateSelectionPageState();
 }
 
-class _AnnualPlannerTemplateSelectionPageState extends State<AnnualPlannerTemplateSelectionPage>
+class _VisionBoardTemplateSelectionPageState extends State<VisionBoardTemplateSelectionPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   bool _isPremium = false;
   bool _isLoading = true;
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
 
-  String get pageName => 'Monthly Planner Templates';
+  String get pageName => 'Vision Board Templates';
 
   @override
   void initState() {
@@ -67,7 +67,7 @@ class _AnnualPlannerTemplateSelectionPageState extends State<AnnualPlannerTempla
       final subscriptionManager = SubscriptionManager();
       final hasAccess = await subscriptionManager.hasAccess();
 
-      debugPrint('AnnualPlannerTemplateSelectionPage - Premium status check:');
+      debugPrint('VisionBoardTemplateSelectionPage - Premium status check:');
       debugPrint('- hasCompletedPayment: $hasCompletedPayment');
       debugPrint('- premiumFeaturesEnabled: $premiumFeaturesEnabled');
       debugPrint('- hasAccess from SubscriptionManager: $hasAccess');
@@ -95,7 +95,7 @@ class _AnnualPlannerTemplateSelectionPageState extends State<AnnualPlannerTempla
         }
       }
     } catch (e) {
-      debugPrint('Error checking premium status in AnnualPlannerTemplateSelectionPage: $e');
+      debugPrint('Error checking premium status in VisionBoardTemplateSelectionPage: $e');
       // On error, fall back to basic local check
       final prefs = await SharedPreferences.getInstance();
       final isPremium = prefs.getBool(_hasCompletedPaymentKey) ?? false;
@@ -113,8 +113,8 @@ class _AnnualPlannerTemplateSelectionPageState extends State<AnnualPlannerTempla
   bool _isTemplateLocked(String title) {
     if (_isPremium) return false; // Premium users get access to everything
 
-    // Only Floral theme is free
-    return title != 'Floral Monthly Planner';
+    // Only Boxy theme is free
+    return title != 'Boxy theme board';
   }
 
   // Method to show payment page directly like profile page
@@ -189,7 +189,16 @@ class _AnnualPlannerTemplateSelectionPageState extends State<AnnualPlannerTempla
           return;
         }
         trackClick('$title template');
-        _navigateToTemplate(title);
+        // Navigate to life areas selection page
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LifeAreasSelectionPage(
+              template: title,
+              imagePath: imagePath,
+            ),
+          ),
+        );
       },
       child: Card(
         elevation: 4,
@@ -264,36 +273,6 @@ class _AnnualPlannerTemplateSelectionPageState extends State<AnnualPlannerTempla
     );
   }
 
-  void _navigateToTemplate(String template) {
-    String imagePath;
-    switch (template) {
-      case 'Floral Monthly Planner':
-        imagePath = 'assets/Plan_your_monthly_goals-images/floral.png';
-        break;
-      case 'Watercolor Monthly Planner':
-        imagePath = 'assets/Plan_your_monthly_goals-images/watercolor.png';
-        break;
-      case 'Post-it Monthly Planner':
-        imagePath = 'assets/Plan_your_monthly_goals-images/post.png';
-        break;
-      case 'Premium Monthly Planner':
-        imagePath = 'assets/Plan_your_monthly_goals-images/premium.png';
-        break;
-      default:
-        imagePath = 'assets/Plan_your_monthly_goals-images/floral.png';
-    }
-    
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AnnualLifeAreasSelectionPage(
-          template: template,
-          imagePath: imagePath,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -305,7 +284,7 @@ class _AnnualPlannerTemplateSelectionPageState extends State<AnnualPlannerTempla
     }
 
     return NavLogPage(
-      title: 'Choose a theme for your monthly goals planner',
+      title: 'Choose a theme for your monthly goals board',
       showBackButton: false,
       selectedIndex: 2, // Dashboard index
       onNavigationTap: (index) {
@@ -378,14 +357,14 @@ class _AnnualPlannerTemplateSelectionPageState extends State<AnnualPlannerTempla
           // Main title with better spacing
           Container(
             width: double.infinity,
-            padding: EdgeInsets.fromLTRB(24, 12, 24, 8),
+            padding: EdgeInsets.fromLTRB(24, 12, 24, 8), // Further reduced padding to save space
             child: Text(
-              'Choose a theme for your monthly goals planner',
+              'Choose a theme for your monthly goals board',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 18, // Further reduced to save space
                 fontWeight: FontWeight.bold,
                 color: Colors.black,
-                height: 1.0,
+                height: 1.0, // Further reduced line height
               ),
               textAlign: TextAlign.left,
             ),
@@ -403,20 +382,19 @@ class _AnnualPlannerTemplateSelectionPageState extends State<AnnualPlannerTempla
                 children: [
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_monthly_goals-images/floral.png',
-                    'Floral Monthly Planner'),
+                    'assets/Plan_your_annual_goals-images/Annual-boxy.png',
+                    'Boxy theme board'),
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_monthly_goals-images/watercolor.png',
-                    'Watercolor Monthly Planner'),
+                    'assets/Plan_your_annual_goals-images/Annual-post.png',
+                    'Post it theme board'),
+                  _buildTemplateCard(context, 
+                  'assets/Plan_your_annual_goals-images/Annual-premium.png',
+                      'Premium black board'),
                   _buildTemplateCard(
                     context,
-                    'assets/Plan_your_monthly_goals-images/post.png',
-                      'Post-it Monthly Planner'),
-                  _buildTemplateCard(
-                    context,
-                    'assets/Plan_your_monthly_goals-images/premium.png',
-                    'Premium Monthly Planner'),
+                    'assets/Plan_your_annual_goals-images/Annual-floral.png',
+                    'Floral theme board'),  
                 ],
               ),
             ),

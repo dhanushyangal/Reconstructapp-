@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../components/nav_logpage.dart';
-import '../pages/coloring_success_page.dart';
+import '../Clear_my_mind/coloring_success_page.dart';
 
 class ColorMePage extends StatefulWidget {
   const ColorMePage({super.key});

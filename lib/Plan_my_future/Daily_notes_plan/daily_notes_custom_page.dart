@@ -11,9 +11,9 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
-import '../services/notes_service.dart';
-import '../services/user_service.dart';
-import '../services/ios_widget_service.dart';
+import '../../services/notes_service.dart';
+import '../../services/user_service.dart';
+import '../../services/ios_widget_service.dart';
 
 class DailyNotesCustomPage extends StatefulWidget {
   final String template;

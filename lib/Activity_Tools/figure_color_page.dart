@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../components/nav_logpage.dart';
-import '../pages/coloring_success_page.dart';
+import '../Clear_my_mind/coloring_success_page.dart';
 
 class FigureColorPage extends StatefulWidget {
   const FigureColorPage({super.key});

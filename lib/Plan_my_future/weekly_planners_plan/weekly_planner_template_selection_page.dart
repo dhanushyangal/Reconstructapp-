@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/subscription_manager.dart';
+import '../../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
-import '../services/auth_service.dart';
-import '../utils/activity_tracker_mixin.dart';
-import '../components/nav_logpage.dart';
-import '../Plan_my_future/weekly_planners_plan/weekly_life_areas_selection_page.dart';
+import '../../services/auth_service.dart';
+import '../../utils/activity_tracker_mixin.dart';
+import '../../components/nav_logpage.dart';
+import 'weekly_life_areas_selection_page.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';

@@ -6,7 +6,7 @@ import '../utils/activity_tracker_mixin.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
 import '../components/nav_logpage.dart';
-import '../pages/mind_tool_success_page.dart';
+import '../Plan_my_future/mind_tool_success_page.dart';
 
 class BreakThingsPage extends StatefulWidget {
   const BreakThingsPage({super.key});
