@@ -19,6 +19,7 @@ import '../components/nav_logpage.dart';
 import '../Reset_my_emotions/release_negative_thoughts_page.dart';
 import '../Clear_my_mind/digital_coloring_page.dart';
 import '../Reset_my_emotions/build_self_love_page.dart';
+import '../Reset_my_emotions/master_breathing_page.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -795,7 +796,12 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
         );
         break;
       case 'Master your breathing':
-        _showComingSoonDialog('Master your breathing');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const MasterBreathingPage(),
+          ),
+        );
         break;
       default:
         break;
