@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
 
@@ -20,7 +21,20 @@ class _DeepBreathingPageState extends State<DeepBreathingPage>
   
   // Exercise state
   bool _isRunning = false;
+  int _currentPhase = 0; // 0: Inhale, 1: Hold, 2: Exhale, 3: Hold
   int _exerciseCount = 0;
+  int _breathingCycles = 0;
+  Timer? _phaseTimer;
+  double _lastProgress = 0.0;
+  
+  // Breathing phases
+  final List<String> _phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
+  final List<Color> _phaseColors = [
+    Colors.green,
+    Colors.orange,
+    Colors.blue,
+    Colors.purple,
+  ];
 
   @override
   void initState() {
@@ -50,6 +64,40 @@ class _DeepBreathingPageState extends State<DeepBreathingPage>
       curve: Curves.linear,
     );
     
+    // Add listener to track breathing cycles and phase changes
+    _breathingAnimationController!.addListener(() {
+      if (_isRunning) {
+        final progress = _breathingAnimationController!.value;
+        
+        // Track phase changes
+        int newPhase;
+        if (progress < 0.25) {
+          newPhase = 0; // Inhale
+        } else if (progress < 0.5) {
+          newPhase = 1; // Hold
+        } else if (progress < 0.75) {
+          newPhase = 2; // Exhale
+        } else {
+          newPhase = 3; // Hold
+        }
+        
+        if (newPhase != _currentPhase) {
+          setState(() {
+            _currentPhase = newPhase;
+          });
+        }
+        
+        // Track cycle completion - when progress resets from near 1.0 to 0.0
+        if (_lastProgress > 0.9 && progress < 0.1) {
+          setState(() {
+            _breathingCycles++;
+            _exerciseCount = _breathingCycles; // Update exercise count in real-time
+          });
+        }
+        _lastProgress = progress;
+      }
+    });
+    
     // Start the progress animation
     _progressAnimationController!.forward();
   }
@@ -58,12 +106,15 @@ class _DeepBreathingPageState extends State<DeepBreathingPage>
   void dispose() {
     _progressAnimationController?.dispose();
     _breathingAnimationController?.dispose();
+    _phaseTimer?.cancel();
     super.dispose();
   }
 
   void _startExercise() {
     setState(() {
       _isRunning = true;
+      _currentPhase = 0;
+      _lastProgress = 0.0;
     });
     
     // Track the activity
@@ -76,6 +127,7 @@ class _DeepBreathingPageState extends State<DeepBreathingPage>
   void _stopExercise() {
     setState(() {
       _isRunning = false;
+      _currentPhase = 0;
     });
     
     // Track the activity
@@ -84,11 +136,9 @@ class _DeepBreathingPageState extends State<DeepBreathingPage>
     // Stop animations
     _breathingAnimationController!.stop();
     _breathingAnimationController!.reset();
+    _phaseTimer?.cancel();
     
-    // Increment exercise count
-    setState(() {
-      _exerciseCount++;
-    });
+    // Exercise count is already updated in real-time, no need to update here
   }
 
   @override
@@ -207,9 +257,32 @@ class _DeepBreathingPageState extends State<DeepBreathingPage>
                           
                           SizedBox(height: 20),
                           
+                          // Current phase text
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _phaseColors[_currentPhase].withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: _phaseColors[_currentPhase],
+                                width: 2,
+                              ),
+                            ),
+                            child: Text(
+                              _phases[_currentPhase],
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: _phaseColors[_currentPhase],
+                              ),
+                            ),
+                          ),
+                          
+                          SizedBox(height: 20),
+                          
                           // Exercise stats
                           Text(
-                            'Total Breathing Exercises: $_exerciseCount',
+                            'Total Breathing Cycles: $_exerciseCount',
                             style: TextStyle(
                               fontSize: 16,
                               color: Colors.grey[600],

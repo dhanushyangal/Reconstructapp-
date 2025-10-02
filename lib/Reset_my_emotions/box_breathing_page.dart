@@ -23,6 +23,7 @@ class _BoxBreathingPageState extends State<BoxBreathingPage>
   bool _isRunning = false;
   int _currentPhase = 0; // 0: Breathe In, 1: Hold, 2: Breathe Out, 3: Hold
   int _exerciseCount = 0;
+  int _breathingCycles = 0;
   Timer? _phaseTimer;
   
   // Breathing phases
@@ -64,6 +65,19 @@ class _BoxBreathingPageState extends State<BoxBreathingPage>
       parent: _breathingAnimationController!,
       curve: Curves.linear,
     ));
+    
+    // Add listener to track breathing cycles
+    _breathingAnimationController!.addListener(() {
+      if (_breathingAnimationController!.isCompleted) {
+        setState(() {
+          _breathingCycles++;
+          _exerciseCount = _breathingCycles; // Update exercise count in real-time
+        });
+        // Reset and repeat for continuous breathing
+        _breathingAnimationController!.reset();
+        _breathingAnimationController!.forward();
+      }
+    });
     
     // Start the progress animation
     _progressAnimationController!.forward();
@@ -107,10 +121,7 @@ class _BoxBreathingPageState extends State<BoxBreathingPage>
     _breathingAnimationController!.reset();
     _phaseTimer?.cancel();
     
-    // Increment exercise count
-    setState(() {
-      _exerciseCount++;
-    });
+    // Exercise count is already updated in real-time, no need to update here
   }
 
   void _startPhaseTimer() {
@@ -200,7 +211,7 @@ class _BoxBreathingPageState extends State<BoxBreathingPage>
           
           // Main content
           Expanded(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
@@ -208,117 +219,123 @@ class _BoxBreathingPageState extends State<BoxBreathingPage>
                   Text(
                     'Box Breathing Tool',
                     style: TextStyle(
-                      fontSize: 30,
+                      fontSize: MediaQuery.of(context).size.width * 0.08, // Responsive font size
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: 40),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.03), // Responsive spacing
                   
-                  // Breathing exercise container
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  // Square with animated dot
+                  Container(
+                    width: MediaQuery.of(context).size.width * 0.5, // Responsive width
+                    height: MediaQuery.of(context).size.width * 0.5, // Square aspect ratio
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black, width: 2),
+                    ),
+                    child: Stack(
                       children: [
-                        
-                        // Square with animated dot
-                        Container(
-                          width: 200,
-                          height: 200,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black, width: 2),
-                          ),
-                          child: Stack(
-                            children: [
-                              // Animated dot
-                              AnimatedBuilder(
-                                animation: _breathingAnimation ?? const AlwaysStoppedAnimation(0.0),
-                                builder: (context, child) {
-                                  return _buildAnimatedDot();
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        SizedBox(height: 30),
-                        
-                        // Current phase text
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: _phaseColors[_currentPhase].withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: _phaseColors[_currentPhase],
-                              width: 2,
-                            ),
-                          ),
-                          child: Text(
-                            _phases[_currentPhase],
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: _phaseColors[_currentPhase],
-                            ),
-                          ),
-                        ),
-                        
-                        SizedBox(height: 30),
-                        
-                        // Exercise stats
-                        Text(
-                          'Total Breathing Exercises: $_exerciseCount',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        
-                        SizedBox(height: 30),
-                        
-                        // Control buttons
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (!_isRunning)
-                              ElevatedButton(
-                                onPressed: _startExercise,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Start',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                              )
-                            else
-                              ElevatedButton(
-                                onPressed: _stopExercise,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                  foregroundColor: Colors.white,
-                                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Stop',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                              ),
-                          ],
+                        // Animated dot
+                        AnimatedBuilder(
+                          animation: _breathingAnimation ?? const AlwaysStoppedAnimation(0.0),
+                          builder: (context, child) {
+                            return _buildAnimatedDot();
+                          },
                         ),
                       ],
                     ),
                   ),
+                  
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.03), // Responsive spacing
+                  
+                  // Current phase text
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: MediaQuery.of(context).size.width * 0.05, 
+                      vertical: MediaQuery.of(context).size.height * 0.015,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _phaseColors[_currentPhase].withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _phaseColors[_currentPhase],
+                        width: 2,
+                      ),
+                    ),
+                    child: Text(
+                      _phases[_currentPhase],
+                      style: TextStyle(
+                        fontSize: MediaQuery.of(context).size.width * 0.05, // Responsive font size
+                        fontWeight: FontWeight.bold,
+                        color: _phaseColors[_currentPhase],
+                      ),
+                    ),
+                  ),
+                  
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.025), // Responsive spacing
+                  
+                  // Exercise stats
+                  Text(
+                    'Total Breathing Cycles: $_exerciseCount',
+                    style: TextStyle(
+                      fontSize: MediaQuery.of(context).size.width * 0.04, // Responsive font size
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.025), // Responsive spacing
+                  
+                  // Control buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (!_isRunning)
+                        ElevatedButton(
+                          onPressed: _startExercise,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: MediaQuery.of(context).size.width * 0.08, 
+                              vertical: MediaQuery.of(context).size.height * 0.02,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'Start',
+                            style: TextStyle(
+                              fontSize: MediaQuery.of(context).size.width * 0.04, // Responsive font size
+                            ),
+                          ),
+                        )
+                      else
+                        ElevatedButton(
+                          onPressed: _stopExercise,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: MediaQuery.of(context).size.width * 0.08, 
+                              vertical: MediaQuery.of(context).size.height * 0.02,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'Stop',
+                            style: TextStyle(
+                              fontSize: MediaQuery.of(context).size.width * 0.04, // Responsive font size
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02), // Bottom spacing
                 ],
               ),
             ),
@@ -329,14 +346,19 @@ class _BoxBreathingPageState extends State<BoxBreathingPage>
   }
 
   Widget _buildAnimatedDot() {
+    // Get the square size dynamically
+    final squareSize = MediaQuery.of(context).size.width * 0.5;
+    final dotSize = squareSize * 0.06; // Responsive dot size
+    final borderWidth = 2.0;
+    
     if (!_isRunning) {
       // Static position when not running (bottom-left corner)
       return Positioned(
-        left: -5,
-        top: 195,
+        left: -dotSize / 2,
+        top: squareSize - dotSize / 2 - borderWidth,
         child: Container(
-          width: 12,
-          height: 12,
+          width: dotSize,
+          height: dotSize,
           decoration: BoxDecoration(
             color: Colors.black,
             shape: BoxShape.circle,
@@ -352,39 +374,39 @@ class _BoxBreathingPageState extends State<BoxBreathingPage>
     if (progress < 0.25) {
       // Moving up (left side) - Breathe In
       final phaseProgress = progress * 4;
-      x = -6;
-      y = 195 - (201 * phaseProgress);
+      x = -dotSize / 2;
+      y = (squareSize - dotSize / 2 - borderWidth) - ((squareSize + borderWidth) * phaseProgress);
     } else if (progress < 0.5) {
       // Moving right (top side) - Hold
       final phaseProgress = (progress - 0.25) * 4;
-      x = -6 + (201 * phaseProgress);
-      y = -6;
+      x = -dotSize / 2 + ((squareSize + borderWidth) * phaseProgress);
+      y = -dotSize / 2;
     } else if (progress < 0.75) {
       // Moving down (right side) - Breathe Out
       final phaseProgress = (progress - 0.5) * 4;
-      x = 195;
-      y = -6 + (201 * phaseProgress);
+      x = squareSize - dotSize / 2 - borderWidth;
+      y = -dotSize / 2 + ((squareSize + borderWidth) * phaseProgress);
     } else {
       // Moving left (bottom side) - Hold
       final phaseProgress = (progress - 0.75) * 4;
-      x = 195 - (201 * phaseProgress);
-      y = 195;
+      x = (squareSize - dotSize / 2 - borderWidth) - ((squareSize + borderWidth) * phaseProgress);
+      y = squareSize - dotSize / 2 - borderWidth;
     }
 
     return Positioned(
       left: x,
       top: y,
       child: Container(
-        width: 12,
-        height: 12,
+        width: dotSize,
+        height: dotSize,
         decoration: BoxDecoration(
           color: _phaseColors[_currentPhase],
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
               color: _phaseColors[_currentPhase].withOpacity(0.5),
-              blurRadius: 8,
-              spreadRadius: 2,
+              blurRadius: dotSize * 0.5,
+              spreadRadius: dotSize * 0.1,
             ),
           ],
         ),

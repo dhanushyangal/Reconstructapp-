@@ -22,6 +22,7 @@ class _AlternateNoseBreathingPageState extends State<AlternateNoseBreathingPage>
   bool _isRunning = false;
   int _currentPhase = 0; // 0: Inhale, 1: Hold, 2: Exhale, 3: Hold
   int _exerciseCount = 0;
+  int _breathingCycles = 0;
   Timer? _phaseTimer;
   
   // Breathing phases
@@ -55,6 +56,19 @@ class _AlternateNoseBreathingPageState extends State<AlternateNoseBreathingPage>
       duration: Duration(seconds: 16), // 16 seconds for one complete cycle (4 seconds each phase)
       vsync: this,
     );
+    
+    // Add listener to track breathing cycles
+    _breathingAnimationController!.addListener(() {
+      if (_breathingAnimationController!.isCompleted) {
+        setState(() {
+          _breathingCycles++;
+          _exerciseCount = _breathingCycles; // Update exercise count in real-time
+        });
+        // Reset and repeat for continuous breathing
+        _breathingAnimationController!.reset();
+        _breathingAnimationController!.forward();
+      }
+    });
     
     // Start the progress animation
     _progressAnimationController!.forward();
@@ -98,10 +112,7 @@ class _AlternateNoseBreathingPageState extends State<AlternateNoseBreathingPage>
     _breathingAnimationController!.reset();
     _phaseTimer?.cancel();
     
-    // Increment exercise count
-    setState(() {
-      _exerciseCount++;
-    });
+    // Exercise count is already updated in real-time, no need to update here
   }
 
   void _startPhaseTimer() {
@@ -269,7 +280,7 @@ class _AlternateNoseBreathingPageState extends State<AlternateNoseBreathingPage>
                           
                           // Exercise stats
                           Text(
-                            'Total Breathing Exercises: $_exerciseCount',
+                            'Total Breathing Cycles: $_exerciseCount',
                             style: TextStyle(
                               fontSize: 16,
                               color: Colors.grey[600],
@@ -567,5 +578,6 @@ class NosePainter extends CustomPainter {
         (oldDelegate.phase != phase || oldDelegate.isRunning != isRunning);
   }
 }
+
 
 

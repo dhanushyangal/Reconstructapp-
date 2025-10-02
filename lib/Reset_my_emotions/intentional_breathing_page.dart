@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
 
@@ -21,9 +20,11 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
   // Exercise state
   bool _isRunning = false;
   int _exerciseCount = 0;
+  int _breathingCycles = 0;
+  double _lastProgress = 0.0;
   
   // Breathing phases
-  final List<String> _phases = ['Inhale', 'Hold', 'Exhale', 'Relax'];
+  final List<String> _phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
   final List<Color> _phaseColors = [
     Colors.green,
     Colors.orange,
@@ -48,11 +49,27 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
       curve: Curves.easeInOut,
     ));
     
-    // Initialize breathing animation - 12 seconds total (8 to grow + 4 to shrink)
+    // Initialize breathing animation - 15 seconds for one complete cycle
     _breathingAnimationController = AnimationController(
-      duration: Duration(seconds: 12), // 12 seconds for full cycle
+      duration: Duration(seconds: 15), // 15 seconds for full cycle (3.75 seconds each phase)
       vsync: this,
     );
+    
+    // Add listener to track breathing cycles and phase changes
+    _breathingAnimationController!.addListener(() {
+      if (_isRunning) {
+        final progress = _breathingAnimationController!.value;
+        
+        // Track cycle completion - when progress resets from near 1.0 to 0.0
+        if (_lastProgress > 0.9 && progress < 0.1) {
+          setState(() {
+            _breathingCycles++;
+            _exerciseCount = _breathingCycles; // Update exercise count in real-time
+          });
+        }
+        _lastProgress = progress;
+      }
+    });
     
     // Start the progress animation
     _progressAnimationController!.forward();
@@ -68,13 +85,14 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
   void _startExercise() {
     setState(() {
       _isRunning = true;
+      _lastProgress = 0.0;
     });
     
     // Track the activity
     trackClick('intentional_breathing_start');
     
-    // Start the breathing animation
-    _breathingAnimationController!.forward(from: 0);
+    // Start the breathing animation (repeat)
+    _breathingAnimationController!.repeat();
   }
 
   void _stopExercise() {
@@ -89,18 +107,19 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
     _breathingAnimationController!.stop();
     _breathingAnimationController!.reset();
     
-    // Increment exercise count
-    setState(() {
-      _exerciseCount++;
-    });
+    // Exercise count is already updated in real-time, no need to update here
   }
 
   int _getCurrentPhase() {
     final progress = _breathingAnimationController?.value ?? 0.0;
-    if (progress < 0.6667) {
-      return 0; // Inhale (growing sticks)
+    if (progress < 0.25) {
+      return 0; // Inhale
+    } else if (progress < 0.5) {
+      return 1; // Hold
+    } else if (progress < 0.75) {
+      return 2; // Exhale
     } else {
-      return 2; // Exhale (shrinking sticks)
+      return 3; // Hold
     }
   }
 
@@ -190,7 +209,7 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                           // Breathing animation
+                           // Breathing circle animation
                            Container(
                              width: 320,
                              height: 320,
@@ -198,9 +217,9 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
                                animation: _isRunning ? _breathingAnimationController! : const AlwaysStoppedAnimation(0.0),
                                builder: (context, child) {
                                  return CustomPaint(
-                                   painter: StarPainter(
-                                     _isRunning ? _getStickCount(_breathingAnimationController!.value) : 1,
+                                   painter: BreathingCirclePainter(
                                      _isRunning ? _breathingAnimationController!.value : 0.0,
+                                     _isRunning ? _getCurrentPhase() : 0,
                                    ),
                                    size: const Size(320, 320),
                                  );
@@ -242,7 +261,7 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
                           
                           // Exercise stats
                           Text(
-                            'Total Breathing Exercises: $_exerciseCount',
+                            'Total Breathing Cycles: $_exerciseCount',
                             style: TextStyle(
                               fontSize: 16,
                               color: Colors.grey[600],
@@ -304,59 +323,97 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
     );
   }
 
-  int _getStickCount(double progress) {
-    // Total duration is 12 seconds
-    // First 8 seconds: add 1 stick per second (1 to 8 sticks)
-    // Next 4 seconds: remove 2 sticks per second (8 to 0 sticks)
-    
-    if (progress <= 0.6667) {
-      // 0 to 8 seconds: grow from 1 to 8 sticks
-      // progress 0 to 0.6667 maps to 1 to 8 sticks
-      return 1 + (progress / 0.6667 * 7).floor();
-    } else {
-      // 8 to 12 seconds: shrink from 8 to 0 sticks (remove 2 per second)
-      // progress 0.6667 to 1.0 maps to 8 to 0 sticks
-      double shrinkProgress = (progress - 0.6667) / 0.3333;
-      return 8 - (shrinkProgress * 8).floor();
-    }
-  }
 
   String get pageName => 'Intentional Breathing';
 }
 
-class StarPainter extends CustomPainter {
-  final int sticks;
+class BreathingCirclePainter extends CustomPainter {
   final double progress;
+  final int currentPhase;
 
-  StarPainter(this.sticks, this.progress);
+  BreathingCirclePainter(this.progress, this.currentPhase);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..color = Colors.orange
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-
-    final double stickLength = size.width / 2.8;
     final Offset center = Offset(size.width / 2, size.height / 2);
-
-    for (int i = 0; i < sticks; i++) {
-      // Each stick rotates around the center point
-      final double angle = (2 * pi / (sticks == 0 ? 1 : sticks)) * i +
-          (progress * pi * 2); // rotation
-      
-      // Calculate both ends of the stick from the center
-      final Offset startPoint = center - Offset(cos(angle), sin(angle)) * (stickLength / 2);
-      final Offset endPoint = center + Offset(cos(angle), sin(angle)) * (stickLength / 2);
-      
-      canvas.drawLine(startPoint, endPoint, paint);
+    
+    // Calculate circle radius based on breathing phase
+    double radius;
+    String phaseText;
+    Color circleColor;
+    
+    if (progress < 0.25) {
+      // Inhale phase - circle expands
+      double inhaleProgress = progress / 0.25;
+      radius = 40 + (inhaleProgress * 80); // From 40 to 120
+      phaseText = 'Inhale';
+      circleColor = Colors.green;
+    } else if (progress < 0.5) {
+      // Hold phase - circle stays large
+      radius = 120;
+      phaseText = 'Hold';
+      circleColor = Colors.orange;
+    } else if (progress < 0.75) {
+      // Exhale phase - circle contracts
+      double exhaleProgress = (progress - 0.5) / 0.25;
+      radius = 120 - (exhaleProgress * 80); // From 120 to 40
+      phaseText = 'Exhale';
+      circleColor = Colors.blue;
+    } else {
+      // Hold phase - circle stays small
+      radius = 40;
+      phaseText = 'Hold';
+      circleColor = Colors.purple;
     }
     
+    // Draw outer circle (ring)
+    final Paint ringPaint = Paint()
+      ..color = circleColor.withOpacity(0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8;
+    
+    canvas.drawCircle(center, radius + 20, ringPaint);
+    
+    // Draw inner circle (filled)
+    final Paint circlePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawCircle(center, radius, circlePaint);
+    
+    // Draw inner circle border
+    final Paint borderPaint = Paint()
+      ..color = circleColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    
+    canvas.drawCircle(center, radius, borderPaint);
+    
+    // Draw phase text in the center
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: phaseText,
+        style: TextStyle(
+          color: circleColor,
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      Offset(
+        center.dx - textPainter.width / 2,
+        center.dy - textPainter.height / 2,
+      ),
+    );
   }
 
   @override
-  bool shouldRepaint(covariant StarPainter oldDelegate) {
-    return oldDelegate.sticks != sticks ||
-        oldDelegate.progress != progress;
+  bool shouldRepaint(covariant BreathingCirclePainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.currentPhase != currentPhase;
   }
 }
