@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../utils/activity_tracker_mixin.dart';
-import '../components/nav_logpage.dart';
-import 'box_breathing_page.dart';
+import '../../utils/activity_tracker_mixin.dart';
+import '../../components/nav_logpage.dart';
+import '../box_breathing_page.dart';
 import 'deep_breathing_page.dart';
 import 'intentional_breathing_page.dart';
 import 'alternate_nose_breathing_page.dart';

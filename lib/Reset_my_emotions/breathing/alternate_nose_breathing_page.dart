@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../utils/activity_tracker_mixin.dart';
-import '../components/nav_logpage.dart';
+import '../../utils/activity_tracker_mixin.dart';
+import '../../components/nav_logpage.dart';
 
 class AlternateNoseBreathingPage extends StatefulWidget {
   const AlternateNoseBreathingPage({super.key});

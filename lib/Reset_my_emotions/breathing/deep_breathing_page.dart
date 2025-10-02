@@ -1,26 +1,30 @@
 import 'package:flutter/material.dart';
-import '../utils/activity_tracker_mixin.dart';
-import '../components/nav_logpage.dart';
+import 'dart:async';
+import '../../utils/activity_tracker_mixin.dart';
+import '../../components/nav_logpage.dart';
 
-class IntentionalBreathingPage extends StatefulWidget {
-  const IntentionalBreathingPage({super.key});
+class DeepBreathingPage extends StatefulWidget {
+  const DeepBreathingPage({super.key});
 
   @override
-  State<IntentionalBreathingPage> createState() => _IntentionalBreathingPageState();
+  State<DeepBreathingPage> createState() => _DeepBreathingPageState();
 }
 
-class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
+class _DeepBreathingPageState extends State<DeepBreathingPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   
   // Animation controllers
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
   AnimationController? _breathingAnimationController;
+  Animation<double>? _breathingAnimation;
   
   // Exercise state
   bool _isRunning = false;
+  int _currentPhase = 0; // 0: Inhale, 1: Hold, 2: Exhale, 3: Hold
   int _exerciseCount = 0;
   int _breathingCycles = 0;
+  Timer? _phaseTimer;
   double _lastProgress = 0.0;
   
   // Breathing phases
@@ -43,22 +47,45 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
     );
     _progressAnimation = Tween<double>(
       begin: 0.5,
-      end: 0.75, // 75% progress for intentional breathing page
+      end: 0.75, // 75% progress for deep breathing page
     ).animate(CurvedAnimation(
       parent: _progressAnimationController!,
       curve: Curves.easeInOut,
     ));
     
-    // Initialize breathing animation - 15 seconds for one complete cycle
+    // Initialize breathing animation - 10 seconds for ball animation
     _breathingAnimationController = AnimationController(
-      duration: Duration(seconds: 15), // 15 seconds for full cycle (3.75 seconds each phase)
+      duration: Duration(seconds: 10),
       vsync: this,
+    );
+    
+    _breathingAnimation = CurvedAnimation(
+      parent: _breathingAnimationController!,
+      curve: Curves.linear,
     );
     
     // Add listener to track breathing cycles and phase changes
     _breathingAnimationController!.addListener(() {
       if (_isRunning) {
         final progress = _breathingAnimationController!.value;
+        
+        // Track phase changes
+        int newPhase;
+        if (progress < 0.25) {
+          newPhase = 0; // Inhale
+        } else if (progress < 0.5) {
+          newPhase = 1; // Hold
+        } else if (progress < 0.75) {
+          newPhase = 2; // Exhale
+        } else {
+          newPhase = 3; // Hold
+        }
+        
+        if (newPhase != _currentPhase) {
+          setState(() {
+            _currentPhase = newPhase;
+          });
+        }
         
         // Track cycle completion - when progress resets from near 1.0 to 0.0
         if (_lastProgress > 0.9 && progress < 0.1) {
@@ -79,17 +106,19 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
   void dispose() {
     _progressAnimationController?.dispose();
     _breathingAnimationController?.dispose();
+    _phaseTimer?.cancel();
     super.dispose();
   }
 
   void _startExercise() {
     setState(() {
       _isRunning = true;
+      _currentPhase = 0;
       _lastProgress = 0.0;
     });
     
     // Track the activity
-    trackClick('intentional_breathing_start');
+    trackClick('deep_breathing_start');
     
     // Start the breathing animation (repeat)
     _breathingAnimationController!.repeat();
@@ -98,35 +127,24 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
   void _stopExercise() {
     setState(() {
       _isRunning = false;
+      _currentPhase = 0;
     });
     
     // Track the activity
-    trackClick('intentional_breathing_stop');
+    trackClick('deep_breathing_stop');
     
     // Stop animations
     _breathingAnimationController!.stop();
     _breathingAnimationController!.reset();
+    _phaseTimer?.cancel();
     
     // Exercise count is already updated in real-time, no need to update here
-  }
-
-  int _getCurrentPhase() {
-    final progress = _breathingAnimationController?.value ?? 0.0;
-    if (progress < 0.25) {
-      return 0; // Inhale
-    } else if (progress < 0.5) {
-      return 1; // Hold
-    } else if (progress < 0.75) {
-      return 2; // Exhale
-    } else {
-      return 3; // Hold
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return NavLogPage(
-      title: 'Intentional Breathing',
+      title: 'Deep Breathing',
       showBackButton: true,
       selectedIndex: 2, // Dashboard index
       onNavigationTap: (index) {
@@ -209,53 +227,56 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                           // Breathing circle animation
+                           // Breathing ball animation
                            Container(
-                             width: 320,
-                             height: 320,
-                             child: AnimatedBuilder(
-                               animation: _isRunning ? _breathingAnimationController! : const AlwaysStoppedAnimation(0.0),
-                               builder: (context, child) {
-                                 return CustomPaint(
-                                   painter: BreathingCirclePainter(
-                                     _isRunning ? _breathingAnimationController!.value : 0.0,
-                                     _isRunning ? _getCurrentPhase() : 0,
-                                   ),
-                                   size: const Size(320, 320),
-                                 );
-                               },
+                             width: 350,
+                             height: 350,
+                             decoration: BoxDecoration(
+                               color: Colors.white,
+                               borderRadius: BorderRadius.circular(20),
                              ),
+                             child: _isRunning
+                                 ? AnimatedBuilder(
+                                     animation: _breathingAnimation!,
+                                     builder: (context, child) {
+                                       double progress = _breathingAnimation!.value;
+                                       bool goingUp = progress < 0.5;
+                                       double t = goingUp ? (progress / 0.5) : ((progress - 0.5) / 0.5);
+                                       
+                                       return CustomPaint(
+                                         size: Size(350, 350),
+                                         painter: StairsAndBallPainter(progress, t, goingUp, isRunning: true),
+                                       );
+                                     },
+                                   )
+                                 : CustomPaint(
+                                     size: Size(350, 350),
+                                     painter: StairsAndBallPainter(0, 0, true, isRunning: false),
+                                   ),
                            ),
                           
                           SizedBox(height: 20),
                           
                           // Current phase text
-                          if (_isRunning)
-                            AnimatedBuilder(
-                              animation: _breathingAnimationController!,
-                              builder: (context, child) {
-                                final currentPhase = _getCurrentPhase();
-                                return Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: _phaseColors[currentPhase].withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: _phaseColors[currentPhase],
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _phases[currentPhase],
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: _phaseColors[currentPhase],
-                                    ),
-                                  ),
-                                );
-                              },
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _phaseColors[_currentPhase].withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: _phaseColors[_currentPhase],
+                                width: 2,
+                              ),
                             ),
+                            child: Text(
+                              _phases[_currentPhase],
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: _phaseColors[_currentPhase],
+                              ),
+                            ),
+                          ),
                           
                           SizedBox(height: 20),
                           
@@ -323,97 +344,96 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
     );
   }
 
-
-  String get pageName => 'Intentional Breathing';
+  String get pageName => 'Deep Breathing';
 }
 
-class BreathingCirclePainter extends CustomPainter {
+class StairsAndBallPainter extends CustomPainter {
   final double progress;
-  final int currentPhase;
+  final double t;
+  final bool goingUp;
+  final bool isRunning;
 
-  BreathingCirclePainter(this.progress, this.currentPhase);
+  StairsAndBallPainter(this.progress, this.t, this.goingUp, {required this.isRunning});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Offset center = Offset(size.width / 2, size.height / 2);
-    
-    // Calculate circle radius based on breathing phase
-    double radius;
-    String phaseText;
-    Color circleColor;
-    
-    if (progress < 0.25) {
-      // Inhale phase - circle expands
-      double inhaleProgress = progress / 0.25;
-      radius = 40 + (inhaleProgress * 80); // From 40 to 120
-      phaseText = 'Inhale';
-      circleColor = Colors.green;
-    } else if (progress < 0.5) {
-      // Hold phase - circle stays large
-      radius = 120;
-      phaseText = 'Hold';
-      circleColor = Colors.orange;
-    } else if (progress < 0.75) {
-      // Exhale phase - circle contracts
-      double exhaleProgress = (progress - 0.5) / 0.25;
-      radius = 120 - (exhaleProgress * 80); // From 120 to 40
-      phaseText = 'Exhale';
-      circleColor = Colors.blue;
+    Paint paint = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+
+    double stepWidth = size.width / 6;
+    double stepHeight = size.height / 8;
+    double ballRadius = 20;
+
+    // Center the steps and move them down
+    double stepsOriginX = (size.width - (stepWidth * 5)) / 2;
+    double stepsOriginY = size.height * 0.85; // Move steps down from 0.8 to 0.85
+
+    if (!isRunning) {
+      // Draw static steps when not running
+      Path steps = Path()..moveTo(stepsOriginX, stepsOriginY);
+      for (int i = 0; i < 5; i++) {
+        steps.relativeLineTo(0, -stepHeight);
+        steps.relativeLineTo(stepWidth, 0);
+      }
+      canvas.drawPath(steps, paint);
+
+      // Draw static ball at the bottom - positioned on the first step
+      canvas.drawCircle(
+          Offset(stepsOriginX + stepWidth * 0.3, stepsOriginY) - Offset(0, ballRadius + 43), 
+          ballRadius, 
+          Paint()..color = Colors.blue[300]!..style = PaintingStyle.fill);
+    } else if (goingUp) {
+      // Draw steps
+      Path steps = Path()..moveTo(stepsOriginX, stepsOriginY);
+      for (int i = 0; i < 5; i++) {
+        steps.relativeLineTo(0, -stepHeight);
+        steps.relativeLineTo(stepWidth, 0);
+      }
+      canvas.drawPath(steps, paint);
+
+      // Ball jumping step by step - only 4 steps instead of 5
+      int stepIndex = (t * 4).floor().clamp(0, 3);
+      double localT = (t * 4) - stepIndex;
+
+      // Start and end corners for this jump - adjust for better step alignment
+      double startX = stepsOriginX + stepIndex * stepWidth + stepWidth * 0.3; // Move ball more to the right on each step
+      double startY = stepsOriginY - stepIndex * stepHeight;
+      double endX = stepsOriginX + (stepIndex + 1) * stepWidth + stepWidth * 0.3; // Land more on the step
+      double endY = stepsOriginY - (stepIndex + 1) * stepHeight;
+
+      // Linear path
+      double x = startX + (endX - startX) * localT;
+      double y = startY + (endY - startY) * localT;
+
+      // Add arc (parabola) - more realistic jump
+      double jumpHeight = stepHeight * 1.2;
+      y -= jumpHeight * (4 * localT * (1 - localT));
+
+      // Draw ball aligned to step
+      canvas.drawCircle(
+          Offset(x, y) - Offset(0, ballRadius + 43), 
+          ballRadius, 
+          Paint()..color = Colors.blue[300]!..style = PaintingStyle.fill);
     } else {
-      // Hold phase - circle stays small
-      radius = 40;
-      phaseText = 'Hold';
-      circleColor = Colors.purple;
+      // Draw slant (aligned with steps) - match the step positions exactly
+      Path slide = Path()
+        ..moveTo(stepsOriginX, stepsOriginY)
+        ..lineTo(stepsOriginX + stepWidth * 5, stepsOriginY - 5 * stepHeight);
+      canvas.drawPath(slide, paint);
+
+      // Ball sliding down - follow the slant line properly
+      double x = stepsOriginX + stepWidth * 5 - (stepWidth * 5 * t);
+      double y = stepsOriginY - 5 * stepHeight + (5 * stepHeight * t);
+
+      canvas.drawCircle(
+          Offset(x, y) - Offset(0, ballRadius), 
+          ballRadius, 
+          Paint()..color = Colors.blue[300]!..style = PaintingStyle.fill);
     }
-    
-    // Draw outer circle (ring)
-    final Paint ringPaint = Paint()
-      ..color = circleColor.withOpacity(0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 8;
-    
-    canvas.drawCircle(center, radius + 20, ringPaint);
-    
-    // Draw inner circle (filled)
-    final Paint circlePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    
-    canvas.drawCircle(center, radius, circlePaint);
-    
-    // Draw inner circle border
-    final Paint borderPaint = Paint()
-      ..color = circleColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-    
-    canvas.drawCircle(center, radius, borderPaint);
-    
-    // Draw phase text in the center
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: phaseText,
-        style: TextStyle(
-          color: circleColor,
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(
-        center.dx - textPainter.width / 2,
-        center.dy - textPainter.height / 2,
-      ),
-    );
   }
 
   @override
-  bool shouldRepaint(covariant BreathingCirclePainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.currentPhase != currentPhase;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
