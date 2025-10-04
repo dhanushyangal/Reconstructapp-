@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../utils/activity_tracker_mixin.dart';
-import '../components/nav_logpage.dart';
+import '../../utils/activity_tracker_mixin.dart';
+import '../../components/nav_logpage.dart';
+import '../../Reset_my_emotions/self_love_success_page.dart';
 
 class BoxBreathingPage extends StatefulWidget {
   const BoxBreathingPage({super.key});
@@ -228,22 +229,71 @@ class _BoxBreathingPageState extends State<BoxBreathingPage>
                   SizedBox(height: MediaQuery.of(context).size.height * 0.03), // Responsive spacing
                   
                   // Square with animated dot
-                  Container(
-                    width: MediaQuery.of(context).size.width * 0.5, // Responsive width
-                    height: MediaQuery.of(context).size.width * 0.5, // Square aspect ratio
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.black, width: 2),
-                    ),
-                    child: Stack(
-                      children: [
-                        // Animated dot
-                        AnimatedBuilder(
-                          animation: _breathingAnimation ?? const AlwaysStoppedAnimation(0.0),
-                          builder: (context, child) {
-                            return _buildAnimatedDot();
-                          },
-                        ),
-                      ],
+                  GestureDetector(
+                    onTap: () {
+                      if (!_isRunning) {
+                        _startExercise();
+                      }
+                    },
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.5, // Responsive width
+                      height: MediaQuery.of(context).size.width * 0.5, // Square aspect ratio
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black, width: 2),
+                      ),
+                      child: Stack(
+                        children: [
+                          // Animated dot
+                          AnimatedBuilder(
+                            animation: _breathingAnimation ?? const AlwaysStoppedAnimation(0.0),
+                            builder: (context, child) {
+                              return _buildAnimatedDot();
+                            },
+                          ),
+                          
+                          // Tap to start overlay
+                          if (!_isRunning)
+                            Container(
+                              width: MediaQuery.of(context).size.width * 0.5,
+                              height: MediaQuery.of(context).size.width * 0.5,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.9),
+                                border: Border.all(
+                                  color: Colors.blue[300]!,
+                                  width: 3,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.blue[100]!,
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.touch_app,
+                                      size: 40,
+                                      color: Colors.blue[600],
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Tap to Start',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                   
@@ -290,28 +340,7 @@ class _BoxBreathingPageState extends State<BoxBreathingPage>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (!_isRunning)
-                        ElevatedButton(
-                          onPressed: _startExercise,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: MediaQuery.of(context).size.width * 0.08, 
-                              vertical: MediaQuery.of(context).size.height * 0.02,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Text(
-                            'Start',
-                            style: TextStyle(
-                              fontSize: MediaQuery.of(context).size.width * 0.04, // Responsive font size
-                            ),
-                          ),
-                        )
-                      else
+                      if (_isRunning)
                         ElevatedButton(
                           onPressed: _stopExercise,
                           style: ElevatedButton.styleFrom(
@@ -327,6 +356,27 @@ class _BoxBreathingPageState extends State<BoxBreathingPage>
                           ),
                           child: Text(
                             'Stop',
+                            style: TextStyle(
+                              fontSize: MediaQuery.of(context).size.width * 0.04, // Responsive font size
+                            ),
+                          ),
+                        )
+                      else
+                        ElevatedButton(
+                          onPressed: _navigateToSuccessPage,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue[600],
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: MediaQuery.of(context).size.width * 0.08, 
+                              vertical: MediaQuery.of(context).size.height * 0.02,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'Next',
                             style: TextStyle(
                               fontSize: MediaQuery.of(context).size.width * 0.04, // Responsive font size
                             ),
@@ -410,6 +460,19 @@ class _BoxBreathingPageState extends State<BoxBreathingPage>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _navigateToSuccessPage() {
+    // Track the activity
+    trackClick('box_breathing_next');
+    
+    // Navigate to self love success page
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SelfLoveSuccessPage(),
       ),
     );
   }

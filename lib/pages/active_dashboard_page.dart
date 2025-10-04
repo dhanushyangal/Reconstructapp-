@@ -18,6 +18,7 @@ import '../Plan_my_future/Daily_notes_plan/daily_notes_template_selection_page.d
 import '../components/nav_logpage.dart';
 import '../Reset_my_emotions/release_negative_thoughts_page.dart';
 import '../Clear_my_mind/digital_coloring_page.dart';
+import '../Clear_my_mind/sliding_puzzles_page.dart';
 import '../Reset_my_emotions/build_self_love_page.dart';
 import '../Reset_my_emotions/breathing/master_breathing_page.dart';
 
@@ -839,7 +840,10 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
         );
         break;
       case 'Sliding puzzles':
-        _showComingSoonDialog('Sliding puzzles');
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SlidingPuzzlesPage()),
+        );
         break;
       case 'Memory games':
         _showComingSoonDialog('Memory games');

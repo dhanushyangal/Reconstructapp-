@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/activity_tracker_mixin.dart';
 import '../../components/nav_logpage.dart';
+import '../../Reset_my_emotions/self_love_success_page.dart';
 
 class IntentionalBreathingPage extends StatefulWidget {
   const IntentionalBreathingPage({super.key});
@@ -26,10 +27,10 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
   // Breathing phases
   final List<String> _phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
   final List<Color> _phaseColors = [
-    Colors.green,
-    Colors.orange,
-    Colors.blue,
-    Colors.purple,
+    Colors.blue[300]!,
+    Colors.blue[400]!,
+    Colors.blue[500]!,
+    Colors.blue[600]!,
   ];
 
   @override
@@ -210,20 +211,74 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                            // Breathing circle animation
-                           Container(
-                             width: 320,
-                             height: 320,
-                             child: AnimatedBuilder(
-                               animation: _isRunning ? _breathingAnimationController! : const AlwaysStoppedAnimation(0.0),
-                               builder: (context, child) {
-                                 return CustomPaint(
-                                   painter: BreathingCirclePainter(
-                                     _isRunning ? _breathingAnimationController!.value : 0.0,
-                                     _isRunning ? _getCurrentPhase() : 0,
+                           GestureDetector(
+                             onTap: () {
+                               if (!_isRunning) {
+                                 _startExercise();
+                               }
+                             },
+                             child: Container(
+                               width: 320,
+                               height: 320,
+                               child: Stack(
+                                 children: [
+                                   AnimatedBuilder(
+                                     animation: _isRunning ? _breathingAnimationController! : const AlwaysStoppedAnimation(0.0),
+                                     builder: (context, child) {
+                                       return CustomPaint(
+                                         painter: BreathingCirclePainter(
+                                           _isRunning ? _breathingAnimationController!.value : 0.0,
+                                           _isRunning ? _getCurrentPhase() : 0,
+                                         ),
+                                         size: const Size(320, 320),
+                                       );
+                                     },
                                    ),
-                                   size: const Size(320, 320),
-                                 );
-                               },
+                                   
+                                   // Tap to start overlay
+                                   if (!_isRunning)
+                                     Container(
+                                       width: 320,
+                                       height: 320,
+                                       decoration: BoxDecoration(
+                                         color: Colors.white.withOpacity(0.9),
+                                         borderRadius: BorderRadius.circular(160),
+                                         border: Border.all(
+                                           color: Colors.blue[300]!,
+                                           width: 3,
+                                         ),
+                                         boxShadow: [
+                                           BoxShadow(
+                                             color: Colors.blue[100]!,
+                                             blurRadius: 10,
+                                             spreadRadius: 2,
+                                           ),
+                                         ],
+                                       ),
+                                       child: Center(
+                                         child: Column(
+                                           mainAxisAlignment: MainAxisAlignment.center,
+                                           children: [
+                                             Icon(
+                                               Icons.touch_app,
+                                               size: 40,
+                                               color: Colors.blue[600],
+                                             ),
+                                             SizedBox(height: 8),
+                                             Text(
+                                               'Tap to Start',
+                                               style: TextStyle(
+                                                 fontSize: 20,
+                                                 fontWeight: FontWeight.bold,
+                                                 color: Colors.blue[600],
+                                               ),
+                                             ),
+                                           ],
+                                         ),
+                                       ),
+                                     ),
+                                 ],
+                               ),
                              ),
                            ),
                           
@@ -274,27 +329,11 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              if (!_isRunning)
-                                ElevatedButton(
-                                  onPressed: _startExercise,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Start',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                )
-                              else
+                              if (_isRunning)
                                 ElevatedButton(
                                   onPressed: _stopExercise,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
+                                    backgroundColor: Colors.blue[800],
                                     foregroundColor: Colors.white,
                                     padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                                     shape: RoundedRectangleBorder(
@@ -303,6 +342,22 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
                                   ),
                                   child: Text(
                                     'Stop',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                )
+                              else
+                                ElevatedButton(
+                                  onPressed: _navigateToSuccessPage,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue[600],
+                                    foregroundColor: Colors.white,
+                                    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Next',
                                     style: TextStyle(fontSize: 16),
                                   ),
                                 ),
@@ -323,6 +378,19 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
     );
   }
 
+
+  void _navigateToSuccessPage() {
+    // Track the activity
+    trackClick('intentional_breathing_next');
+    
+    // Navigate to self love success page
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SelfLoveSuccessPage(),
+      ),
+    );
+  }
 
   String get pageName => 'Intentional Breathing';
 }
@@ -347,34 +415,41 @@ class BreathingCirclePainter extends CustomPainter {
       double inhaleProgress = progress / 0.25;
       radius = 40 + (inhaleProgress * 80); // From 40 to 120
       phaseText = 'Inhale';
-      circleColor = Colors.green;
+      circleColor = Colors.blue[300]!;
     } else if (progress < 0.5) {
       // Hold phase - circle stays large
       radius = 120;
       phaseText = 'Hold';
-      circleColor = Colors.orange;
+      circleColor = Colors.blue[400]!;
     } else if (progress < 0.75) {
       // Exhale phase - circle contracts
       double exhaleProgress = (progress - 0.5) / 0.25;
       radius = 120 - (exhaleProgress * 80); // From 120 to 40
       phaseText = 'Exhale';
-      circleColor = Colors.blue;
+      circleColor = Colors.blue[500]!;
     } else {
       // Hold phase - circle stays small
       radius = 40;
       phaseText = 'Hold';
-      circleColor = Colors.purple;
+      circleColor = Colors.blue[600]!;
     }
     
-    // Draw outer circle (ring)
-    final Paint ringPaint = Paint()
-      ..color = circleColor.withOpacity(0.3)
+    // Draw outer circle (permanent, fixed size)
+    final Paint outerRingPaint = Paint()
+      ..color = Colors.blue[400]!.withOpacity(0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8;
     
-    canvas.drawCircle(center, radius + 20, ringPaint);
+    canvas.drawCircle(center, 120, outerRingPaint);
     
-    // Draw inner circle (filled)
+    // Draw blue fill between outer and inner circles
+    final Paint fillPaint = Paint()
+      ..color = circleColor.withOpacity(0.6)
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawCircle(center, 120, fillPaint);
+    
+    // Draw inner circle (moves with breathing - filled with white to create the gap)
     final Paint circlePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;

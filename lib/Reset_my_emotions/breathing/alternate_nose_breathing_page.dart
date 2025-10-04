@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../../utils/activity_tracker_mixin.dart';
 import '../../components/nav_logpage.dart';
+import '../../Reset_my_emotions/self_love_success_page.dart';
 
 class AlternateNoseBreathingPage extends StatefulWidget {
   const AlternateNoseBreathingPage({super.key});
@@ -28,10 +29,10 @@ class _AlternateNoseBreathingPageState extends State<AlternateNoseBreathingPage>
   // Breathing phases
   final List<String> _phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
   final List<Color> _phaseColors = [
-    Colors.green,
-    Colors.orange,
-    Colors.blue,
-    Colors.purple,
+    Colors.blue[300]!,
+    Colors.blue[400]!,
+    Colors.blue[500]!,
+    Colors.blue[600]!,
   ];
 
   @override
@@ -213,43 +214,92 @@ class _AlternateNoseBreathingPageState extends State<AlternateNoseBreathingPage>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                           // Nose visualization
-                           Container(
-                             width: 320,
-                             height: 320,
-                             child: Stack(
-                               children: [
-                                 // Background with two-tone design
-                                 Container(
-                                   decoration: BoxDecoration(
-                                     gradient: LinearGradient(
-                                       begin: Alignment.centerLeft,
-                                       end: Alignment.centerRight,
-                                       colors: [
-                                         Color(0xFFF5F5DC), // Light beige
-                                         Color(0xFFE6F3FF), // Light blue-gray
-                                       ],
-                                       stops: [0.5, 0.5],
-                                     ),
-                                     borderRadius: BorderRadius.circular(160),
-                                   ),
-                                 ),
-                                 
-                                 // Nose shape
-                                 Center(
-                                   child: CustomPaint(
-                                     size: Size(200, 200),
-                                     painter: NosePainter(
-                                       phase: _currentPhase,
-                                       isRunning: _isRunning,
-                                       phaseColor: _phaseColors[_currentPhase],
+                           // Triangle visualization
+                           GestureDetector(
+                             onTap: () {
+                               if (!_isRunning) {
+                                 _startExercise();
+                               }
+                             },
+                             child: Container(
+                               width: 320,
+                               height: 320,
+                               child: Stack(
+                                 children: [
+                                   // Background with blue gradient
+                                   Container(
+                                     decoration: BoxDecoration(
+                                       gradient: LinearGradient(
+                                         begin: Alignment.topCenter,
+                                         end: Alignment.bottomCenter,
+                                         colors: [
+                                           Colors.blue[50]!,
+                                           Colors.blue[100]!,
+                                         ],
+                                       ),
+                                       borderRadius: BorderRadius.circular(12),
                                      ),
                                    ),
-                                 ),
-                                 
-                                 // Breathing indicators
-                                 if (_isRunning) _buildBreathingIndicators(),
-                               ],
+                                   
+                                   // Triangle shape
+                                   Center(
+                                     child: CustomPaint(
+                                       size: Size(240, 240),
+                                       painter: TrianglePainter(
+                                         phase: _currentPhase,
+                                         isRunning: _isRunning,
+                                         phaseColor: _phaseColors[_currentPhase],
+                                       ),
+                                     ),
+                                   ),
+                                   
+                                   // Breathing indicators
+                                   if (_isRunning) _buildBreathingIndicators(),
+                                   
+                                   // Tap to start overlay
+                                   if (!_isRunning)
+                                     Container(
+                                       width: 320,
+                                       height: 320,
+                                       decoration: BoxDecoration(
+                                         color: Colors.white.withOpacity(0.9),
+                                         borderRadius: BorderRadius.circular(12),
+                                         border: Border.all(
+                                           color: Colors.blue[300]!,
+                                           width: 3,
+                                         ),
+                                         boxShadow: [
+                                           BoxShadow(
+                                             color: Colors.blue[100]!,
+                                             blurRadius: 10,
+                                             spreadRadius: 2,
+                                           ),
+                                         ],
+                                       ),
+                                       child: Center(
+                                         child: Column(
+                                           mainAxisAlignment: MainAxisAlignment.center,
+                                           children: [
+                                             Icon(
+                                               Icons.touch_app,
+                                               size: 40,
+                                               color: Colors.blue[600],
+                                             ),
+                                             SizedBox(height: 8),
+                                             Text(
+                                               'Tap to Start',
+                                               style: TextStyle(
+                                                 fontSize: 20,
+                                                 fontWeight: FontWeight.bold,
+                                                 color: Colors.blue[600],
+                                               ),
+                                             ),
+                                           ],
+                                         ),
+                                       ),
+                                     ),
+                                 ],
+                               ),
                              ),
                            ),
                           
@@ -293,27 +343,11 @@ class _AlternateNoseBreathingPageState extends State<AlternateNoseBreathingPage>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              if (!_isRunning)
-                                ElevatedButton(
-                                  onPressed: _startExercise,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Start',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                )
-                              else
+                              if (_isRunning)
                                 ElevatedButton(
                                   onPressed: _stopExercise,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
+                                    backgroundColor: Colors.blue[800],
                                     foregroundColor: Colors.white,
                                     padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                                     shape: RoundedRectangleBorder(
@@ -322,6 +356,22 @@ class _AlternateNoseBreathingPageState extends State<AlternateNoseBreathingPage>
                                   ),
                                   child: Text(
                                     'Stop',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                )
+                              else
+                                ElevatedButton(
+                                  onPressed: _navigateToSuccessPage,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue[600],
+                                    foregroundColor: Colors.white,
+                                    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Next',
                                     style: TextStyle(fontSize: 16),
                                   ),
                                 ),
@@ -345,72 +395,42 @@ class _AlternateNoseBreathingPageState extends State<AlternateNoseBreathingPage>
   Widget _buildBreathingIndicators() {
     return Stack(
       children: [
-        // Left side indicator (down arrow for exhale)
-        if (_currentPhase == 2)
-          Positioned(
-            left: 30,
-            top: 160,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.3),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.keyboard_arrow_down,
-                color: Colors.blue,
-                size: 24,
-              ),
-            ),
-          ),
-        
-        // Right side indicator (up arrow for inhale)
+        // Left side indicator (up arrow for inhale - left side of triangle)
         if (_currentPhase == 0)
           Positioned(
-            right: 30,
-            top: 160,
+            left: 20,
+            top: 140,
             child: Container(
-              width: 40,
-              height: 40,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.3),
+                color: Colors.blue[300]!.withOpacity(0.3),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.keyboard_arrow_up,
-                color: Colors.green,
-                size: 24,
+                color: Colors.blue[300],
+                size: 36,
               ),
             ),
           ),
         
-        // Exhale text (only show during exhale phase)
+        // Right side indicator (down arrow for exhale - right side of triangle)
         if (_currentPhase == 2)
           Positioned(
             right: 20,
-            bottom: 30,
-            child: Text(
-              'Exhale',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
+            top: 140,
+            child: Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.blue[500]!.withOpacity(0.3),
+                shape: BoxShape.circle,
               ),
-            ),
-          ),
-        
-        // Inhale text (only show during inhale phase)
-        if (_currentPhase == 0)
-          Positioned(
-            left: 20,
-            bottom: 30,
-            child: Text(
-              'Inhale',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
+              child: Icon(
+                Icons.keyboard_arrow_down,
+                color: Colors.blue[500],
+                size: 36,
               ),
             ),
           ),
@@ -418,15 +438,28 @@ class _AlternateNoseBreathingPageState extends State<AlternateNoseBreathingPage>
     );
   }
 
+  void _navigateToSuccessPage() {
+    // Track the activity
+    trackClick('alternate_nose_breathing_next');
+    
+    // Navigate to self love success page
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SelfLoveSuccessPage(),
+      ),
+    );
+  }
+
   String get pageName => 'Alternate Nostril Breathing';
 }
 
-class NosePainter extends CustomPainter {
+class TrianglePainter extends CustomPainter {
   final int phase;
   final bool isRunning;
   final Color phaseColor;
 
-  NosePainter({
+  TrianglePainter({
     required this.phase,
     required this.isRunning,
     required this.phaseColor,
@@ -434,147 +467,80 @@ class NosePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF2E5C8A) // Navy blue color
+    final center = Offset(size.width / 2, size.height / 2);
+    final triangleSize = size.width * 0.6;
+    
+    // Create triangle path
+    final trianglePath = Path();
+    
+    // Triangle vertices
+    final topPoint = Offset(center.dx, center.dy - triangleSize / 2);
+    final leftPoint = Offset(center.dx - triangleSize / 2, center.dy + triangleSize / 2);
+    final rightPoint = Offset(center.dx + triangleSize / 2, center.dy + triangleSize / 2);
+    
+    // Draw triangle outline
+    trianglePath.moveTo(topPoint.dx, topPoint.dy);
+    trianglePath.lineTo(leftPoint.dx, leftPoint.dy);
+    trianglePath.lineTo(rightPoint.dx, rightPoint.dy);
+    trianglePath.close();
+    
+    // Draw triangle outline
+    final outlinePaint = Paint()
+      ..color = Colors.blue[400]!
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4.0
       ..strokeCap = StrokeCap.round;
 
-    final path = Path();
-
-    // Scale factors
-    final w = size.width;
-    final h = size.height;
-
-    // Start from bottom left nostril
-    path.moveTo(w * 0.15, h * 0.85);
-
-    // Left nostril curve (bottom left)
-    path.cubicTo(
-      w * 0.05, h * 0.85,
-      w * 0.02, h * 0.75,
-      w * 0.08, h * 0.68,
+    canvas.drawPath(trianglePath, outlinePaint);
+    
+    // Create vertical divider line
+    final dividerPaint = Paint()
+      ..color = Colors.blue[400]!
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    
+    canvas.drawLine(
+      Offset(center.dx, topPoint.dy),
+      Offset(center.dx, leftPoint.dy),
+      dividerPaint,
     );
-
-    // Left side going up
-    path.cubicTo(
-      w * 0.12, h * 0.62,
-      w * 0.15, h * 0.50,
-      w * 0.20, h * 0.35,
-    );
-
-    // Left top curve of nose bridge
-    path.cubicTo(
-      w * 0.23, h * 0.20,
-      w * 0.30, h * 0.08,
-      w * 0.38, h * 0.03,
-    );
-
-    // Top of nose bridge (rounded)
-    path.cubicTo(
-      w * 0.45, h * 0.00,
-      w * 0.55, h * 0.00,
-      w * 0.62, h * 0.03,
-    );
-
-    // Right top curve of nose bridge
-    path.cubicTo(
-      w * 0.70, h * 0.08,
-      w * 0.77, h * 0.20,
-      w * 0.80, h * 0.35,
-    );
-
-    // Right side going down
-    path.cubicTo(
-      w * 0.85, h * 0.50,
-      w * 0.88, h * 0.62,
-      w * 0.92, h * 0.68,
-    );
-
-    // Right nostril top curve
-    path.cubicTo(
-      w * 0.98, h * 0.75,
-      w * 0.95, h * 0.85,
-      w * 0.85, h * 0.85,
-    );
-
-    // Right nostril inner curve
-    path.cubicTo(
-      w * 0.78, h * 0.85,
-      w * 0.72, h * 0.88,
-      w * 0.65, h * 0.90,
-    );
-
-    // Bottom center curve
-    path.cubicTo(
-      w * 0.58, h * 0.92,
-      w * 0.42, h * 0.92,
-      w * 0.35, h * 0.90,
-    );
-
-    // Left nostril inner curve
-    path.cubicTo(
-      w * 0.28, h * 0.88,
-      w * 0.22, h * 0.85,
-      w * 0.15, h * 0.85,
-    );
-
-    canvas.drawPath(path, paint);
-
-    // Draw nostrils with different colors based on phase
-    final nostrilPaint = Paint()
+    
+    // Fill left half (solid) - active during inhale
+    if (phase == 0 || phase == 1) {
+      final leftHalfPath = Path();
+      leftHalfPath.moveTo(topPoint.dx, topPoint.dy);
+      leftHalfPath.lineTo(center.dx, topPoint.dy);
+      leftHalfPath.lineTo(center.dx, leftPoint.dy);
+      leftHalfPath.lineTo(leftPoint.dx, leftPoint.dy);
+      leftHalfPath.close();
+      
+      final leftFillPaint = Paint()
+        ..color = Colors.blue[300]!.withOpacity(0.8)
+        ..style = PaintingStyle.fill;
+      
+      canvas.drawPath(leftHalfPath, leftFillPaint);
+    }
+    
+    // Fill right half (outline only) - active during exhale
+    if (phase == 2 || phase == 3) {
+      final rightHalfPath = Path();
+      rightHalfPath.moveTo(center.dx, topPoint.dy);
+      rightHalfPath.lineTo(rightPoint.dx, rightPoint.dy);
+      rightHalfPath.lineTo(center.dx, leftPoint.dy);
+      rightHalfPath.close();
+      
+      final rightFillPaint = Paint()
+        ..color = Colors.blue[500]!.withOpacity(0.3)
       ..style = PaintingStyle.fill;
 
-    // Left nostril (active during exhale)
-    if (phase == 2) {
-      nostrilPaint.color = Colors.blue.withOpacity(0.6);
-      // Draw left nostril area
-      final leftNostrilPath = Path();
-      leftNostrilPath.moveTo(w * 0.15, h * 0.85);
-      leftNostrilPath.cubicTo(w * 0.22, h * 0.88, w * 0.28, h * 0.88, w * 0.35, h * 0.90);
-      leftNostrilPath.cubicTo(w * 0.42, h * 0.92, w * 0.50, h * 0.90, w * 0.50, h * 0.85);
-      leftNostrilPath.cubicTo(w * 0.50, h * 0.80, w * 0.40, h * 0.78, w * 0.30, h * 0.80);
-      leftNostrilPath.cubicTo(w * 0.20, h * 0.82, w * 0.15, h * 0.85, w * 0.15, h * 0.85);
-      canvas.drawPath(leftNostrilPath, nostrilPaint);
-    } else {
-      nostrilPaint.color = Colors.grey.withOpacity(0.1);
-      // Draw left nostril area
-      final leftNostrilPath = Path();
-      leftNostrilPath.moveTo(w * 0.15, h * 0.85);
-      leftNostrilPath.cubicTo(w * 0.22, h * 0.88, w * 0.28, h * 0.88, w * 0.35, h * 0.90);
-      leftNostrilPath.cubicTo(w * 0.42, h * 0.92, w * 0.50, h * 0.90, w * 0.50, h * 0.85);
-      leftNostrilPath.cubicTo(w * 0.50, h * 0.80, w * 0.40, h * 0.78, w * 0.30, h * 0.80);
-      leftNostrilPath.cubicTo(w * 0.20, h * 0.82, w * 0.15, h * 0.85, w * 0.15, h * 0.85);
-      canvas.drawPath(leftNostrilPath, nostrilPaint);
+      canvas.drawPath(rightHalfPath, rightFillPaint);
     }
-
-    // Right nostril (active during inhale)
-    if (phase == 0) {
-      nostrilPaint.color = Colors.green.withOpacity(0.6);
-      // Draw right nostril area
-      final rightNostrilPath = Path();
-      rightNostrilPath.moveTo(w * 0.85, h * 0.85);
-      rightNostrilPath.cubicTo(w * 0.78, h * 0.88, w * 0.72, h * 0.88, w * 0.65, h * 0.90);
-      rightNostrilPath.cubicTo(w * 0.58, h * 0.92, w * 0.50, h * 0.90, w * 0.50, h * 0.85);
-      rightNostrilPath.cubicTo(w * 0.50, h * 0.80, w * 0.60, h * 0.78, w * 0.70, h * 0.80);
-      rightNostrilPath.cubicTo(w * 0.80, h * 0.82, w * 0.85, h * 0.85, w * 0.85, h * 0.85);
-      canvas.drawPath(rightNostrilPath, nostrilPaint);
-    } else {
-      nostrilPaint.color = Colors.grey.withOpacity(0.1);
-      // Draw right nostril area
-      final rightNostrilPath = Path();
-      rightNostrilPath.moveTo(w * 0.85, h * 0.85);
-      rightNostrilPath.cubicTo(w * 0.78, h * 0.88, w * 0.72, h * 0.88, w * 0.65, h * 0.90);
-      rightNostrilPath.cubicTo(w * 0.58, h * 0.92, w * 0.50, h * 0.90, w * 0.50, h * 0.85);
-      rightNostrilPath.cubicTo(w * 0.50, h * 0.80, w * 0.60, h * 0.78, w * 0.70, h * 0.80);
-      rightNostrilPath.cubicTo(w * 0.80, h * 0.82, w * 0.85, h * 0.85, w * 0.85, h * 0.85);
-      canvas.drawPath(rightNostrilPath, nostrilPaint);
-    }
+    
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return oldDelegate is NosePainter &&
+    return oldDelegate is TrianglePainter &&
         (oldDelegate.phase != phase || oldDelegate.isRunning != isRunning);
   }
 }

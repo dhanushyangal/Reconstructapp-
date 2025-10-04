@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../pages/planners_page.dart';
+import '../pages/active_dashboard_page.dart';
+import '../Mind_tools/dashboard_traker.dart';
+import '../main.dart';
 
 class NavLogPage extends StatelessWidget {
   final String title;
@@ -22,19 +26,44 @@ class NavLogPage extends StatelessWidget {
   void _handleDefaultNavigation(BuildContext context, int index) {
     switch (index) {
       case 0:
-        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+        // Navigate to HomePage
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+          (route) => false,
+        );
         break;
       case 1:
-        Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
+        // Navigate to PlannersPage
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const PlannersPage()),
+          (route) => false,
+        );
         break;
       case 2:
-        Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
+        // Navigate to ActiveDashboardPage
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const ActiveDashboardPage()),
+          (route) => false,
+        );
         break;
       case 3:
-        Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
+        // Navigate to DashboardTrackerPage
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const DashboardTrackerPage()),
+          (route) => false,
+        );
         break;
       case 4:
-        Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
+        // Navigate to ProfilePage
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfilePage()),
+          (route) => false,
+        );
         break;
     }
   }

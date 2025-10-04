@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../../utils/activity_tracker_mixin.dart';
 import '../../components/nav_logpage.dart';
+import '../../Reset_my_emotions/self_love_success_page.dart';
 
 class DeepBreathingPage extends StatefulWidget {
   const DeepBreathingPage({super.key});
@@ -30,10 +31,10 @@ class _DeepBreathingPageState extends State<DeepBreathingPage>
   // Breathing phases
   final List<String> _phases = ['Inhale', 'Hold', 'Exhale', 'Hold'];
   final List<Color> _phaseColors = [
-    Colors.green,
-    Colors.orange,
-    Colors.blue,
-    Colors.purple,
+    Colors.blue[300]!,
+    Colors.blue[400]!,
+    Colors.blue[500]!,
+    Colors.blue[600]!,
   ];
 
   @override
@@ -228,31 +229,85 @@ class _DeepBreathingPageState extends State<DeepBreathingPage>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                            // Breathing ball animation
-                           Container(
-                             width: 350,
-                             height: 350,
-                             decoration: BoxDecoration(
-                               color: Colors.white,
-                               borderRadius: BorderRadius.circular(20),
+                           GestureDetector(
+                             onTap: () {
+                               if (!_isRunning) {
+                                 _startExercise();
+                               }
+                             },
+                             child: Container(
+                               width: 350,
+                               height: 350,
+                               decoration: BoxDecoration(
+                                 color: Colors.white,
+                                 borderRadius: BorderRadius.circular(20),
+                               ),
+                               child: Stack(
+                                 children: [
+                                   _isRunning
+                                       ? AnimatedBuilder(
+                                           animation: _breathingAnimation!,
+                                           builder: (context, child) {
+                                             double progress = _breathingAnimation!.value;
+                                             bool goingUp = progress < 0.5;
+                                             double t = goingUp ? (progress / 0.5) : ((progress - 0.5) / 0.5);
+                                             
+                                             return CustomPaint(
+                                               size: Size(350, 350),
+                                               painter: StairsAndBallPainter(progress, t, goingUp, isRunning: true),
+                                             );
+                                           },
+                                         )
+                                       : CustomPaint(
+                                           size: Size(350, 350),
+                                           painter: StairsAndBallPainter(0, 0, true, isRunning: false),
+                                         ),
+                                   
+                                   // Tap to start overlay
+                                   if (!_isRunning)
+                                     Container(
+                                       width: 350,
+                                       height: 350,
+                                       decoration: BoxDecoration(
+                                         color: Colors.white.withOpacity(0.9),
+                                         borderRadius: BorderRadius.circular(20),
+                                         border: Border.all(
+                                           color: Colors.blue[300]!,
+                                           width: 3,
+                                         ),
+                                         boxShadow: [
+                                           BoxShadow(
+                                             color: Colors.blue[100]!,
+                                             blurRadius: 10,
+                                             spreadRadius: 2,
+                                           ),
+                                         ],
+                                       ),
+                                       child: Center(
+                                         child: Column(
+                                           mainAxisAlignment: MainAxisAlignment.center,
+                                           children: [
+                                             Icon(
+                                               Icons.touch_app,
+                                               size: 40,
+                                               color: Colors.blue[600],
+                                             ),
+                                             SizedBox(height: 8),
+                                             Text(
+                                               'Tap to Start',
+                                               style: TextStyle(
+                                                 fontSize: 20,
+                                                 fontWeight: FontWeight.bold,
+                                                 color: Colors.blue[600],
+                                               ),
+                                             ),
+                                           ],
+                                         ),
+                                       ),
+                                     ),
+                                 ],
+                               ),
                              ),
-                             child: _isRunning
-                                 ? AnimatedBuilder(
-                                     animation: _breathingAnimation!,
-                                     builder: (context, child) {
-                                       double progress = _breathingAnimation!.value;
-                                       bool goingUp = progress < 0.5;
-                                       double t = goingUp ? (progress / 0.5) : ((progress - 0.5) / 0.5);
-                                       
-                                       return CustomPaint(
-                                         size: Size(350, 350),
-                                         painter: StairsAndBallPainter(progress, t, goingUp, isRunning: true),
-                                       );
-                                     },
-                                   )
-                                 : CustomPaint(
-                                     size: Size(350, 350),
-                                     painter: StairsAndBallPainter(0, 0, true, isRunning: false),
-                                   ),
                            ),
                           
                           SizedBox(height: 20),
@@ -295,27 +350,11 @@ class _DeepBreathingPageState extends State<DeepBreathingPage>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              if (!_isRunning)
-                                ElevatedButton(
-                                  onPressed: _startExercise,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Start',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                )
-                              else
+                              if (_isRunning)
                                 ElevatedButton(
                                   onPressed: _stopExercise,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
+                                    backgroundColor: Colors.blue[800],
                                     foregroundColor: Colors.white,
                                     padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                                     shape: RoundedRectangleBorder(
@@ -324,6 +363,22 @@ class _DeepBreathingPageState extends State<DeepBreathingPage>
                                   ),
                                   child: Text(
                                     'Stop',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                )
+                              else
+                                ElevatedButton(
+                                  onPressed: _navigateToSuccessPage,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue[600],
+                                    foregroundColor: Colors.white,
+                                    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Next',
                                     style: TextStyle(fontSize: 16),
                                   ),
                                 ),
@@ -340,6 +395,19 @@ class _DeepBreathingPageState extends State<DeepBreathingPage>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _navigateToSuccessPage() {
+    // Track the activity
+    trackClick('deep_breathing_next');
+    
+    // Navigate to self love success page
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SelfLoveSuccessPage(),
       ),
     );
   }
