@@ -5,19 +5,19 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
-import 'enhanced_sliding_puzzle_page.dart';
+import '../Activity_Tools/themed_memory_game_page.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
 
-class SlidingPuzzlesPage extends StatefulWidget {
-  const SlidingPuzzlesPage({super.key});
+class MemoryGamesPage extends StatefulWidget {
+  const MemoryGamesPage({super.key});
 
   @override
-  State<SlidingPuzzlesPage> createState() => _SlidingPuzzlesPageState();
+  State<MemoryGamesPage> createState() => _MemoryGamesPageState();
 }
 
-class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
+class _MemoryGamesPageState extends State<MemoryGamesPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   bool _isPremium = false;
   bool _isLoading = true;
@@ -26,27 +26,27 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
 
-  // Sliding puzzles data
-  final List<Map<String, dynamic>> _slidingPuzzles = [
+  // Memory games data
+  final List<Map<String, dynamic>> _memoryGames = [
     {
-      'name': 'Fox Sliding Puzzle ',
-      'image': 'assets/clear_my_mind_sliding_puzzles/front/fox.png',
-      'page': 'fox',
+      'name': 'Everyday things - memory game',
+      'image': 'assets/clear_my_mind_memory_games/everyday_things.png',
+      'theme': 'everyday',
     },
     {
-      'name': 'Dog Sliding Puzzle',
-      'image': 'assets/clear_my_mind_sliding_puzzles/front/dog.png',
-      'page': 'dog',
+      'name': 'Famous monuments - memory game',
+      'image': 'assets/clear_my_mind_memory_games/famous_monuments.png',
+      'theme': 'monuments',
     },
     {
-      'name': 'Lion Sliding Puzzle',
-      'image': 'assets/clear_my_mind_sliding_puzzles/front/lion.png',
-      'page': 'lion',
+      'name': 'Famous people - memory game',
+      'image': 'assets/clear_my_mind_memory_games/famous_people.png',
+      'theme': 'people',
     },
     {
-      'name': 'Owl Sliding Puzzle',
-      'image': 'assets/clear_my_mind_sliding_puzzles/front/owl.png',
-      'page': 'owl',
+      'name': 'Japanese animals - memory game',
+      'image': 'assets/clear_my_mind_memory_games/japanese_animals.png',
+      'theme': 'animals',
     },
   ];
 
@@ -61,7 +61,7 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
     );
     _progressAnimation = Tween<double>(
       begin: 0.25,
-      end: 0.5, // 50% progress for sliding puzzles page
+      end: 0.5, // 50% progress for memory games page
     ).animate(CurvedAnimation(
       parent: _progressAnimationController!,
       curve: Curves.easeInOut,
@@ -91,7 +91,7 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
       final subscriptionManager = SubscriptionManager();
       final hasAccess = await subscriptionManager.hasAccess();
 
-      debugPrint('SlidingPuzzlesPage - Premium status check:');
+      debugPrint('MemoryGamesPage - Premium status check:');
       debugPrint('- hasCompletedPayment: $hasCompletedPayment');
       debugPrint('- premiumFeaturesEnabled: $premiumFeaturesEnabled');
       debugPrint('- hasAccess from SubscriptionManager: $hasAccess');
@@ -119,7 +119,7 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
         }
       }
     } catch (e) {
-      debugPrint('Error checking premium status in SlidingPuzzlesPage: $e');
+      debugPrint('Error checking premium status in MemoryGamesPage: $e');
       // On error, fall back to basic local check
       final prefs = await SharedPreferences.getInstance();
       final isPremium = prefs.getBool(_hasCompletedPaymentKey) ?? false;
@@ -133,12 +133,12 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
     }
   }
 
-  // Check if a sliding puzzle should be locked (free vs premium)
-  bool _isSlidingPuzzleLocked(String puzzleName) {
+  // Check if a memory game should be locked (free vs premium)
+  bool _isMemoryGameLocked(String gameName) {
     if (_isPremium) return false; // Premium users get access to everything
 
-    // Only Fox Puzzle is free
-    return puzzleName != 'Fox Puzzle';
+    // Only Everyday things is free
+    return gameName != 'Everyday things - memory game';
   }
 
   // Method to show payment page directly like profile page
@@ -171,10 +171,10 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
         return AlertDialog(
           title: Text(isGuest ? 'Sign In Required' : 'Premium Feature'),
           content: Text(isGuest 
-            ? 'This sliding puzzle requires you to sign in or create an account. '
-              'Sign in to save your progress and access all sliding puzzles.'
-            : 'This sliding puzzle is only available for premium users. '
-                  'Upgrade to premium to unlock all sliding puzzles.'),
+            ? 'This memory game requires you to sign in or create an account. '
+              'Sign in to save your progress and access all memory games.'
+            : 'This memory game is only available for premium users. '
+                  'Upgrade to premium to unlock all memory games.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -214,7 +214,7 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
     }
 
     return NavLogPage(
-      title: 'Sliding Puzzles',
+      title: 'Memory Games',
       showBackButton: true,
       selectedIndex: 2, // Dashboard index
       onNavigationTap: (index) {
@@ -292,7 +292,7 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Choose your sliding puzzle',
+                    'Choose a memory game to clear your mind',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
 
@@ -302,10 +302,10 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
                       crossAxisCount: 2,
                       childAspectRatio: 0.75,
                       children: [
-                        _buildSlidingPuzzleCard(context, _slidingPuzzles[0]),
-                        _buildSlidingPuzzleCard(context, _slidingPuzzles[1]),
-                        _buildSlidingPuzzleCard(context, _slidingPuzzles[2]),
-                        _buildSlidingPuzzleCard(context, _slidingPuzzles[3]),
+                        _buildMemoryGameCard(context, _memoryGames[0]),
+                        _buildMemoryGameCard(context, _memoryGames[1]),
+                        _buildMemoryGameCard(context, _memoryGames[2]),
+                        _buildMemoryGameCard(context, _memoryGames[3]),
                       ],
                     ),
                   ),
@@ -318,8 +318,8 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
     );
   }
 
-  Widget _buildSlidingPuzzleCard(BuildContext context, Map<String, dynamic> puzzle) {
-    final bool isLocked = _isSlidingPuzzleLocked(puzzle['name']);
+  Widget _buildMemoryGameCard(BuildContext context, Map<String, dynamic> game) {
+    final bool isLocked = _isMemoryGameLocked(game['name']);
 
     return GestureDetector(
       onTap: () {
@@ -327,7 +327,7 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
           _showPremiumDialog(context);
           return;
         }
-        _navigateToSlidingPuzzle(puzzle['name']);
+        _navigateToMemoryGame(game['name'], game['theme']);
       },
       child: Card(
         elevation: 4,
@@ -343,7 +343,7 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(12)),
                     child: Image.asset(
-                      puzzle['image'],
+                      game['image'],
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
@@ -383,7 +383,7 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
                 children: [
                   Expanded(
                     child: Text(
-                      puzzle['name'],
+                      game['name'],
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -402,25 +402,21 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
     );
   }
 
-  void _navigateToSlidingPuzzle(String puzzleName) {
+  void _navigateToMemoryGame(String gameName, String theme) {
     // Track the activity
-    trackClick('sliding_puzzle_$puzzleName');
+    trackClick('memory_game_$theme');
 
-    // Find the puzzle data to get the theme
-    final puzzle = _slidingPuzzles.firstWhere((p) => p['name'] == puzzleName);
-    final puzzleTheme = puzzle['page'] as String;
-
-    // Navigate to the enhanced sliding puzzle page with theme
+    // Navigate to the themed memory game page
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => EnhancedSlidingPuzzlePage(
-          puzzleTheme: puzzleTheme,
-          puzzleName: puzzleName,
+        builder: (context) => ThemedMemoryGamePage(
+          gameTheme: theme,
+          gameName: gameName,
         ),
       ),
     );
   }
 
-  String get pageName => 'Sliding Puzzles';
+  String get pageName => 'Memory Games';
 }

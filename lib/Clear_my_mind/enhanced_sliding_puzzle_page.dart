@@ -38,6 +38,38 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
 
+
+  // Puzzle configuration based on theme
+  int get gridSize {
+    switch (widget.puzzleTheme) {
+      case 'dog':
+      case 'fox':
+        return 3; // 3x3 grid
+      case 'lion':
+      case 'owl':
+        return 4; // 4x4 grid
+      default:
+        return 3;
+    }
+  }
+
+  int get totalTiles => gridSize * gridSize;
+
+  int get emptyTilePosition {
+    switch (widget.puzzleTheme) {
+      case 'dog':
+        return 2; // 3rd card (0-based index)
+      case 'fox':
+        return 0; // 1st card (0-based index)
+      case 'lion':
+        return 0; // 1st card (0-based index)
+      case 'owl':
+        return 15; // 16th card (0-based index)
+      default:
+        return 8; // Last card for 3x3
+    }
+  }
+
   // Get puzzle image path based on theme
   String get puzzleImagePath {
     switch (widget.puzzleTheme) {
@@ -93,7 +125,7 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
   }
 
   void initializePuzzle() {
-    puzzleTiles = List.generate(9, (index) => index + 1);
+    puzzleTiles = List.generate(totalTiles, (index) => index + 1);
 
     // Reset animation controllers and offsets
     _animationControllers.clear();
@@ -114,34 +146,47 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
     _animationControllers.clear();
     _animations.clear();
 
-    // Create a random but solvable puzzle
-    puzzleTiles = List.generate(9, (index) => index + 1);
+    // Create puzzle with empty tile in the specified position
+    puzzleTiles = List.generate(totalTiles, (index) => index + 1);
+    
+    // Set empty tile to the specified position based on theme
+    final emptyTileValue = totalTiles;
+    final targetEmptyPosition = emptyTilePosition;
+    
+    // Move empty tile to target position
+    if (puzzleTiles[targetEmptyPosition] != emptyTileValue) {
+      final currentEmptyIndex = puzzleTiles.indexOf(emptyTileValue);
+      final temp = puzzleTiles[currentEmptyIndex];
+      puzzleTiles[currentEmptyIndex] = puzzleTiles[targetEmptyPosition];
+      puzzleTiles[targetEmptyPosition] = temp;
+    }
+    
     final random = Random();
 
-    // Perform random valid moves to shuffle
+    // Perform random valid moves to shuffle while keeping empty tile in target position
     for (int i = 0; i < 100; i++) {
       // Find empty tile position
-      final emptyIndex = puzzleTiles.indexOf(9);
-      final row = emptyIndex ~/ 3;
-      final col = emptyIndex % 3;
+      final emptyIndex = puzzleTiles.indexOf(emptyTileValue);
+      final row = emptyIndex ~/ gridSize;
+      final col = emptyIndex % gridSize;
 
       // Get valid moves
       List<int> validMoves = [];
 
       // Check up
       if (row > 0) {
-        validMoves.add(emptyIndex - 3);
+        validMoves.add(emptyIndex - gridSize);
       }
       // Check down
-      if (row < 2) {
-        validMoves.add(emptyIndex + 3);
+      if (row < gridSize - 1) {
+        validMoves.add(emptyIndex + gridSize);
       }
       // Check left
       if (col > 0) {
         validMoves.add(emptyIndex - 1);
       }
       // Check right
-      if (col < 2) {
+      if (col < gridSize - 1) {
         validMoves.add(emptyIndex + 1);
       }
 
@@ -163,11 +208,11 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
   bool isValidMove(int index) {
     if (!gameStarted || gameComplete) return false;
 
-    final emptyIndex = puzzleTiles.indexOf(9);
-    final row = index ~/ 3;
-    final col = index % 3;
-    final emptyRow = emptyIndex ~/ 3;
-    final emptyCol = emptyIndex % 3;
+    final emptyIndex = puzzleTiles.indexOf(totalTiles);
+    final row = index ~/ gridSize;
+    final col = index % gridSize;
+    final emptyRow = emptyIndex ~/ gridSize;
+    final emptyCol = emptyIndex % gridSize;
 
     // Check if the tile is adjacent to the empty space
     return (row == emptyRow && (col == emptyCol - 1 || col == emptyCol + 1)) ||
@@ -178,7 +223,7 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
   void moveTile(int index) {
     if (!isValidMove(index)) return;
 
-    final emptyIndex = puzzleTiles.indexOf(9);
+    final emptyIndex = puzzleTiles.indexOf(totalTiles);
 
     // Create animation for the tile movement
     _animateTileMovement(index, emptyIndex);
@@ -214,10 +259,10 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
     );
 
     // Calculate offset based on grid position
-    final fromRow = fromIndex ~/ 3;
-    final fromCol = fromIndex % 3;
-    final toRow = toIndex ~/ 3;
-    final toCol = toIndex % 3;
+    final fromRow = fromIndex ~/ gridSize;
+    final fromCol = fromIndex % gridSize;
+    final toRow = toIndex ~/ gridSize;
+    final toCol = toIndex % gridSize;
 
     final offsetX = toCol - fromCol;
     final offsetY = toRow - fromRow;
@@ -261,13 +306,13 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
       return;
     }
 
-    final emptyIndex = puzzleTiles.indexOf(9);
-    final row = index ~/ 3;
-    final col = index % 3;
-    final emptyRow = emptyIndex ~/ 3;
-    final emptyCol = emptyIndex % 3;
+    final emptyIndex = puzzleTiles.indexOf(totalTiles);
+    final row = index ~/ gridSize;
+    final col = index % gridSize;
+    final emptyRow = emptyIndex ~/ gridSize;
+    final emptyCol = emptyIndex % gridSize;
 
-    // Calculate allowed drag direction
+    // Calculate allowed drag direction with smooth animation
     Offset newOffset = _dragOffset;
 
     if (row == emptyRow) {
@@ -308,11 +353,11 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
       return;
     }
 
-    final emptyIndex = puzzleTiles.indexOf(9);
-    final row = index ~/ 3;
-    final col = index % 3;
-    final emptyRow = emptyIndex ~/ 3;
-    final emptyCol = emptyIndex % 3;
+    final emptyIndex = puzzleTiles.indexOf(totalTiles);
+    final row = index ~/ gridSize;
+    final col = index % gridSize;
+    final emptyRow = emptyIndex ~/ gridSize;
+    final emptyCol = emptyIndex % gridSize;
 
     // Check if the drag was significant enough to complete the move
     bool completedMove = false;
@@ -335,6 +380,9 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
       _draggingTileIndex = null;
 
       if (completedMove) {
+        // Create smooth animation for the completed move
+        _animateTileMovement(index, emptyIndex);
+        
         // Complete the move
         final temp = puzzleTiles[index];
         puzzleTiles[index] = puzzleTiles[emptyIndex];
@@ -347,7 +395,7 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
         checkWin();
       }
 
-      // Clear all drag offsets
+      // Clear all drag offsets with animation
       _tileOffsets.clear();
     });
   }
@@ -362,7 +410,7 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
       }
     }
 
-    if (isSolved && puzzleTiles.last == 9) {
+    if (isSolved && puzzleTiles.last == totalTiles) {
       gameComplete = true;
       showWinDialog();
     }
@@ -524,29 +572,34 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
         color: Colors.black,
       ),
       child: LayoutBuilder(builder: (context, constraints) {
-        final gridSize = constraints.maxWidth;
-        final actualTileSize = gridSize / 3;
+        final containerSize = constraints.maxWidth;
+        final actualTileSize = containerSize / this.gridSize;
 
         return GridView.builder(
           padding: EdgeInsets.zero,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: gridSize,
             mainAxisSpacing: 2, // Minimal spacing
             crossAxisSpacing: 2, // Minimal spacing
           ),
-          itemCount: 9,
+          itemCount: totalTiles,
           itemBuilder: (context, index) {
             final tile = puzzleTiles[index];
 
-            // Skip empty tile
-            if (tile == 9) {
-              return Container(color: Colors.white);
+            // Skip empty tile - keep it simple
+            if (tile == totalTiles) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  border: Border.all(color: Colors.grey.shade300, width: 1),
+                ),
+              );
             }
 
             // Calculate the original position of this tile (0-based)
-            final originalRow = (tile - 1) ~/ 3;
-            final originalCol = (tile - 1) % 3;
+            final originalRow = (tile - 1) ~/ this.gridSize;
+            final originalCol = (tile - 1) % this.gridSize;
 
             // Apply animation or drag offset
             Offset offset = _tileOffsets[index] ?? Offset.zero;
@@ -679,20 +732,31 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
 
   // Build a draggable tile with precise image section
   Widget _buildTile(int row, int col, double tileSize, int index) {
+    final bool isDragging = _draggingTileIndex == index;
+    
     return GestureDetector(
       onTap: () => moveTile(index),
       onPanStart: (details) => _onDragStart(index, details),
       onPanUpdate: (details) => _onDragUpdate(index, details, tileSize),
       onPanEnd: (details) => _onDragEnd(index, details),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeInOut,
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: Colors.black, width: 1),
+          border: Border.all(
+            color: isDragging ? Colors.blue.shade400 : Colors.black, 
+            width: isDragging ? 2 : 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black26,
-              blurRadius: 2,
-              offset: const Offset(0, 1),
+              color: isDragging 
+                  ? Colors.blue.withOpacity(0.3)
+                  : Colors.black26,
+              blurRadius: isDragging ? 8 : 2,
+              offset: isDragging 
+                  ? const Offset(0, 4)
+                  : const Offset(0, 1),
             ),
           ],
         ),
@@ -705,13 +769,18 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
                 Positioned(
                   left: -col * tileSize,
                   top: -row * tileSize,
-                  width: tileSize * 3,
-                  height: tileSize * 3,
+                  width: tileSize * this.gridSize,
+                  height: tileSize * this.gridSize,
                   child: Image.asset(
                     puzzleImagePath,
                     fit: BoxFit.cover,
                   ),
                 ),
+                // Add a subtle overlay when dragging
+                if (isDragging)
+                  Container(
+                    color: Colors.blue.withOpacity(0.1),
+                  ),
               ],
             ),
           ),
