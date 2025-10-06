@@ -187,18 +187,57 @@ class VisionBoardWidget : AppWidgetProvider() {
                 views.removeAllViews(R.id.categories_container)
 
                 // Get all categories for this widget
-                val categories = mutableListOf<String>()
+                val allCategories = mutableListOf<String>()
                 var index = 0
                 while (true) {
                     val category = prefs.getString("category_${appWidgetId}_$index", null) ?: break
-                    categories.add(category)
+                    allCategories.add(category)
                     index++
                 }
 
-                // Add categories to container
-                for (i in categories.indices) {
+                // Filter categories to only show those with tasks
+                val categoriesWithTasks = mutableListOf<String>()
+                for (category in allCategories) {
+                    // Load todos based on theme
+                    val savedTodos = when (currentTheme) {
+                        "Premium Vision Board" -> prefs.getString("premium_todos_$category", "")
+                        "PostIt Vision Board" -> prefs.getString("postit_todos_$category", "")
+                        "Ruby Reds Vision Board" -> prefs.getString("ruby_reds_todos_$category", "")
+                        "Winter Warmth Vision Board" -> prefs.getString("winter_warmth_todos_$category", "")
+                        "Coffee Hues Vision Board" -> prefs.getString("coffee_hues_todos_$category", "")
+                        "Box Vision Board" -> {
+                            val todos = prefs.getString("BoxThem_todos_$category", "")
+                            Log.d("VisionBoardWidget", "Retrieved todos for $category: $todos")
+                            todos
+                        }
+                        else -> ""
+                    }
+                    
+                    // Check if category has any tasks
+                    if (savedTodos?.isNotEmpty() == true) {
+                        try {
+                            val jsonArray = JSONArray(savedTodos)
+                            if (jsonArray.length() > 0) {
+                                categoriesWithTasks.add(category)
+                            }
+                        } catch (e: Exception) {
+                            // If JSON parsing fails, still add the category if it has content
+                            if (savedTodos?.trim()?.isNotEmpty() == true) {
+                                categoriesWithTasks.add(category)
+                            }
+                        }
+                    }
+                }
+
+                // Handle empty state - show message if no categories have tasks
+                if (categoriesWithTasks.isEmpty()) {
+                    // Show empty state message - for now just show the add button
+                    Log.d("VisionBoardWidget", "No categories with tasks found for widget $appWidgetId")
+                } else {
+                    // Add categories to container (only those with tasks)
+                    for (i in categoriesWithTasks.indices) {
                     val itemView = RemoteViews(context.packageName, R.layout.vision_board_grid_item)
-                    val category = categories[i]
+                    val category = categoriesWithTasks[i]
                     
                     // Set category background color based on theme and position
                     val backgroundColor = when (currentTheme) {
@@ -232,21 +271,15 @@ class VisionBoardWidget : AppWidgetProvider() {
                     itemView.setTextColor(R.id.category_name, textColor)
                     itemView.setTextColor(R.id.todo_text, textColor)
                     
-                    // Load todos based on theme
+                    // Load todos based on theme (we already know this category has tasks)
                     val savedTodos = when (currentTheme) {
-                        "Premium Vision Board" -> HomeWidgetPlugin.getData(context)
-                            .getString("premium_todos_$category", "")
-                        "PostIt Vision Board" -> HomeWidgetPlugin.getData(context)
-                            .getString("postit_todos_$category", "")
-                        "Ruby Reds Vision Board" -> HomeWidgetPlugin.getData(context)
-                            .getString("ruby_reds_todos_$category", "")
-                        "Winter Warmth Vision Board" -> HomeWidgetPlugin.getData(context)
-                            .getString("winter_warmth_todos_$category", "")
-                        "Coffee Hues Vision Board" -> HomeWidgetPlugin.getData(context)
-                            .getString("coffee_hues_todos_$category", "")
+                        "Premium Vision Board" -> prefs.getString("premium_todos_$category", "")
+                        "PostIt Vision Board" -> prefs.getString("postit_todos_$category", "")
+                        "Ruby Reds Vision Board" -> prefs.getString("ruby_reds_todos_$category", "")
+                        "Winter Warmth Vision Board" -> prefs.getString("winter_warmth_todos_$category", "")
+                        "Coffee Hues Vision Board" -> prefs.getString("coffee_hues_todos_$category", "")
                         "Box Vision Board" -> {
-                            val todos = HomeWidgetPlugin.getData(context)
-                                .getString("BoxThem_todos_$category", "")
+                            val todos = prefs.getString("BoxThem_todos_$category", "")
                             Log.d("VisionBoardWidget", "Retrieved todos for $category: $todos")
                             todos
                         }
@@ -297,30 +330,58 @@ class VisionBoardWidget : AppWidgetProvider() {
                     // Add the item to the container
                     views.addView(R.id.categories_container, itemView)
                 }
+            }
 
-                // Add the "+" button if there's room for more categories
-                if (categories.size < MAX_CATEGORIES) {
-                    val addItemView = RemoteViews(context.packageName, R.layout.vision_board_add_item)
-                    
-                    val addIntent = Intent(context, VisionBoardConfigureActivity::class.java).apply {
-                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                        putExtra("category_index", categories.size)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    val addPendingIntent = PendingIntent.getActivity(
-                        context,
-                        appWidgetId * 100 + 99,  // Unique request code for add button
-                        addIntent,
-                        pendingIntentFlags
-                    )
-                    addItemView.setOnClickPendingIntent(R.id.add_category_button, addPendingIntent)
-                    views.addView(R.id.categories_container, addItemView)
+            // Add the "+" button if there's room for more categories
+            if (allCategories.size < MAX_CATEGORIES) {
+                val addItemView = RemoteViews(context.packageName, R.layout.vision_board_add_item)
+                
+                val addIntent = Intent(context, VisionBoardConfigureActivity::class.java).apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                    putExtra("category_index", allCategories.size)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
+                val addPendingIntent = PendingIntent.getActivity(
+                    context,
+                    appWidgetId * 100 + 99,  // Unique request code for add button
+                    addIntent,
+                    pendingIntentFlags
+                )
+                addItemView.setOnClickPendingIntent(R.id.add_category_button, addPendingIntent)
+                views.addView(R.id.categories_container, addItemView)
+            }
 
-                appWidgetManager.updateAppWidget(appWidgetId, views)
-                Log.d("VisionBoardWidget", "Widget $appWidgetId updated with ${categories.size} categories")
+            appWidgetManager.updateAppWidget(appWidgetId, views)
+            Log.d("VisionBoardWidget", "Widget $appWidgetId updated with ${categoriesWithTasks.size} categories with tasks (out of ${allCategories.size} total categories)")
+        } catch (e: Exception) {
+            Log.e("VisionBoardWidget", "Error updating widget", e)
+        }
+    }
+
+        /**
+         * Check if a category has any tasks for the given theme
+         */
+        fun hasCategoryTasks(context: Context, appWidgetId: Int, category: String): Boolean {
+            val prefs = HomeWidgetPlugin.getData(context)
+            val currentTheme = prefs.getString(getThemeKey(appWidgetId), "Box Vision Board")
+            
+            val savedTodos = when (currentTheme) {
+                "Premium Vision Board" -> prefs.getString("premium_todos_$category", "")
+                "PostIt Vision Board" -> prefs.getString("postit_todos_$category", "")
+                "Ruby Reds Vision Board" -> prefs.getString("ruby_reds_todos_$category", "")
+                "Winter Warmth Vision Board" -> prefs.getString("winter_warmth_todos_$category", "")
+                "Coffee Hues Vision Board" -> prefs.getString("coffee_hues_todos_$category", "")
+                "Box Vision Board" -> prefs.getString("BoxThem_todos_$category", "")
+                else -> ""
+            }
+            
+            if (savedTodos?.isEmpty() != false) return false
+            
+            return try {
+                val jsonArray = JSONArray(savedTodos)
+                jsonArray.length() > 0
             } catch (e: Exception) {
-                Log.e("VisionBoardWidget", "Error updating widget", e)
+                savedTodos?.trim()?.isNotEmpty() == true
             }
         }
 

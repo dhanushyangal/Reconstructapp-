@@ -70,104 +70,98 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
             try {
                 val currentTheme = getCurrentTheme(context, appWidgetId)
                 
-                // Get active days and their positions
-                val selectedDays = mutableListOf<Pair<Int, String>>()
+                // Get all configured days
+                val allConfiguredDays = mutableListOf<Pair<Int, String>>()
                 for (i in 0 until MAX_DAYS) {
                     val day = HomeWidgetPlugin.getData(context).getString("day_${appWidgetId}_$i", null)
                     if (day != null) {
-                        selectedDays.add(Pair(i, day))
+                        allConfiguredDays.add(Pair(i, day))
                     }
                 }
+                
+                // Filter to only show days with tasks
+                val selectedDays = allConfiguredDays.filter { (_, day) ->
+                    hasDayTasks(context, appWidgetId, day)
+                }
 
-                // Create all day slots (filled or empty)
-                for (i in 0 until MAX_DAYS) {
+                // Add days with tasks
+                for (i in selectedDays.indices) {
                     val dayView = RemoteViews(context.packageName, R.layout.weekly_planner_day_item)
+                    val dayEntry = selectedDays[i]
+                    val day = dayEntry.second
                     
-                    // Find if there's a day for this position
-                    val dayEntry = selectedDays.find { it.first == i }
-                    
-                    if (dayEntry != null) {
-                        val day = dayEntry.second
-                        
-                        // Apply theme-specific styling
-                        when (currentTheme) {
-                            "Japanese theme Weekly Planner" -> {
-                                dayView.setImageViewResource(R.id.day_background, japaneseBackgrounds[i])
-                            }
-                            "Patterns theme Weekly Planner" -> {
-                                dayView.setImageViewResource(R.id.day_background, patternsBackgrounds[i])
-                            }
-                            "Watercolor theme Weekly Planner" -> {
-                                dayView.setImageViewResource(R.id.day_background, watercolorBackgrounds[i])
-                            }
-                            "Floral theme Weekly Planner" -> {
-                                dayView.setImageViewResource(R.id.day_background, floralBackgrounds[i])
-                            }
+                    // Apply theme-specific styling
+                    when (currentTheme) {
+                        "Japanese theme Weekly Planner" -> {
+                            dayView.setImageViewResource(R.id.day_background, japaneseBackgrounds[i])
                         }
-                        
-                        // Get todos for this day
-                        val todos = getTodosForDay(context, currentTheme, day)
-                        
-                        // Set day name and todos
-                        dayView.setTextViewText(R.id.day_name, day)
-                        dayView.setTextViewText(R.id.todos_text, todos)
-                        
-                        // Set text colors based on theme
-                        dayView.setTextColor(R.id.day_name, Color.BLACK)
-                        dayView.setTextColor(R.id.todos_text, Color.BLACK)
-                        
-                        views.addView(R.id.days_container, dayView)
-                        
-                        // Add + button if this is the last filled slot and there's room for more
-                        if (i == selectedDays.size - 1 && selectedDays.size < MAX_DAYS) {
-                            val addButtonView = RemoteViews(context.packageName, R.layout.weekly_planner_add_day)
-                            
-                            val addIntent = Intent(context, WeeklyPlannerConfigureActivity::class.java).apply {
-                                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                                putExtra("day_index", selectedDays.size)
-                            }
-                            
-                            val addPendingIntent = PendingIntent.getActivity(
-                                context,
-                                appWidgetId * 1000 + selectedDays.size,
-                                addIntent,
-                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                            )
-                            
-                            addButtonView.setOnClickPendingIntent(R.id.add_day_button, addPendingIntent)
-                            views.addView(R.id.days_container, addButtonView)
+                        "Patterns theme Weekly Planner" -> {
+                            dayView.setImageViewResource(R.id.day_background, patternsBackgrounds[i])
                         }
-
-                        // Add click handler for the day
-                        val popupIntent = Intent(context, WeeklyPlannerWidget::class.java).apply {
-                            action = "SHOW_POPUP_MENU"
-                            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                            putExtra("day_index", i)
-                            putExtra("day", day)
+                        "Watercolor theme Weekly Planner" -> {
+                            dayView.setImageViewResource(R.id.day_background, watercolorBackgrounds[i])
                         }
-                        
-                        val pendingIntentFlags = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                        } else {
-                            PendingIntent.FLAG_UPDATE_CURRENT
+                        "Floral theme Weekly Planner" -> {
+                            dayView.setImageViewResource(R.id.day_background, floralBackgrounds[i])
                         }
-
-                        val popupPendingIntent = PendingIntent.getBroadcast(
-                            context,
-                            appWidgetId * 100 + i,  // Unique request code for each day
-                            popupIntent,
-                            pendingIntentFlags
-                        )
-                        
-                        // Set the click listener on the entire day container
-                        dayView.setOnClickPendingIntent(R.id.day_container, popupPendingIntent)
-                    } else {
-                        // Empty slot
-                        dayView.setViewVisibility(R.id.day_name, View.INVISIBLE)
-                        dayView.setViewVisibility(R.id.todos_text, View.INVISIBLE)
-                        dayView.setViewVisibility(R.id.day_background, View.INVISIBLE)
-                        views.addView(R.id.days_container, dayView)
                     }
+                    
+                    // Get todos for this day
+                    val todos = getTodosForDay(context, currentTheme, day)
+                    
+                    // Set day name and todos
+                    dayView.setTextViewText(R.id.day_name, day)
+                    dayView.setTextViewText(R.id.todos_text, todos)
+                    
+                    // Set text colors based on theme
+                    dayView.setTextColor(R.id.day_name, Color.BLACK)
+                    dayView.setTextColor(R.id.todos_text, Color.BLACK)
+                    
+                    views.addView(R.id.days_container, dayView)
+
+                    // Add click handler for the day
+                    val popupIntent = Intent(context, WeeklyPlannerWidget::class.java).apply {
+                        action = "SHOW_POPUP_MENU"
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                        putExtra("day_index", i)
+                        putExtra("day", day)
+                    }
+                    
+                    val pendingIntentFlags = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    } else {
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                    }
+
+                    val popupPendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        appWidgetId * 100 + i,  // Unique request code for each day
+                        popupIntent,
+                        pendingIntentFlags
+                    )
+                    
+                    // Set the click listener on the entire day container
+                    dayView.setOnClickPendingIntent(R.id.day_container, popupPendingIntent)
+                }
+                
+                // Add + button if there's room for more days
+                if (allConfiguredDays.size < MAX_DAYS) {
+                    val addButtonView = RemoteViews(context.packageName, R.layout.weekly_planner_add_day)
+                    
+                    val addIntent = Intent(context, WeeklyPlannerConfigureActivity::class.java).apply {
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                        putExtra("day_index", allConfiguredDays.size)
+                    }
+                    
+                    val addPendingIntent = PendingIntent.getActivity(
+                        context,
+                        appWidgetId * 1000 + allConfiguredDays.size,
+                        addIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    
+                    addButtonView.setOnClickPendingIntent(R.id.add_day_button, addPendingIntent)
+                    views.addView(R.id.days_container, addButtonView)
                 }
 
                 appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -221,6 +215,32 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
                 todoItems.joinToString("\n")
             } catch (e: Exception) {
                 ""
+            }
+        }
+
+        /**
+         * Check if a day has any tasks for the given theme
+         */
+        fun hasDayTasks(context: Context, appWidgetId: Int, day: String): Boolean {
+            val prefs = HomeWidgetPlugin.getData(context)
+            val currentTheme = getCurrentTheme(context, appWidgetId)
+            
+            val key = when (currentTheme) {
+                "Japanese theme Weekly Planner" -> "JapaneseTheme_todos_$day"
+                "Patterns theme Weekly Planner" -> "PatternsTheme_todos_$day"
+                "Watercolor theme Weekly Planner" -> "WatercolorTheme_todos_$day"
+                "Floral theme Weekly Planner" -> "FloralTheme_todos_$day"
+                else -> "JapaneseTheme_todos_$day"
+            }
+            
+            val todosJson = prefs.getString(key, null)
+            if (todosJson?.isEmpty() != false) return false
+            
+            return try {
+                val jsonArray = JSONArray(todosJson)
+                jsonArray.length() > 0
+            } catch (e: Exception) {
+                todosJson?.trim()?.isNotEmpty() == true
             }
         }
     }

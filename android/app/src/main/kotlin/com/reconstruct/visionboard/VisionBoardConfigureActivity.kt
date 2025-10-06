@@ -97,27 +97,37 @@ class VisionBoardConfigureActivity : Activity() {
             index++
         }
         
+        // Filter categories to only show those that have tasks
+        val categoriesWithTasks = visionCategories.filter { category ->
+            VisionBoardWidget.hasCategoryTasks(this, appWidgetId, category)
+        }
+        
         // Filter out categories that are already in use
-        val availableCategories = visionCategories.filter { it !in existingCategories }
+        val availableCategoriesWithTasks = categoriesWithTasks.filter { it !in existingCategories }
         
         // If this is a category change operation (categoryIndex is valid)
         val isChangingCategory = categoryIndex < existingCategories.size
         val categoriesToShow = if (isChangingCategory) {
-            // When changing category, show all categories except other existing ones
-            visionCategories.filter { category ->
+            // When changing category, show categories with tasks except other existing ones
+            categoriesWithTasks.filter { category ->
                 category !in existingCategories || category == existingCategories[categoryIndex]
             }
         } else {
-            // When adding new category, show only unused categories
-            availableCategories
+            // When adding new category, show only unused categories that have tasks
+            availableCategoriesWithTasks
         }
         
         // If no categories are available, show a message and close
         if (categoriesToShow.isEmpty()) {
+            val message = if (isChangingCategory) {
+                "No categories with tasks available to change to"
+            } else {
+                "No categories with tasks available to add. Please add tasks to categories first."
+            }
             android.widget.Toast.makeText(
                 this,
-                "No more categories available to add",
-                android.widget.Toast.LENGTH_SHORT
+                message,
+                android.widget.Toast.LENGTH_LONG
             ).show()
             finish()
             return
@@ -136,6 +146,13 @@ class VisionBoardConfigureActivity : Activity() {
             val editor = HomeWidgetPlugin.getData(this).edit()
             editor.putString("category_${appWidgetId}_$categoryIndex", selectedCategory)
             editor.apply()
+
+            // Show confirmation message since we know this category has tasks
+            android.widget.Toast.makeText(
+                this,
+                "Category '$selectedCategory' selected (has tasks)",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
 
             // Update the widget
             val appWidgetManager = AppWidgetManager.getInstance(this)

@@ -91,121 +91,114 @@ class AnnualPlannerWidget : AppWidgetProvider() {
                 val prefs = HomeWidgetPlugin.getData(context)
                 val currentTheme = prefs.getString("annual_planner_theme_$appWidgetId", "PostIt Annual Planner") ?: "PostIt Annual Planner"
                 
-                // Count active months
-                val selectedMonths = mutableListOf<Pair<Int, String>>()
+                // Get all configured months
+                val allConfiguredMonths = mutableListOf<Pair<Int, String>>()
                 for (i in 0 until MAX_MONTHS) {
                     val month = prefs.getString("month_${appWidgetId}_$i", null)
                     if (month != null) {
-                        selectedMonths.add(Pair(i, month))
+                        allConfiguredMonths.add(Pair(i, month))
                     }
+                }
+                
+                // Filter to only show months with tasks
+                val selectedMonths = allConfiguredMonths.filter { (_, month) ->
+                    hasMonthTasks(context, appWidgetId, month)
                 }
                 
                 val activeMonthCount = selectedMonths.size
 
-                // Add existing months
-                for (i in 0 until MAX_MONTHS) {
+                // Add months with tasks
+                for (i in selectedMonths.indices) {
                     val monthItem = RemoteViews(context.packageName, R.layout.annual_planner_month_item)
+                    val monthEntry = selectedMonths[i]
+                    val month = monthEntry.second
                     
-                    // Find if there's a month for this position
-                    val monthEntry = selectedMonths.find { it.first == i }
+                    // Get todos for this month
+                    var todoText = getTodoTextForMonth(context, currentTheme, month)
                     
-                    if (monthEntry != null) {
-                        val month = monthEntry.second
-                        
-                        // Get todos for this month
-                        var todoText = getTodoTextForMonth(context, currentTheme, month)
-                        
-                        // Set month name and todos
-                        monthItem.setTextViewText(R.id.month_name, month)
-                        monthItem.setTextViewText(R.id.todo_text, todoText)
-                        
-                        
-                        // Set background image based on theme
-                        val monthIndex = monthsList.indexOf(month)
-                        when (currentTheme) {
-                            "PostIt Annual Planner" -> {
-                                views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.postit_background)
-                                views.setInt(R.id.categories_container, "setBackgroundResource", 0) // Remove background
-                                monthItem.setInt(R.id.month_container, "setBackgroundColor", postitColors[monthIndex])
-                                monthItem.setTextColor(R.id.month_name, Color.parseColor("#1976D2")) // Using hex color for blue
-                                monthItem.setTextColor(R.id.todo_text, Color.BLACK)
-                            }
-                            "Premium Annual Planner" -> {
-                                views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.vision_board_background)
-                                views.setInt(R.id.categories_container, "setBackgroundResource", 0)
-                                monthItem.setInt(R.id.month_container, "setBackgroundColor", premiumColors[monthIndex])
-                                monthItem.setTextColor(R.id.month_name, 0xFFFFFFFF.toInt()) // White text
-                                monthItem.setTextColor(R.id.todo_text, 0xFFFFFFFF.toInt())  // White text
-                            }
-                            "Watercolor Annual Planner" -> {
-                                views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.vision_board_background)
-                                views.setInt(R.id.categories_container, "setBackgroundResource", 0)
-                                monthItem.setImageViewResource(R.id.month_background, watercolorColors[monthIndex])
-                                monthItem.setInt(R.id.month_container, "setBackgroundColor", 0x00000000) // Transparent
-                                monthItem.setTextColor(R.id.month_name, Color.BLACK)
-                                monthItem.setTextColor(R.id.todo_text, Color.BLACK)
-                            }
-                            "Floral Annual Planner" -> {
-                                views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.vision_board_background)
-                                views.setInt(R.id.categories_container, "setBackgroundResource", 0)
-                                monthItem.setImageViewResource(R.id.month_background, floralBackgrounds[monthIndex])
-                                monthItem.setInt(R.id.month_container, "setBackgroundColor", 0x00000000) // Transparent
-                                monthItem.setTextColor(R.id.month_name, 0xFFFFFFFF.toInt()) // White text for month name
-                                monthItem.setTextColor(R.id.todo_text, 0xFFFFFFFF.toInt())  // White text for todo text
-                            }
+                    // Set month name and todos
+                    monthItem.setTextViewText(R.id.month_name, month)
+                    monthItem.setTextViewText(R.id.todo_text, todoText)
+                    
+                    // Set background image based on theme
+                    val monthIndex = monthsList.indexOf(month)
+                    when (currentTheme) {
+                        "PostIt Annual Planner" -> {
+                            views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.postit_background)
+                            views.setInt(R.id.categories_container, "setBackgroundResource", 0) // Remove background
+                            monthItem.setInt(R.id.month_container, "setBackgroundColor", postitColors[monthIndex])
+                            monthItem.setTextColor(R.id.month_name, Color.parseColor("#1976D2")) // Using hex color for blue
+                            monthItem.setTextColor(R.id.todo_text, Color.BLACK)
                         }
-                        
-                        // Add click handler for the month item
-                        val editIntent = Intent(context, AnnualPlannerWidget::class.java).apply {
-                            action = "EDIT_MONTH"
-                            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                            putExtra("month_index", i)
-                            putExtra("month", month)
+                        "Premium Annual Planner" -> {
+                            views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.vision_board_background)
+                            views.setInt(R.id.categories_container, "setBackgroundResource", 0)
+                            monthItem.setInt(R.id.month_container, "setBackgroundColor", premiumColors[monthIndex])
+                            monthItem.setTextColor(R.id.month_name, 0xFFFFFFFF.toInt()) // White text
+                            monthItem.setTextColor(R.id.todo_text, 0xFFFFFFFF.toInt())  // White text
                         }
-                        
-                        val pendingIntentFlags = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                        } else {
-                            PendingIntent.FLAG_UPDATE_CURRENT
+                        "Watercolor Annual Planner" -> {
+                            views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.vision_board_background)
+                            views.setInt(R.id.categories_container, "setBackgroundResource", 0)
+                            monthItem.setImageViewResource(R.id.month_background, watercolorColors[monthIndex])
+                            monthItem.setInt(R.id.month_container, "setBackgroundColor", 0x00000000) // Transparent
+                            monthItem.setTextColor(R.id.month_name, Color.BLACK)
+                            monthItem.setTextColor(R.id.todo_text, Color.BLACK)
                         }
-                        
-                        val editPendingIntent = PendingIntent.getBroadcast(
-                            context,
-                            appWidgetId * 100 + i, // Unique request code
-                            editIntent,
-                            pendingIntentFlags
-                        )
-                        monthItem.setOnClickPendingIntent(R.id.month_container, editPendingIntent)
-                        
-                        views.addView(R.id.months_container, monthItem)
-                        
-                        // Add + button if this is the last filled slot and there's room for more
-                        if (i == selectedMonths.size - 1 && selectedMonths.size < MAX_MONTHS) {
-                            val addButtonView = RemoteViews(context.packageName, R.layout.annual_planner_add_month)
-                            
-                            // Create intent for adding new month
-                            val addIntent = Intent(context, AnnualPlannerConfigureActivity::class.java).apply {
-                                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                                putExtra("month_index", selectedMonths.size)
-                            }
-                            
-                            val addPendingIntent = PendingIntent.getActivity(
-                                context,
-                                appWidgetId * 1000 + selectedMonths.size, // Unique request code
-                                addIntent,
-                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                            )
-                            
-                            addButtonView.setOnClickPendingIntent(R.id.add_month_button, addPendingIntent)
-                            views.addView(R.id.months_container, addButtonView)
+                        "Floral Annual Planner" -> {
+                            views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.vision_board_background)
+                            views.setInt(R.id.categories_container, "setBackgroundResource", 0)
+                            monthItem.setImageViewResource(R.id.month_background, floralBackgrounds[monthIndex])
+                            monthItem.setInt(R.id.month_container, "setBackgroundColor", 0x00000000) // Transparent
+                            monthItem.setTextColor(R.id.month_name, 0xFFFFFFFF.toInt()) // White text for month name
+                            monthItem.setTextColor(R.id.todo_text, 0xFFFFFFFF.toInt())  // White text for todo text
                         }
-                    } else {
-                        // Empty slot
-                        monthItem.setViewVisibility(R.id.month_name, View.INVISIBLE)
-                        monthItem.setViewVisibility(R.id.todo_text, View.INVISIBLE)
-                        monthItem.setViewVisibility(R.id.month_background, View.INVISIBLE)
-                        views.addView(R.id.months_container, monthItem)
                     }
+                    
+                    // Add click handler for the month item
+                    val editIntent = Intent(context, AnnualPlannerWidget::class.java).apply {
+                        action = "EDIT_MONTH"
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                        putExtra("month_index", i)
+                        putExtra("month", month)
+                    }
+                    
+                    val pendingIntentFlags = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    } else {
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                    }
+                    
+                    val editPendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        appWidgetId * 100 + i, // Unique request code
+                        editIntent,
+                        pendingIntentFlags
+                    )
+                    monthItem.setOnClickPendingIntent(R.id.month_container, editPendingIntent)
+                    
+                    views.addView(R.id.months_container, monthItem)
+                }
+                
+                // Add + button if there's room for more months
+                if (allConfiguredMonths.size < MAX_MONTHS) {
+                    val addButtonView = RemoteViews(context.packageName, R.layout.annual_planner_add_month)
+                    
+                    // Create intent for adding new month
+                    val addIntent = Intent(context, AnnualPlannerConfigureActivity::class.java).apply {
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                        putExtra("month_index", allConfiguredMonths.size)
+                    }
+                    
+                    val addPendingIntent = PendingIntent.getActivity(
+                        context,
+                        appWidgetId * 1000 + allConfiguredMonths.size, // Unique request code
+                        addIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    
+                    addButtonView.setOnClickPendingIntent(R.id.add_month_button, addPendingIntent)
+                    views.addView(R.id.months_container, addButtonView)
                 }
 
                 appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -274,6 +267,32 @@ class AnnualPlannerWidget : AppWidgetProvider() {
             } catch (e: Exception) {
                 Log.e("AnnualPlannerWidget", "Error parsing todos", e)
                 ""
+            }
+        }
+
+        /**
+         * Check if a month has any tasks for the given theme
+         */
+        fun hasMonthTasks(context: Context, appWidgetId: Int, month: String): Boolean {
+            val prefs = HomeWidgetPlugin.getData(context)
+            val currentTheme = prefs.getString("annual_planner_theme_$appWidgetId", "PostIt Annual Planner") ?: "PostIt Annual Planner"
+            
+            val jsonKey = when (currentTheme) {
+                "PostIt Annual Planner" -> "PostItTheme_todos_$month"
+                "Premium Annual Planner" -> "PremiumTheme_todos_$month"
+                "Watercolor Annual Planner" -> "WatercolorTheme_todos_$month"
+                "Floral Annual Planner" -> "FloralTheme_todos_$month"
+                else -> "PostItTheme_todos_$month"
+            }
+            
+            val encodedTodos = prefs.getString(jsonKey, null)
+            if (encodedTodos?.isEmpty() != false) return false
+            
+            return try {
+                val jsonArray = JSONArray(encodedTodos)
+                jsonArray.length() > 0
+            } catch (e: Exception) {
+                encodedTodos?.trim()?.isNotEmpty() == true
             }
         }
     }

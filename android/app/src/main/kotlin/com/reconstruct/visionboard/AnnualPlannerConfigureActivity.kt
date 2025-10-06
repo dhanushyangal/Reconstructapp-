@@ -64,17 +64,27 @@ class AnnualPlannerConfigureActivity : Activity() {
                 existingMonths.add(currentMonth)
             }
             
-            // Filter out months that are already in use
-            val availableMonths = months.filter { it !in existingMonths }
+            // Filter months to only show those that have tasks
+            val monthsWithTasks = months.filter { month ->
+                AnnualPlannerWidget.hasMonthTasks(this, appWidgetId, month)
+            }
             
-            if (availableMonths.isEmpty()) {
-                Toast.makeText(this, "All months have been added", Toast.LENGTH_SHORT).show()
+            // Filter out months that are already in use
+            val availableMonthsWithTasks = monthsWithTasks.filter { it !in existingMonths }
+            
+            if (availableMonthsWithTasks.isEmpty()) {
+                val message = if (existingMonths.isNotEmpty()) {
+                    "No months with tasks available to change to"
+                } else {
+                    "No months with tasks available to add. Please add tasks to months first."
+                }
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                 finish()
                 return
             }
             
-            listView.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, availableMonths)
-            setupListViewClickListener(listView, availableMonths)
+            listView.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, availableMonthsWithTasks)
+            setupListViewClickListener(listView, availableMonthsWithTasks)
             
         } catch (e: Exception) {
             Log.e("AnnualPlannerConfig", "Error in setupMonthSelection", e)
@@ -91,6 +101,9 @@ class AnnualPlannerConfigureActivity : Activity() {
             val editor = HomeWidgetPlugin.getData(this).edit()
             editor.putString("month_${appWidgetId}_$monthIndex", selectedMonth)
             editor.apply()
+
+            // Show confirmation message since we know this month has tasks
+            Toast.makeText(this, "Month '$selectedMonth' selected (has tasks)", Toast.LENGTH_SHORT).show()
 
             // Update the widget
             val updateIntent = Intent(this, AnnualPlannerWidget::class.java).apply {

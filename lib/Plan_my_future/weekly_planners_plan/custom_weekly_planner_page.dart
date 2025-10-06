@@ -134,8 +134,16 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
       }
     });
 
+    // Initialize HomeWidget
+    HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
+    HomeWidget.registerBackgroundCallback(backgroundCallback);
+
     // Track activity
     _trackActivity();
+  }
+
+  static Future<void> backgroundCallback(Uri? uri) async {
+    // Handle background updates if needed
   }
 
   // Load all data from local storage (fast operation)
@@ -225,8 +233,23 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
                 });
 
                 await prefs.setString('${storagePrefix}_todos_$category', tasksJson);
+                // Map category to day for widget compatibility
+                final dayForWidget = _mapCategoryToDay(category);
+                
+                // Debug logging for sync
+                final themeTypeCapitalized = '${(themeConfig['type'] as String)[0].toUpperCase()}${(themeConfig['type'] as String).substring(1)}';
+                final syncWidgetKey = '${themeTypeCapitalized}Theme_todos_$dayForWidget';
+                debugPrint('Custom Weekly Planner Sync: Saving widget data with key: $syncWidgetKey');
+                debugPrint('Custom Weekly Planner Sync: Category: $category, DayForWidget: $dayForWidget');
+                debugPrint('Custom Weekly Planner Sync: Theme type: ${themeConfig['type']} -> Capitalized: $themeTypeCapitalized');
+                
                 await HomeWidget.saveWidgetData(
                     '${storagePrefix}_todos_$category', tasksJson);
+                await HomeWidget.saveWidgetData(syncWidgetKey, tasksJson);
+                await HomeWidget.saveWidgetData(
+                    '${themeConfig['type']}_todo_text_$category', _formatDisplayText(category));
+                await HomeWidget.saveWidgetData(
+                    '${themeConfig['type']}_todo_text_$dayForWidget', _formatDisplayText(category));
 
                 debugPrint(
                     'Updated local storage for $category with database data');
@@ -296,7 +319,23 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
 
     // Always save locally first (fast operation)
     await prefs.setString('${storagePrefix}_todos_$category', encoded);
+    
+    // Map category to day for widget compatibility
+    final dayForWidget = _mapCategoryToDay(category);
+    
+    // Debug logging for widget data
+    final themeTypeCapitalized = '${(themeConfig['type'] as String)[0].toUpperCase()}${(themeConfig['type'] as String).substring(1)}';
+    final widgetKey = '${themeTypeCapitalized}Theme_todos_$dayForWidget';
+    debugPrint('Custom Weekly Planner: Saving widget data with key: $widgetKey');
+    debugPrint('Custom Weekly Planner: Category: $category, DayForWidget: $dayForWidget');
+    debugPrint('Custom Weekly Planner: Theme type: ${themeConfig['type']} -> Capitalized: $themeTypeCapitalized');
+    
     await HomeWidget.saveWidgetData('${storagePrefix}_todos_$category', encoded);
+    await HomeWidget.saveWidgetData(widgetKey, encoded);
+    await HomeWidget.saveWidgetData(
+        '${themeConfig['type']}_todo_text_$category', _formatDisplayText(category));
+    await HomeWidget.saveWidgetData(
+        '${themeConfig['type']}_todo_text_$dayForWidget', _formatDisplayText(category));
 
     // Update the widget
     await HomeWidget.updateWidget(
@@ -360,7 +399,40 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
     final todos = _todoLists[category];
     if (todos == null || todos.isEmpty) return '';
 
-    return todos.map((item) => "• ${item.text}").join("\n");
+    // Format each todo item with a bullet point and handle completion status
+    return todos.map((item) {
+      final checkmark = item.completed ? '✓ ' : '• ';
+      return "$checkmark${item.text}";
+    }).join('\n');
+  }
+
+  // Map custom category names to standard day names for widget compatibility
+  String _mapCategoryToDay(String category) {
+    // If it's already a standard day name, return it
+    final standardDays = [
+      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+    ];
+    
+    if (standardDays.contains(category)) {
+      debugPrint('Custom Weekly Planner: Category $category is already a standard day');
+      return category;
+    }
+    
+    // Map custom categories to days based on their position in the selected areas
+    final selectedAreas = widget.selectedAreas;
+    final categoryIndex = selectedAreas.indexOf(category);
+    
+    debugPrint('Custom Weekly Planner: Category $category found at index $categoryIndex in selected areas: $selectedAreas');
+    
+    if (categoryIndex >= 0 && categoryIndex < standardDays.length) {
+      final mappedDay = standardDays[categoryIndex];
+      debugPrint('Custom Weekly Planner: Mapping category $category to day $mappedDay');
+      return mappedDay;
+    }
+    
+    // Fallback to Monday if no mapping found
+    debugPrint('Custom Weekly Planner: No mapping found for category $category, using Monday as fallback');
+    return 'Monday';
   }
 
   @override
@@ -497,6 +569,7 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
   }
 
   void _showTodoDialog(String category) {
+    trackClick('Open $category tasks');
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -779,7 +852,7 @@ class TodoListDialog extends StatefulWidget {
   TodoListDialogState createState() => TodoListDialogState();
 }
 
-class TodoListDialogState extends State<TodoListDialog> {
+class TodoListDialogState extends State<TodoListDialog> with ActivityTrackerMixin {
   late List<TodoItem> _items;
   final _textController = TextEditingController();
 
@@ -791,6 +864,7 @@ class TodoListDialogState extends State<TodoListDialog> {
 
   void _addItem() {
     if (_textController.text.isNotEmpty) {
+      trackButtonTap('Add Task', additionalDetails: widget.category);
       setState(() {
         _items.add(TodoItem(
           text: _textController.text,
@@ -801,12 +875,14 @@ class TodoListDialogState extends State<TodoListDialog> {
   }
 
   void _toggleItem(TodoItem item) {
+    trackClick(item.completed ? 'Uncheck task' : 'Complete task');
     setState(() {
       item.completed = !item.completed;
     });
   }
 
   void _removeItem(TodoItem item) {
+    trackClick('Delete task');
     setState(() {
       _items.remove(item);
     });
@@ -834,6 +910,11 @@ class TodoListDialogState extends State<TodoListDialog> {
               ),
             ),
             onSubmitted: (_) => _addItem(),
+            onChanged: (value) {
+              if (value.isNotEmpty && value.length % 10 == 0) {
+                trackTextInput('Task text', value: value);
+              }
+            },
           ),
           const SizedBox(height: 8),
           Flexible(

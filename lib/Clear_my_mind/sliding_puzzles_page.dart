@@ -29,24 +29,24 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
   // Sliding puzzles data
   final List<Map<String, dynamic>> _slidingPuzzles = [
     {
+      'name': 'Fox Puzzle',
+      'image': 'assets/clear_my_mind_sliding_puzzles/front/fox.png',
+      'page': 'fox',
+    },
+    {
       'name': 'Dog Puzzle',
-      'image': 'assets/activity_tools/sliding-dog.png',
+      'image': 'assets/clear_my_mind_sliding_puzzles/front/dog.png',
       'page': 'dog',
     },
     {
-      'name': 'Cat Puzzle',
-      'image': 'assets/activity_tools/sliding-cat.png',
-      'page': 'cat',
+      'name': 'Lion Puzzle',
+      'image': 'assets/clear_my_mind_sliding_puzzles/front/lion.png',
+      'page': 'lion',
     },
     {
-      'name': 'Nature Puzzle',
-      'image': 'assets/activity_tools/sliding-nature.png',
-      'page': 'nature',
-    },
-    {
-      'name': 'Ocean Puzzle',
-      'image': 'assets/activity_tools/sliding-ocean.png',
-      'page': 'ocean',
+      'name': 'Owl Puzzle',
+      'image': 'assets/clear_my_mind_sliding_puzzles/front/owl.png',
+      'page': 'owl',
     },
   ];
 
@@ -137,8 +137,8 @@ class _SlidingPuzzlesPageState extends State<SlidingPuzzlesPage>
   bool _isSlidingPuzzleLocked(String puzzleName) {
     if (_isPremium) return false; // Premium users get access to everything
 
-    // Only Dog Puzzle is free
-    return puzzleName != 'Dog Puzzle';
+    // Only Fox Puzzle is free
+    return puzzleName != 'Fox Puzzle';
   }
 
   // Method to show payment page directly like profile page

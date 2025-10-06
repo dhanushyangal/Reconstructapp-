@@ -41,16 +41,16 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
   // Get puzzle image path based on theme
   String get puzzleImagePath {
     switch (widget.puzzleTheme) {
+      case 'fox':
+        return 'assets/clear_my_mind_sliding_puzzles/fox.png';
       case 'dog':
-        return 'assets/activity_tools/sliding-dog.png';
-      case 'cat':
-        return 'assets/activity_tools/sliding-cat.png';
-      case 'nature':
-        return 'assets/activity_tools/sliding-nature.png';
-      case 'ocean':
-        return 'assets/activity_tools/sliding-ocean.png';
+        return 'assets/clear_my_mind_sliding_puzzles/dog.png';
+      case 'lion':
+        return 'assets/clear_my_mind_sliding_puzzles/lion.png';
+      case 'owl':
+        return 'assets/clear_my_mind_sliding_puzzles/owl.png';
       default:
-        return 'assets/activity_tools/sliding-dog.png';
+        return 'assets/clear_my_mind_sliding_puzzles/fox.png';
     }
   }
 

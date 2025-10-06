@@ -46,15 +46,31 @@ class WeeklyPlannerConfigureActivity : Activity() {
             }
         }
 
-        // Filter available days
-        val availableDays = days.filter { it !in existingDays }
+        // Filter days to only show those that have tasks
+        val daysWithTasks = days.filter { day ->
+            WeeklyPlannerWidget.hasDayTasks(this, appWidgetId, day)
+        }
+        
+        // Filter out days that are already in use
+        val availableDaysWithTasks = daysWithTasks.filter { it !in existingDays }
+
+        if (availableDaysWithTasks.isEmpty()) {
+            val message = if (existingDays.isNotEmpty()) {
+                "No days with tasks available to change to"
+            } else {
+                "No days with tasks available to add. Please add tasks to days first."
+            }
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
 
         // Setup ListView
         val listView = findViewById<ListView>(R.id.day_list)
-        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, availableDays)
+        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, availableDaysWithTasks)
         listView.adapter = adapter
 
-        setupListViewClickListener(listView, availableDays)
+        setupListViewClickListener(listView, availableDaysWithTasks)
     }
 
     private fun setupListViewClickListener(listView: ListView, availableDays: List<String>) {
@@ -65,6 +81,9 @@ class WeeklyPlannerConfigureActivity : Activity() {
             val editor = HomeWidgetPlugin.getData(this).edit()
             editor.putString("day_${appWidgetId}_$dayIndex", selectedDay)
             editor.apply()
+
+            // Show confirmation message since we know this day has tasks
+            Toast.makeText(this, "Day '$selectedDay' selected (has tasks)", Toast.LENGTH_SHORT).show()
 
             // Update the widget
             val updateIntent = Intent(this, WeeklyPlannerWidget::class.java).apply {
