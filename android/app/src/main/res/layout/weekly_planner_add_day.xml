@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="48dp"
+    android:layout_height="43dp"
     android:padding="8dp">
 
     <TextView
@@ -9,11 +9,10 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:text="+"
-        android:textSize="24sp"
+        android:textSize="20sp"
         android:textStyle="bold"
         android:gravity="center"
         android:background="@drawable/add_category_background"
         android:textColor="#666666" />
-
 
 </FrameLayout> 

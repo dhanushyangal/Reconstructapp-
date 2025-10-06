@@ -30,6 +30,13 @@ class TodoItem {
         text: json['text'],
         completed: json['completed'] ?? false,
       );
+
+  // Helper method to convert to widget-compatible format
+  Map<String, dynamic> toWidgetJson() => {
+        'id': text.hashCode.toString(), // Generate pseudo-id from text
+        'text': text,
+        'isDone': completed,
+      };
 }
 
 class CustomWeeklyPlannerPage extends StatefulWidget {
@@ -165,10 +172,62 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
           debugPrint(
               'Loaded ${_todoLists[category]?.length ?? 0} weekly tasks from local storage for $category');
         }
+
+        // Also check widget data to ensure it's in sync
+        try {
+          final dayForWidget = _mapCategoryToDay(category);
+          final themeTypeCapitalized = '${(themeConfig['type'] as String)[0].toUpperCase()}${(themeConfig['type'] as String).substring(1)}';
+          final widgetKey = '${themeTypeCapitalized}Theme_todos_$dayForWidget';
+          
+          final widgetTodos = await HomeWidget.getWidgetData(widgetKey);
+          if (widgetTodos != null) {
+            debugPrint('Found widget data for $category: $widgetTodos');
+
+            // If we have widget data but no local data, try to use widget data
+            if (savedTodos == null) {
+              try {
+                final List<dynamic> widgetDecoded = json.decode(widgetTodos);
+                // Convert widget format (with id, isDone) to our format (with completed)
+                final List<TodoItem> convertedItems = widgetDecoded
+                    .map((item) => TodoItem(
+                          text: item['text'],
+                          completed: item['isDone'] ?? false,
+                        ))
+                    .toList();
+
+                setState(() {
+                  _todoLists[category] = convertedItems;
+                  _controllers[category]?.text = _formatDisplayText(category);
+                });
+
+                debugPrint(
+                    'Loaded ${convertedItems.length} weekly tasks from widget data for $category');
+              } catch (decodeError) {
+                debugPrint('Error decoding widget data: $decodeError');
+              }
+            }
+          } else {
+            debugPrint('No widget data found for $category');
+          }
+        } catch (widgetError) {
+          debugPrint('Error accessing widget data: $widgetError');
+        }
+
+        // Ensure widget text is updated
+        if (_todoLists[category]?.isNotEmpty == true) {
+          await HomeWidget.saveWidgetData(
+              '${themeConfig['type']}_todo_text_$category', _formatDisplayText(category));
+        }
       } catch (e) {
         debugPrint('Error parsing local weekly tasks for $category: $e');
       }
     }
+
+    // Update the widget right after loading data
+    await HomeWidget.updateWidget(
+      androidName: 'WeeklyPlannerWidget',
+      iOSName: 'WeeklyPlannerWidget',
+    );
   }
 
   // Check database connectivity
@@ -245,7 +304,12 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
                 
                 await HomeWidget.saveWidgetData(
                     '${storagePrefix}_todos_$category', tasksJson);
-                await HomeWidget.saveWidgetData(syncWidgetKey, tasksJson);
+                
+                // Convert to widget format for HomeWidget
+                final widgetEncoded = json.encode(_todoLists[category]!
+                    .map((item) => item.toWidgetJson())
+                    .toList());
+                await HomeWidget.saveWidgetData(syncWidgetKey, widgetEncoded);
                 await HomeWidget.saveWidgetData(
                     '${themeConfig['type']}_todo_text_$category', _formatDisplayText(category));
                 await HomeWidget.saveWidgetData(
@@ -331,7 +395,10 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
     debugPrint('Custom Weekly Planner: Theme type: ${themeConfig['type']} -> Capitalized: $themeTypeCapitalized');
     
     await HomeWidget.saveWidgetData('${storagePrefix}_todos_$category', encoded);
-    await HomeWidget.saveWidgetData(widgetKey, encoded);
+    
+    // Convert to widget format for HomeWidget
+    final widgetEncoded = json.encode(_todoLists[category]!.map((item) => item.toWidgetJson()).toList());
+    await HomeWidget.saveWidgetData(widgetKey, widgetEncoded);
     await HomeWidget.saveWidgetData(
         '${themeConfig['type']}_todo_text_$category', _formatDisplayText(category));
     await HomeWidget.saveWidgetData(

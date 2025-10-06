@@ -18,4 +18,14 @@
         android:dividerHeight="0dp"
         android:showDividers="none" />
 
+    <LinearLayout
+        android:id="@+id/add_day_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="0dp"
+        android:divider="@null"
+        android:dividerHeight="0dp"
+        android:showDividers="none" />
+
 </LinearLayout> 

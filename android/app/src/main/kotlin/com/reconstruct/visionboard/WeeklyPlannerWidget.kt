@@ -69,6 +69,7 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
             
             try {
                 val currentTheme = getCurrentTheme(context, appWidgetId)
+                Log.d("WeeklyWidget", "Current theme: $currentTheme")
                 
                 // Get all configured days
                 val allConfiguredDays = mutableListOf<Pair<Int, String>>()
@@ -76,13 +77,20 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
                     val day = HomeWidgetPlugin.getData(context).getString("day_${appWidgetId}_$i", null)
                     if (day != null) {
                         allConfiguredDays.add(Pair(i, day))
+                        Log.d("WeeklyWidget", "Found configured day: $day at index $i")
                     }
                 }
                 
+                Log.d("WeeklyWidget", "Total configured days: ${allConfiguredDays.size}")
+                
                 // Filter to only show days with tasks
                 val selectedDays = allConfiguredDays.filter { (_, day) ->
-                    hasDayTasks(context, appWidgetId, day)
+                    val hasTasks = hasDayTasks(context, appWidgetId, day)
+                    Log.d("WeeklyWidget", "Day $day has tasks: $hasTasks")
+                    hasTasks
                 }
+                
+                Log.d("WeeklyWidget", "Days with tasks: ${selectedDays.size}")
 
                 // Add days with tasks
                 for (i in selectedDays.indices) {
@@ -144,8 +152,12 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
                     dayView.setOnClickPendingIntent(R.id.day_container, popupPendingIntent)
                 }
                 
-                // Add + button if there's room for more days
+                // Clear and add + button if there's room for more days
+                views.removeAllViews(R.id.add_day_container)
+                Log.d("WeeklyWidget", "Checking if should add + button. Configured days: ${allConfiguredDays.size}, MAX_DAYS: $MAX_DAYS")
+                
                 if (allConfiguredDays.size < MAX_DAYS) {
+                    Log.d("WeeklyWidget", "Adding + button")
                     val addButtonView = RemoteViews(context.packageName, R.layout.weekly_planner_add_day)
                     
                     val addIntent = Intent(context, WeeklyPlannerConfigureActivity::class.java).apply {
@@ -161,7 +173,15 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
                     )
                     
                     addButtonView.setOnClickPendingIntent(R.id.add_day_button, addPendingIntent)
-                    views.addView(R.id.days_container, addButtonView)
+                    views.addView(R.id.add_day_container, addButtonView)
+                    Log.d("WeeklyWidget", "+ button added successfully")
+                } else {
+                    Log.d("WeeklyWidget", "Not adding + button - max days reached")
+                }
+                
+                // If no days are configured yet, show the + button prominently
+                if (allConfiguredDays.isEmpty()) {
+                    Log.d("WeeklyWidget", "No configured days found, showing add button")
                 }
 
                 appWidgetManager.updateAppWidget(appWidgetId, views)
