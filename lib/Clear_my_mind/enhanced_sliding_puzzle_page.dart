@@ -361,17 +361,18 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
 
     // Check if the drag was significant enough to complete the move
     bool completedMove = false;
+    const double threshold = 0.3; // Lower threshold for easier sliding
 
     if (row == emptyRow) {
       // Horizontal movement
-      if ((emptyCol > col && _dragOffset.dx > 0.5) ||
-          (emptyCol < col && _dragOffset.dx < -0.5)) {
+      if ((emptyCol > col && _dragOffset.dx > threshold) ||
+          (emptyCol < col && _dragOffset.dx < -threshold)) {
         completedMove = true;
       }
     } else if (col == emptyCol) {
       // Vertical movement
-      if ((emptyRow > row && _dragOffset.dy > 0.5) ||
-          (emptyRow < row && _dragOffset.dy < -0.5)) {
+      if ((emptyRow > row && _dragOffset.dy > threshold) ||
+          (emptyRow < row && _dragOffset.dy < -threshold)) {
         completedMove = true;
       }
     }
@@ -396,6 +397,115 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
       }
 
       // Clear all drag offsets with animation
+      _tileOffsets.clear();
+    });
+  }
+
+  // Handle empty tile drag start
+  void _onEmptyTileDragStart(int emptyIndex, DragStartDetails details) {
+    if (!gameStarted || gameComplete) return;
+    
+    setState(() {
+      _dragOffset = Offset.zero;
+    });
+  }
+
+  // Handle empty tile drag update
+  void _onEmptyTileDragUpdate(int emptyIndex, DragUpdateDetails details, double tileSize) {
+    if (!gameStarted || gameComplete) return;
+
+    final emptyRow = emptyIndex ~/ gridSize;
+    final emptyCol = emptyIndex % gridSize;
+
+    // Accumulate drag offset
+    _dragOffset += Offset(details.delta.dx / tileSize, details.delta.dy / tileSize);
+
+    // Determine which direction is being dragged and update adjacent tile
+    setState(() {
+      // Clear previous offsets
+      _tileOffsets.clear();
+      
+      // Determine the dominant direction
+      if (_dragOffset.dy.abs() > _dragOffset.dx.abs()) {
+        // Vertical drag
+        if (_dragOffset.dy < 0 && emptyRow > 0) {
+          // Dragging up, move tile from above down
+          final tileIndex = emptyIndex - gridSize;
+          final offset = (-_dragOffset.dy).clamp(0.0, 1.0);
+          _tileOffsets[tileIndex] = Offset(0, offset);
+        } else if (_dragOffset.dy > 0 && emptyRow < gridSize - 1) {
+          // Dragging down, move tile from below up
+          final tileIndex = emptyIndex + gridSize;
+          final offset = (-_dragOffset.dy).clamp(-1.0, 0.0);
+          _tileOffsets[tileIndex] = Offset(0, offset);
+        }
+      } else {
+        // Horizontal drag
+        if (_dragOffset.dx < 0 && emptyCol > 0) {
+          // Dragging left, move tile from left right
+          final tileIndex = emptyIndex - 1;
+          final offset = (-_dragOffset.dx).clamp(0.0, 1.0);
+          _tileOffsets[tileIndex] = Offset(offset, 0);
+        } else if (_dragOffset.dx > 0 && emptyCol < gridSize - 1) {
+          // Dragging right, move tile from right left
+          final tileIndex = emptyIndex + 1;
+          final offset = (-_dragOffset.dx).clamp(-1.0, 0.0);
+          _tileOffsets[tileIndex] = Offset(offset, 0);
+        }
+      }
+    });
+  }
+
+  // Handle empty tile drag end
+  void _onEmptyTileDragEnd(int emptyIndex, DragEndDetails details) {
+    if (!gameStarted || gameComplete) return;
+
+    final emptyRow = emptyIndex ~/ gridSize;
+    final emptyCol = emptyIndex % gridSize;
+    
+    const double threshold = 0.3;
+    int? tileToMove;
+
+    // Determine which tile should move based on drag offset
+    if (_dragOffset.dy.abs() > _dragOffset.dx.abs()) {
+      // Vertical movement is dominant
+      if (_dragOffset.dy < -threshold && emptyRow > 0) {
+        // Dragged up, move tile from above down
+        tileToMove = emptyIndex - gridSize;
+      } else if (_dragOffset.dy > threshold && emptyRow < gridSize - 1) {
+        // Dragged down, move tile from below up
+        tileToMove = emptyIndex + gridSize;
+      }
+    } else {
+      // Horizontal movement is dominant
+      if (_dragOffset.dx < -threshold && emptyCol > 0) {
+        // Dragged left, move tile from left right
+        tileToMove = emptyIndex - 1;
+      } else if (_dragOffset.dx > threshold && emptyCol < gridSize - 1) {
+        // Dragged right, move tile from right left
+        tileToMove = emptyIndex + 1;
+      }
+    }
+
+    setState(() {
+      if (tileToMove != null) {
+        // Create smooth animation for the move
+        _animateTileMovement(tileToMove, emptyIndex);
+        
+        // Complete the move
+        final temp = puzzleTiles[tileToMove];
+        puzzleTiles[tileToMove] = puzzleTiles[emptyIndex];
+        puzzleTiles[emptyIndex] = temp;
+
+        // Increment move count
+        movesCount++;
+
+        // Check win condition
+        checkWin();
+      }
+
+      // Clear all drag offsets
+      _dragOffset = Offset.zero;
       _tileOffsets.clear();
     });
   }
@@ -568,8 +678,8 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
       width: puzzleSize,
       height: puzzleSize,
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black, width: 2),
-        color: Colors.black,
+        border: Border.all(color: Color(0xFFFAFAFA), width: 2),
+        color: Color(0xFFFAFAFA),
       ),
       child: LayoutBuilder(builder: (context, constraints) {
         final containerSize = constraints.maxWidth;
@@ -587,12 +697,42 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
           itemBuilder: (context, index) {
             final tile = puzzleTiles[index];
 
-            // Skip empty tile - keep it simple
+            // Empty tile - draggable
             if (tile == totalTiles) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  border: Border.all(color: Colors.grey.shade300, width: 1),
+              return GestureDetector(
+                onPanStart: (details) => _onEmptyTileDragStart(index, details),
+                onPanUpdate: (details) => _onEmptyTileDragUpdate(index, details, actualTileSize),
+                onPanEnd: (details) => _onEmptyTileDragEnd(index, details),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.grey.shade50,
+                        Colors.grey.shade100,
+                      ],
+                    ),
+                  border: Border.all(
+                    color: Color(0xFFFAFAFA),
+                    width: 1.5,
+                  ),
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.crop_square,
+                      size: actualTileSize * 0.3,
+                      color: Colors.grey.shade300,
+                    ),
+                  ),
                 ),
               );
             }
@@ -745,7 +885,7 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(
-            color: isDragging ? Colors.blue.shade400 : Colors.black, 
+            color: isDragging ? Colors.blue.shade400 : Color(0xFFFAFAFA), 
             width: isDragging ? 2 : 1,
           ),
           boxShadow: [

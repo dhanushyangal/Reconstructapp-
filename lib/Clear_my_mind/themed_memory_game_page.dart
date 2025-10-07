@@ -66,6 +66,11 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
     }
   }
 
+  // Get card back image based on theme
+  String get cardBackImage {
+    return 'assets/memory_game/cover_image/${widget.gameTheme}.png';
+  }
+
   // Theme-specific items with numbered images
   List<Map<String, dynamic>> get themeItems {
     final String basePath = 'assets/memory_game/${widget.gameTheme}/';
@@ -193,24 +198,24 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
     });
   }
 
-  // Calculate optimal column count based on total cards
+  // Calculate optimal column count based on total cards (swapped: columns as rows, rows as columns)
   int _getColumnCount() {
     final int totalCards = cards.length;
     
-    // Determine best column count for grid layout
-    // animals: 10 cards (5 pairs) -> 5 columns, 2 rows
-    // everyday: 12 cards (6 pairs) -> 4 columns, 3 rows
+    // Determine best column count for grid layout (now showing as rows vertically)
+    // animals: 10 cards (5 pairs) -> 2 columns, 5 rows
+    // everyday: 12 cards (6 pairs) -> 3 columns, 4 rows
     // monuments: 16 cards (8 pairs) -> 4 columns, 4 rows
-    // people: 20 cards (10 pairs) -> 5 columns, 4 rows
+    // people: 20 cards (10 pairs) -> 4 columns, 5 rows
     
     if (totalCards <= 10) {
-      return 5; // 5 columns for 10 cards or less
+      return 2; // 2 columns for 10 cards (5 rows)
     } else if (totalCards <= 12) {
-      return 4; // 4 columns for 12 cards
+      return 3; // 3 columns for 12 cards (4 rows)
     } else if (totalCards <= 16) {
-      return 4; // 4 columns for 16 cards
+      return 4; // 4 columns for 16 cards (4 rows)
     } else {
-      return 5; // 5 columns for 20 cards
+      return 4; // 4 columns for 20 cards (5 rows)
     }
   }
 
@@ -406,20 +411,44 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
                   Expanded(
                     child: Stack(
                       children: [
-                        Padding(
+                        Center(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final availableWidth = constraints.maxWidth;
+                              final availableHeight = constraints.maxHeight;
+                              final columnCount = _getColumnCount();
+                              final rowCount = (cards.length / columnCount).ceil();
+                              
+                              // Calculate maximum card size based on available space
+                              final maxCardWidth = (availableWidth - 32 - (columnCount - 1) * 12) / columnCount;
+                              final maxCardHeight = (availableHeight - 32 - (rowCount - 1) * 12) / rowCount;
+                              final cardSize = min(maxCardWidth, maxCardHeight);
+                              
+                              // Calculate total grid width and height
+                              final gridWidth = (cardSize * columnCount) + ((columnCount - 1) * 12);
+                              final gridHeight = (cardSize * rowCount) + ((rowCount - 1) * 12);
+                              
+                              return Container(
+                                width: gridWidth,
+                                height: min(gridHeight, availableHeight - 32),
                           padding: const EdgeInsets.all(16.0),
                           child: GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: _getColumnCount(),
+                                    crossAxisCount: columnCount,
                               childAspectRatio: 1,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
                             ),
                             itemCount: cards.length,
                             itemBuilder: (context, index) {
                               return GestureDetector(
                                 onTap: () => handleCardTap(index),
                                 child: _buildCard(index),
+                                    );
+                                  },
+                                ),
                               );
                             },
                           ),
@@ -482,9 +511,12 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
                                     const SizedBox(height: 16),
                                     ElevatedButton(
                                       onPressed: () {
-                                        setState(() {
-                                          winCount = 0;
-                                          startGame();
+                                        // Reset win count first, then restart game
+                                        winCount = 0;
+                                        Future.microtask(() {
+                                          if (mounted) {
+                                            startGame();
+                                          }
                                         });
                                       },
                                       style: ElevatedButton.styleFrom(
@@ -538,32 +570,9 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
         ..rotateY(isFlipped ? pi : 0),
       transformAlignment: Alignment.center,
       decoration: BoxDecoration(
-        gradient: isMatched
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  successColor.withOpacity(0.7),
-                  successColor,
-                ],
-              )
-            : (isFlipped
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      cardFrontColor,
-                      cardFrontColor.withOpacity(0.9),
-                    ],
-                  )
-                : LinearGradient(
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
-                    colors: [
-                      cardBackColor,
-                      cardBackColor.withOpacity(0.8),
-                    ],
-                  )),
+        color: isMatched
+            ? successColor
+            : (isFlipped ? cardFrontColor : Colors.white),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -601,11 +610,23 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
                     },
                   ),
                 )
-              : Icon(
-                  Icons.question_mark,
+              : ClipRRect(
                   key: const ValueKey('back'),
-                  color: Colors.white,
-                  size: 32,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    cardBackImage,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback to question mark if cover image not found
+                      return Icon(
+                        Icons.question_mark,
+                        color: Colors.white,
+                        size: 32,
+                      );
+                    },
+                  ),
                 ),
         ),
       ),
