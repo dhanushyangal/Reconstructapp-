@@ -247,27 +247,9 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
 
           // Main action buttons
           _buildActionButton(
-            title: "Plan my future",
-            subtitle: "Turn ideas into a clear path forward.",
-                color: Color(0xFF81D0FF), // Light blue background
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CategoryToolsPage(
-                    category: 'vision',
-                    categoryName: 'Plan my future',
-                    tools: _tools['vision']!,
-                  ),
-                ),
-              );
-            },
-          ),
-          SizedBox(height: 16),
-          _buildActionButton(
             title: "Reset my emotions",
             subtitle: "Release what's heavy and feel lighter.",
-                color: Color(0xFF60BAFF), // Medium blue background
+                color: Color(0xFF81D0FF), // Light blue background
             onTap: () {
               Navigator.push(
                 context,
@@ -285,7 +267,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
           _buildActionButton(
             title: "Clear my mind",
             subtitle: "Get a fresh start for renewed focus",
-                color: Color(0xFF5AB8EE), // Darker blue background
+                color: Color(0xFF60BAFF), // Medium blue background
             onTap: () {
               Navigator.push(
                 context,
@@ -294,6 +276,24 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
                     category: 'clear_mind',
                     categoryName: 'Clear my mind',
                     tools: _tools['clear_mind']!,
+                  ),
+                ),
+              );
+            },
+          ),
+          SizedBox(height: 16),
+          _buildActionButton(
+            title: "Plan my future",
+            subtitle: "Turn goals into a clear path forward.",
+                color: Color(0xFF5AB8EE), // Darker blue background
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CategoryToolsPage(
+                    category: 'vision',
+                    categoryName: 'Plan my future',
+                    tools: _tools['vision']!,
                   ),
                 ),
               );
