@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
-import '../Activity_Tools/themed_memory_game_page.dart';
+import 'themed_memory_game_page.dart';
 
 // Key for checking premium status
 const String _hasCompletedPaymentKey = 'has_completed_payment';
@@ -30,22 +30,22 @@ class _MemoryGamesPageState extends State<MemoryGamesPage>
   final List<Map<String, dynamic>> _memoryGames = [
     {
       'name': 'Everyday things - memory game',
-      'image': 'assets/clear_my_mind_memory_games/everyday_things.png',
+      'image': 'assets/memory_game/every_day.png',
       'theme': 'everyday',
     },
     {
       'name': 'Famous monuments - memory game',
-      'image': 'assets/clear_my_mind_memory_games/famous_monuments.png',
+      'image': 'assets/memory_game/monuments.png',
       'theme': 'monuments',
     },
     {
       'name': 'Famous people - memory game',
-      'image': 'assets/clear_my_mind_memory_games/famous_people.png',
+      'image': 'assets/memory_game/people.png',
       'theme': 'people',
     },
     {
       'name': 'Japanese animals - memory game',
-      'image': 'assets/clear_my_mind_memory_games/japanese_animals.png',
+      'image': 'assets/memory_game/animals.png',
       'theme': 'animals',
     },
   ];

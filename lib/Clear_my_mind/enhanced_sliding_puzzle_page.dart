@@ -780,7 +780,7 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
                 if (isDragging)
                   Container(
                     color: Colors.blue.withOpacity(0.1),
-                  ),
+                ),
               ],
             ),
           ),
