@@ -330,9 +330,6 @@ class _ElephantColorPageState extends State<ElephantColorPage> with TickerProvid
                     context,
                     MaterialPageRoute(
                       builder: (context) => const ColoringSuccessPage(
-                        toolName: 'Elephant Coloring',
-                        nextToolName: 'Bird Coloring',
-                        nextToolRoute: '/bird-coloring',
                       ),
                     ),
                   );

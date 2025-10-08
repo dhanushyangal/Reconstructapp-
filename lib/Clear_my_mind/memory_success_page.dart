@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
-import 'breathing/master_breathing_page.dart';
-import 'affirmation_card_page.dart';
+import '../pages/active_dashboard_page.dart';
+import 'digital_coloring_page.dart';
+import 'sliding_puzzles_page.dart';
+import 'memory_games_page.dart';
 
-class SelfLoveSuccessPage extends StatefulWidget {
-  const SelfLoveSuccessPage({super.key});
+class MemorySuccessPage extends StatefulWidget {
+  const MemorySuccessPage({super.key});
 
   @override
-  State<SelfLoveSuccessPage> createState() => _SelfLoveSuccessPageState();
+  State<MemorySuccessPage> createState() => _MemorySuccessPageState();
 }
 
-class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
+class _MemorySuccessPageState extends State<MemorySuccessPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
@@ -44,44 +46,92 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
   }
 
   String _getSuccessMessage() {
-    return "Amazing! You've built your self-love foundation.";
+    return "Memory challenge complete!\nYour focus is sharp.";
   }
 
   String _getSubtitleMessage() {
-    return "Now, let's channel this self-compassion into mindful breathing";
+    return "Ready to tackle more challenges\nand build mental strength.";
   }
 
   String _getNextToolText() {
-    return "Master Your Breathing";
+    return "Plan my future";
   }
 
   String _getAlternativeToolText() {
-    return "Affirmation cards";
+    // Cycle through different clear mind tools
+    final tools = ['Memory games', 'Sliding puzzle', 'Digital coloring sheet'];
+    final randomIndex = DateTime.now().millisecondsSinceEpoch % tools.length;
+    return tools[randomIndex];
   }
 
   void _navigateToNextTool() {
     // Track the activity
-    trackClick('self_love_success_continue');
+    trackClick('memory_success_continue');
 
-    // Navigate to Master Breathing page
+    // Navigate to Plan my future CategoryToolsPage
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const MasterBreathingPage(),
+        builder: (context) => CategoryToolsPage(
+          category: 'vision',
+          categoryName: 'Plan my future',
+          tools: [
+            {
+              'name': 'Plan your annual goals',
+              'image': 'assets/Plan_my_future-images/annual.png'
+            },
+            {
+              'name': 'Plan your Weekly goals',
+              'image': 'assets/Plan_my_future-images/weekly.png'
+            },
+            {
+              'name': 'Plan your Monthly goals',
+              'image': 'assets/Plan_my_future-images/monthly.png'
+            },
+            {
+              'name': 'Plan your Daily goals',
+              'image': 'assets/Plan_my_future-images/daily.png'
+            },
+          ],
+        ),
       ),
     );
   }
 
   void _navigateToAlternativeTool() {
     // Track the activity
-    trackClick('self_love_success_alternative_tool');
+    trackClick('memory_success_alternative_tool');
 
-    // Navigate to Build Self Love page
+    // Get a random clear mind tool
+    final tools = ['Memory games', 'Sliding puzzle', 'Digital coloring sheet'];
+    final randomIndex = DateTime.now().millisecondsSinceEpoch % tools.length;
+    final selectedTool = tools[randomIndex];
+
+    // Navigate to specific clear mind tool
+    Widget nextPage;
+    switch (selectedTool) {
+      case 'Memory games':
+        // Navigate back to memory games page
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const MemoryGamesPage(),
+          ),
+        );
+        return;
+      case 'Sliding puzzle':
+        nextPage = const SlidingPuzzlesPage();
+        break;
+      case 'Digital coloring sheet':
+        nextPage = const DigitalColoringPage();
+        break;
+      default:
+        nextPage = const SlidingPuzzlesPage();
+    }
+
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const BuildSelfLovePage(),
-      ),
+      MaterialPageRoute(builder: (context) => nextPage),
     );
   }
 
@@ -253,7 +303,7 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "try a different tool to ",
+                          "try a different ",
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.black,
@@ -282,5 +332,5 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
     );
   }
 
-  String get pageName => 'Self Love Success';
+  String get pageName => 'Memory Success';
 }

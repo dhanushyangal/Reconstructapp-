@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
-import 'breathing/master_breathing_page.dart';
+import '../pages/active_dashboard_page.dart';
 import 'affirmation_card_page.dart';
 
-class SelfLoveSuccessPage extends StatefulWidget {
-  const SelfLoveSuccessPage({super.key});
+class BreathingSuccessPage extends StatefulWidget {
+  const BreathingSuccessPage({super.key});
 
   @override
-  State<SelfLoveSuccessPage> createState() => _SelfLoveSuccessPageState();
+  State<BreathingSuccessPage> createState() => _BreathingSuccessPageState();
 }
 
-class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
+class _BreathingSuccessPageState extends State<BreathingSuccessPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
@@ -44,15 +44,15 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
   }
 
   String _getSuccessMessage() {
-    return "Amazing! You've built your self-love foundation.";
+    return "Awesome, you're in charge of your emotions";
   }
 
   String _getSubtitleMessage() {
-    return "Now, let's channel this self-compassion into mindful breathing";
+    return "Next, let's lift your mood and welcome those happy endorphins.";
   }
 
   String _getNextToolText() {
-    return "Master Your Breathing";
+    return "Clear your mind";
   }
 
   String _getAlternativeToolText() {
@@ -61,20 +61,40 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
 
   void _navigateToNextTool() {
     // Track the activity
-    trackClick('self_love_success_continue');
+    trackClick('breathing_success_continue');
 
-    // Navigate to Master Breathing page
+    // Navigate to Clear my mind CategoryToolsPage
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const MasterBreathingPage(),
+        builder: (context) => CategoryToolsPage(
+          category: 'clear_mind',
+          categoryName: 'Clear my mind',
+          tools: [
+            {
+              'name': 'Digital coloring sheets',
+              'image': 'assets/Clear_my_mind/Digital_coloring_sheets.png',
+              'subcategory': true
+            },
+            {
+              'name': 'Sliding puzzles',
+              'image': 'assets/Clear_my_mind/Sliding_puzzle.png',
+              'subcategory': true
+            },
+            {
+              'name': 'Memory games',
+              'image': 'assets/Clear_my_mind/Memory_game.png',
+              'subcategory': true
+            }
+          ],
+        ),
       ),
     );
   }
 
   void _navigateToAlternativeTool() {
     // Track the activity
-    trackClick('self_love_success_alternative_tool');
+    trackClick('breathing_success_alternative_tool');
 
     // Navigate to Build Self Love page
     Navigator.push(
@@ -282,5 +302,5 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
     );
   }
 
-  String get pageName => 'Self Love Success';
+  String get pageName => 'Breathing Success';
 }

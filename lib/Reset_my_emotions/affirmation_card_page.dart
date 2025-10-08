@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
-import 'affirmation_cards_page.dart';
+import 'all_affirmation_cards_page.dart';
 
 class BuildSelfLovePage extends StatefulWidget {
   const BuildSelfLovePage({super.key});
@@ -148,7 +148,7 @@ class _BuildSelfLovePageState extends State<BuildSelfLovePage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Choose affirmations to build mental strength',
+                    'Choose affirmations to \n build mental strength',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
 

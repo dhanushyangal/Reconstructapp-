@@ -403,9 +403,6 @@ class _ColorMePageState extends State<ColorMePage> with TickerProviderStateMixin
                     context,
                     MaterialPageRoute(
                       builder: (context) => const ColoringSuccessPage(
-                        toolName: 'Bird Coloring',
-                        nextToolName: 'Figure Coloring',
-                        nextToolRoute: '/figure-coloring',
                       ),
                     ),
                   );

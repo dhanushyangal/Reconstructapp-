@@ -1,25 +1,19 @@
 import 'package:flutter/material.dart';
+import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
-import '../pages/active_dashboard_page.dart';
+import 'digital_coloring_page.dart';
+import 'sliding_puzzles_page.dart';
+import 'memory_games_page.dart';
 
 class ColoringSuccessPage extends StatefulWidget {
-  final String toolName;
-  final String nextToolName;
-  final String nextToolRoute;
-
-  const ColoringSuccessPage({
-    super.key,
-    required this.toolName,
-    required this.nextToolName,
-    required this.nextToolRoute,
-  });
+  const ColoringSuccessPage({super.key});
 
   @override
   State<ColoringSuccessPage> createState() => _ColoringSuccessPageState();
 }
 
 class _ColoringSuccessPageState extends State<ColoringSuccessPage>
-    with TickerProviderStateMixin {
+    with ActivityTrackerMixin, TickerProviderStateMixin {
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
 
@@ -33,7 +27,7 @@ class _ColoringSuccessPageState extends State<ColoringSuccessPage>
       vsync: this,
     );
     _progressAnimation = Tween<double>(
-      begin: 0.75,
+      begin: 1.0,
       end: 1.0, // 100% progress for success page
     ).animate(CurvedAnimation(
       parent: _progressAnimationController!,
@@ -50,10 +44,76 @@ class _ColoringSuccessPageState extends State<ColoringSuccessPage>
     super.dispose();
   }
 
+  String _getSuccessMessage() {
+    return "Nice job! Your mind just got a refreshing break.";
+  }
+
+  String _getSubtitleMessage() {
+    return "Let's rebuild it even more with a puzzle.";
+  }
+
+  String _getNextToolText() {
+    return "Sliding Puzzles";
+  }
+
+  String _getAlternativeToolText() {
+    // Cycle through different clear mind tools
+    final tools = ['Digital coloring sheet', 'Memory games'];
+    final randomIndex = DateTime.now().millisecondsSinceEpoch % tools.length;
+    return tools[randomIndex];
+  }
+
+  void _navigateToNextTool() {
+    // Track the activity
+    trackClick('coloring_success_continue');
+
+    // Navigate to Sliding Puzzles page
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SlidingPuzzlesPage(),
+      ),
+    );
+  }
+
+  void _navigateToAlternativeTool() {
+    // Track the activity
+    trackClick('coloring_success_alternative_tool');
+
+    // Get a random clear mind tool
+    final tools = ['Digital coloring sheet', 'Memory games'];
+    final randomIndex = DateTime.now().millisecondsSinceEpoch % tools.length;
+    final selectedTool = tools[randomIndex];
+
+    // Navigate to specific clear mind tool
+    Widget nextPage;
+    switch (selectedTool) {
+      case 'Digital coloring sheet':
+        // Navigate back to digital coloring page
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const DigitalColoringPage(),
+          ),
+        );
+        return;
+      case 'Memory games':
+        nextPage = const MemoryGamesPage();
+        break;
+      default:
+        nextPage = const MemoryGamesPage();
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => nextPage),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return NavLogPage(
-      title: 'Amazing Work!',
+      title: 'Great Job!',
       showBackButton: true,
       selectedIndex: 2, // Dashboard index
       onNavigationTap: (index) {
@@ -136,7 +196,7 @@ class _ColoringSuccessPageState extends State<ColoringSuccessPage>
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40.0),
                     child: Text(
-                      "Beautiful! You've created\nsomething wonderful.",
+                      _getSuccessMessage(),
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
@@ -153,7 +213,7 @@ class _ColoringSuccessPageState extends State<ColoringSuccessPage>
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40.0),
                     child: Text(
-                      "Your creativity has brought this\ndrawing to life with vibrant colors.",
+                      _getSubtitleMessage(),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.normal,
@@ -166,44 +226,16 @@ class _ColoringSuccessPageState extends State<ColoringSuccessPage>
                   
                   const SizedBox(height: 60),
                   
-                  // Next button
+                  // Primary action button
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40.0),
                     child: SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
-                          // Navigate directly to Clear my mind CategoryToolsPage
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => CategoryToolsPage(
-                                category: 'clear_mind',
-                                categoryName: 'Clear my mind',
-                                tools: [
-                                  {
-                                    'name': 'Digital coloring sheets',
-                                    'image': 'assets/Clear_my_mind/Digital_coloring_sheets.png',
-                                    'subcategory': true
-                                  },
-                                  {
-                                    'name': 'Sliding puzzles',
-                                    'image': 'assets/Clear_my_mind/Sliding_puzzle.png',
-                                    'subcategory': true
-                                  },
-                                  {
-                                    'name': 'Memory games',
-                                    'image': 'assets/Clear_my_mind/Memory_game.png',
-                                    'subcategory': true
-                                  }
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: _navigateToNextTool,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
-                          foregroundColor: Colors.grey[800],
+                          foregroundColor: Colors.black,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                           shape: RoundedRectangleBorder(
@@ -215,13 +247,55 @@ class _ColoringSuccessPageState extends State<ColoringSuccessPage>
                           ),
                         ),
                         child: Text(
-                          'Try another coloring',
+                          _getNextToolText(),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.normal,
                           ),
                         ),
                       ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // OR separator
+                  Text(
+                    "OR",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.black,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Secondary action
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "try a different ",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.black,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _navigateToAlternativeTool,
+                          child: Text(
+                            _getAlternativeToolText(),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Color(0xFF23C4F7),
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -232,4 +306,6 @@ class _ColoringSuccessPageState extends State<ColoringSuccessPage>
       ),
     );
   }
+
+  String get pageName => 'Coloring Success';
 }

@@ -380,9 +380,6 @@ class _FigureColorPageState extends State<FigureColorPage> with TickerProviderSt
                     context,
                     MaterialPageRoute(
                       builder: (context) => const ColoringSuccessPage(
-                        toolName: 'Figure Coloring',
-                        nextToolName: 'Face Coloring',
-                        nextToolRoute: '/face-coloring',
                       ),
                     ),
                   );

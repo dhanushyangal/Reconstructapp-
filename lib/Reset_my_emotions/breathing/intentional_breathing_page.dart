@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/activity_tracker_mixin.dart';
 import '../../components/nav_logpage.dart';
-import '../../Reset_my_emotions/self_love_success_page.dart';
+import '../../Reset_my_emotions/breathing_success_page.dart';
 
 class IntentionalBreathingPage extends StatefulWidget {
   const IntentionalBreathingPage({super.key});
@@ -383,11 +383,11 @@ class _IntentionalBreathingPageState extends State<IntentionalBreathingPage>
     // Track the activity
     trackClick('intentional_breathing_next');
     
-    // Navigate to self love success page
+    // Navigate to breathing success page
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const SelfLoveSuccessPage(),
+        builder: (context) => const BreathingSuccessPage(),
       ),
     );
   }

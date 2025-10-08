@@ -316,9 +316,6 @@ class _FaceColorPageState extends State<FaceColorPage> with TickerProviderStateM
                     context,
                     MaterialPageRoute(
                       builder: (context) => const ColoringSuccessPage(
-                        toolName: 'Face Coloring',
-                        nextToolName: 'Back to Dashboard',
-                        nextToolRoute: '',
                       ),
                     ),
                   );

@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
-import 'breathing/master_breathing_page.dart';
 import 'affirmation_card_page.dart';
+import 'release_negative_thoughts_page.dart';
 
-class SelfLoveSuccessPage extends StatefulWidget {
-  const SelfLoveSuccessPage({super.key});
+class MindToolSuccessPage extends StatefulWidget {
+  final String toolName;
+  final String nextToolName;
+  final String nextToolRoute;
+
+  const MindToolSuccessPage({
+    super.key,
+    required this.toolName,
+    required this.nextToolName,
+    required this.nextToolRoute,
+  });
 
   @override
-  State<SelfLoveSuccessPage> createState() => _SelfLoveSuccessPageState();
+  State<MindToolSuccessPage> createState() => _MindToolSuccessPageState();
 }
 
-class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
+class _MindToolSuccessPageState extends State<MindToolSuccessPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
@@ -26,7 +35,7 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
       vsync: this,
     );
     _progressAnimation = Tween<double>(
-      begin: 1.0,
+      begin: 0.75,
       end: 1.0, // 100% progress for success page
     ).animate(CurvedAnimation(
       parent: _progressAnimationController!,
@@ -44,43 +53,65 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
   }
 
   String _getSuccessMessage() {
-    return "Amazing! You've built your self-love foundation.";
+    switch (widget.toolName) {
+      case 'Thought Shredder':
+        return "Awesome! You've released that stuck energy.";
+      case 'Make Me Smile':
+        return "Amazing! You've brightened your mood.";
+      case 'Bubble Wrap Popper':
+        return "Perfect! You've found your focus.";
+      case 'Break Things':
+        return "Excellent! You've released that tension.";
+      default:
+        return "Awesome! You've released that stuck energy.";
+    }
   }
 
   String _getSubtitleMessage() {
-    return "Now, let's channel this self-compassion into mindful breathing";
+    switch (widget.toolName) {
+      case 'Thought Shredder':
+        return "Now, let's give this renewed energy some momentum";
+      case 'Make Me Smile':
+        return "Now, let's build on this positive energy";
+      case 'Bubble Wrap Popper':
+        return "Now, let's channel this focus into growth";
+      case 'Break Things':
+        return "Now, let's transform this energy into progress";
+      default:
+        return "Now, let's give this renewed energy some momentum";
+    }
   }
 
   String _getNextToolText() {
-    return "Master Your Breathing";
+    return "Build Positive Self-talk";
   }
 
   String _getAlternativeToolText() {
-    return "Affirmation cards";
+    return "Release negative thoughts";
   }
 
   void _navigateToNextTool() {
     // Track the activity
-    trackClick('self_love_success_continue');
-
-    // Navigate to Master Breathing page
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const MasterBreathingPage(),
-      ),
-    );
-  }
-
-  void _navigateToAlternativeTool() {
-    // Track the activity
-    trackClick('self_love_success_alternative_tool');
+    trackClick('${widget.toolName.toLowerCase().replaceAll(' ', '_')}_success_continue');
 
     // Navigate to Build Self Love page
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const BuildSelfLovePage(),
+      ),
+    );
+  }
+
+  void _navigateToAlternativeTool() {
+    // Track the activity
+    trackClick('${widget.toolName.toLowerCase().replaceAll(' ', '_')}_success_alternative_tool');
+
+    // Navigate to Release Negative Thoughts page
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ReleaseNegativeThoughtsPage(),
       ),
     );
   }
@@ -282,5 +313,5 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
     );
   }
 
-  String get pageName => 'Self Love Success';
+  String get pageName => 'Mind Tool Success';
 }

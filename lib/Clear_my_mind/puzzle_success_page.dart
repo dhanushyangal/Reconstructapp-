@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
-import 'breathing/master_breathing_page.dart';
-import 'affirmation_card_page.dart';
+import 'digital_coloring_page.dart';
+import 'sliding_puzzles_page.dart';
+import 'memory_games_page.dart';
 
-class SelfLoveSuccessPage extends StatefulWidget {
-  const SelfLoveSuccessPage({super.key});
+class PuzzleSuccessPage extends StatefulWidget {
+  const PuzzleSuccessPage({super.key});
 
   @override
-  State<SelfLoveSuccessPage> createState() => _SelfLoveSuccessPageState();
+  State<PuzzleSuccessPage> createState() => _PuzzleSuccessPageState();
 }
 
-class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
+class _PuzzleSuccessPageState extends State<PuzzleSuccessPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
@@ -44,44 +45,68 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
   }
 
   String _getSuccessMessage() {
-    return "Amazing! You've built your self-love foundation.";
+    return "Puzzle complete!\nTime to boost your focus.";
   }
 
   String _getSubtitleMessage() {
-    return "Now, let's channel this self-compassion into mindful breathing";
+    return "Push yourself with a tough challenge for\nthat extra lift.";
   }
 
   String _getNextToolText() {
-    return "Master Your Breathing";
+    return "Try Memory Games";
   }
 
   String _getAlternativeToolText() {
-    return "Affirmation cards";
+    // Cycle through different clear mind tools
+    final tools = ['Sliding puzzle', 'Digital coloring sheet'];
+    final randomIndex = DateTime.now().millisecondsSinceEpoch % tools.length;
+    return tools[randomIndex];
   }
 
   void _navigateToNextTool() {
     // Track the activity
-    trackClick('self_love_success_continue');
+    trackClick('puzzle_success_continue');
 
-    // Navigate to Master Breathing page
+    // Navigate to Memory Games page
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const MasterBreathingPage(),
+        builder: (context) => const MemoryGamesPage(),
       ),
     );
   }
 
   void _navigateToAlternativeTool() {
     // Track the activity
-    trackClick('self_love_success_alternative_tool');
+    trackClick('puzzle_success_alternative_tool');
 
-    // Navigate to Build Self Love page
+    // Get a random clear mind tool
+    final tools = ['Sliding puzzle', 'Digital coloring sheet'];
+    final randomIndex = DateTime.now().millisecondsSinceEpoch % tools.length;
+    final selectedTool = tools[randomIndex];
+
+    // Navigate to specific clear mind tool
+    Widget nextPage;
+    switch (selectedTool) {
+      case 'Sliding puzzle':
+        // Navigate back to sliding puzzles page
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SlidingPuzzlesPage(),
+          ),
+        );
+        return;
+      case 'Digital coloring sheet':
+        nextPage = const DigitalColoringPage();
+        break;
+      default:
+        nextPage = const DigitalColoringPage();
+    }
+
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const BuildSelfLovePage(),
-      ),
+      MaterialPageRoute(builder: (context) => nextPage),
     );
   }
 
@@ -253,7 +278,7 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "try a different tool to ",
+                          "try a different ",
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.black,
@@ -282,5 +307,5 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
     );
   }
 
-  String get pageName => 'Self Love Success';
+  String get pageName => 'Puzzle Success';
 }

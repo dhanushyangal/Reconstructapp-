@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import '../components/nav_logpage.dart';
 import '../utils/activity_tracker_mixin.dart';
+import 'puzzle_success_page.dart';
 
 class EnhancedSlidingPuzzlePage extends StatefulWidget {
   static const routeName = '/enhanced-sliding-puzzle';
@@ -55,18 +56,19 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
 
   int get totalTiles => gridSize * gridSize;
 
+  // Get empty tile position based on theme
   int get emptyTilePosition {
     switch (widget.puzzleTheme) {
       case 'dog':
-        return 2; // 3rd card (0-based index)
+        return 2; // Position 3 (0-based index 2)
       case 'fox':
-        return 0; // 1st card (0-based index)
+        return 0; // Position 1 (0-based index 0)
       case 'lion':
-        return 0; // 1st card (0-based index)
+        return 0; // Position 1 (0-based index 0)
       case 'owl':
-        return 15; // 16th card (0-based index)
+        return 15; // Position 16 (0-based index 0)
       default:
-        return 8; // Last card for 3x3
+        return totalTiles - 1; // Last position (normal)
     }
   }
 
@@ -146,25 +148,29 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
     _animationControllers.clear();
     _animations.clear();
 
-    // Create puzzle with empty tile in the specified position
+    // Create puzzle in solved state: [1, 2, 3, 4, 5, 6, 7, 8, 9] for 3x3
     puzzleTiles = List.generate(totalTiles, (index) => index + 1);
     
-    // Set empty tile to the specified position based on theme
+    // Move empty tile to its designated position for this theme
     final emptyTileValue = totalTiles;
-    final targetEmptyPosition = emptyTilePosition;
+    final targetEmptyPos = emptyTilePosition;
     
-    // Move empty tile to target position
-    if (puzzleTiles[targetEmptyPosition] != emptyTileValue) {
-      final currentEmptyIndex = puzzleTiles.indexOf(emptyTileValue);
-      final temp = puzzleTiles[currentEmptyIndex];
-      puzzleTiles[currentEmptyIndex] = puzzleTiles[targetEmptyPosition];
-      puzzleTiles[targetEmptyPosition] = temp;
+    if (targetEmptyPos != totalTiles - 1) {
+      // Swap the tile at target position with the last tile (empty)
+      final lastIndex = totalTiles - 1;
+      final temp = puzzleTiles[targetEmptyPos];
+      puzzleTiles[targetEmptyPos] = puzzleTiles[lastIndex];
+      puzzleTiles[lastIndex] = temp;
     }
     
     final random = Random();
 
-    // Perform random valid moves to shuffle while keeping empty tile in target position
-    for (int i = 0; i < 100; i++) {
+    // Perform random valid moves to shuffle - SUPER EASY difficulty
+    // More moves = harder puzzle, fewer moves = easier puzzle
+    final shuffleMoves = gridSize == 3 ? 10 : 15; // SUPER EASY: 3x3 gets 10 moves, 4x4 gets 15 moves
+    
+    int? lastMoveIndex;
+    for (int i = 0; i < shuffleMoves; i++) {
       // Find empty tile position
       final emptyIndex = puzzleTiles.indexOf(emptyTileValue);
       final row = emptyIndex ~/ gridSize;
@@ -190,13 +196,23 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
         validMoves.add(emptyIndex + 1);
       }
 
+      // Remove the last move to prevent immediate reversal (makes puzzle harder)
+      if (lastMoveIndex != null && validMoves.contains(lastMoveIndex)) {
+        validMoves.remove(lastMoveIndex);
+      }
+
       // Select random valid move
-      final moveIndex = validMoves[random.nextInt(validMoves.length)];
+      final moveIndex = validMoves.isNotEmpty 
+          ? validMoves[random.nextInt(validMoves.length)]
+          : emptyIndex;
 
       // Swap
       final temp = puzzleTiles[emptyIndex];
       puzzleTiles[emptyIndex] = puzzleTiles[moveIndex];
       puzzleTiles[moveIndex] = temp;
+      
+      // Remember this move to prevent reversal
+      lastMoveIndex = emptyIndex;
     }
 
     setState(() {
@@ -511,16 +527,28 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
   }
 
   void checkWin() {
-    // Check if puzzle is solved
+    // Build the expected solved state for this puzzle theme
+    List<int> solvedState = List.generate(totalTiles, (index) => index + 1);
+    
+    // Move empty tile to its designated position in the solved state
+    final targetEmptyPos = emptyTilePosition;
+    if (targetEmptyPos != totalTiles - 1) {
+      final lastIndex = totalTiles - 1;
+      final temp = solvedState[targetEmptyPos];
+      solvedState[targetEmptyPos] = solvedState[lastIndex];
+      solvedState[lastIndex] = temp;
+    }
+    
+    // Compare current state with solved state
     bool isSolved = true;
-    for (int i = 0; i < puzzleTiles.length - 1; i++) {
-      if (puzzleTiles[i] != i + 1) {
+    for (int i = 0; i < puzzleTiles.length; i++) {
+      if (puzzleTiles[i] != solvedState[i]) {
         isSolved = false;
         break;
       }
     }
 
-    if (isSolved && puzzleTiles.last == totalTiles) {
+    if (isSolved) {
       gameComplete = true;
       showWinDialog();
     }
@@ -538,16 +566,9 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                shufflePuzzle();
+                _navigateToSuccessPage();
               },
-              child: const Text('Play Again'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).pop(); // Go back to puzzle selection
-              },
-              child: const Text('Back to Puzzles'),
+              child: const Text('Next'),
             ),
           ],
         ),
@@ -737,9 +758,26 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
               );
             }
 
-            // Calculate the original position of this tile (0-based)
-            final originalRow = (tile - 1) ~/ this.gridSize;
-            final originalCol = (tile - 1) % this.gridSize;
+            // Calculate the original position of this tile in the IMAGE grid (0-based)
+            // The image is always a complete grid (0-8 for 3x3, 0-15 for 4x4)
+            // We need to determine which part of the complete image this tile should show
+            
+            // Build the solved state to find where this tile belongs
+            List<int> solvedState = List.generate(totalTiles, (index) => index + 1);
+            final targetEmptyPos = emptyTilePosition;
+            if (targetEmptyPos != totalTiles - 1) {
+              final lastIndex = totalTiles - 1;
+              final temp = solvedState[targetEmptyPos];
+              solvedState[targetEmptyPos] = solvedState[lastIndex];
+              solvedState[lastIndex] = temp;
+            }
+            
+            // Find where this tile number appears in the solved state
+            final tilePositionInSolved = solvedState.indexOf(tile);
+            
+            // This position in the solved state corresponds to this position in the image
+            final originalRow = tilePositionInSolved ~/ this.gridSize;
+            final originalCol = tilePositionInSolved % this.gridSize;
 
             // Apply animation or drag offset
             Offset offset = _tileOffsets[index] ?? Offset.zero;
@@ -831,11 +869,19 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
             if (showReference) Center(child: referenceGrid),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: shufflePuzzle,
+              onPressed: _navigateToSuccessPage,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
+                backgroundColor: Color(0xFF23C4F7),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
               ),
-              child: const Text('New Game'),
+              child: const Text(
+                'Next',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -925,6 +971,19 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _navigateToSuccessPage() {
+    // Track the activity
+    trackClick('sliding_puzzle_next');
+    
+    // Navigate to puzzle success page
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PuzzleSuccessPage(),
       ),
     );
   }

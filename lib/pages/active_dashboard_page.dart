@@ -20,7 +20,7 @@ import '../Reset_my_emotions/release_negative_thoughts_page.dart';
 import '../Clear_my_mind/digital_coloring_page.dart';
 import '../Clear_my_mind/sliding_puzzles_page.dart';
 import '../Clear_my_mind/memory_games_page.dart';
-import '../Reset_my_emotions/build_self_love_page.dart';
+import '../Reset_my_emotions/affirmation_card_page.dart';
 import '../Reset_my_emotions/breathing/master_breathing_page.dart';
 
 // Class to represent a Recent Activity item

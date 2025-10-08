@@ -65,115 +65,123 @@ class _AffirmationCardsPageState extends State<AffirmationCardsPage>
     'Gratitude': [
       {
         'image': 'assets/Build_Self_love/Gratitude_cards/20.png',
-        'quote': 'I am deeply grateful for this moment.',
+        'quote': 'I am thankful for this day.',
       },
       {
         'image': 'assets/Build_Self_love/Gratitude_cards/21.png',
-        'quote': 'I appreciate the small joys in life.',
+        'quote': 'I am grateful for the people in my life.',
       },
       {
         'image': 'assets/Build_Self_love/Gratitude_cards/22.png',
-        'quote': 'I am thankful for my health and wellbeing.',
+        'quote': 'I see the good around me.',
       },
       {
         'image': 'assets/Build_Self_love/Gratitude_cards/23.png',
-        'quote': 'I am grateful for the people who love me.',
+        'quote': 'I am blessed by life\'s moments.',
       },
       {
         'image': 'assets/Build_Self_love/Gratitude_cards/24.png',
-        'quote': 'I appreciate the lessons life teaches me.',
+        'quote': 'I appreciate all the lessons I\'ve learned.',
       },
       {
         'image': 'assets/Build_Self_love/Gratitude_cards/25.png',
-        'quote': 'I am thankful for new opportunities.',
+        'quote': 'I am aware of how much I already have.',
       },
       {
         'image': 'assets/Build_Self_love/Gratitude_cards/26.png',
-        'quote': 'I am grateful for my inner strength.',
+        'quote': 'I am at peace with what I can\'t control.',
       },
       {
         'image': 'assets/Build_Self_love/Gratitude_cards/27.png',
-        'quote': 'I appreciate the beauty around me.',
+        'quote': 'I am present and mindful of today\'s gifts.',
       },
       {
         'image': 'assets/Build_Self_love/Gratitude_cards/28.png',
-        'quote': 'I am thankful for my journey.',
+        'quote': 'I am surrounded by love & kindness.',
+      },
+      {
+        'image': 'assets/Build_Self_love/Gratitude_cards/29.png',
+        'quote': 'I am grateful for the chance to grow each day.',
       },
     ],
     'Confidence': [
       {
         'image': 'assets/Build_Self_love/Confidence_cards/1.png',
-        'quote': 'I am strong and unstoppable.',
+        'quote': 'I can handle whatever comes my way.',
       },
       {
         'image': 'assets/Build_Self_love/Confidence_cards/2.png',
-        'quote': 'I believe in my abilities.',
+        'quote': 'I can learn what I don\'t yet know.',
       },
       {
         'image': 'assets/Build_Self_love/Confidence_cards/3.png',
-        'quote': 'I am worthy of success.',
+        'quote': 'I can speak up and be heard.',
       },
       {
         'image': 'assets/Build_Self_love/Confidence_cards/4.png',
-        'quote': 'I trust my instincts.',
+        'quote': 'I will trust my instincts.',
       },
       {
         'image': 'assets/Build_Self_love/Confidence_cards/5.png',
-        'quote': 'I am capable of achieving my goals.',
+        'quote': 'I will back myself in every decision.',
       },
       {
         'image': 'assets/Build_Self_love/Confidence_cards/6.png',
-        'quote': 'I embrace challenges with courage.',
+        'quote': 'I will show up fully and give my best.',
       },
       {
         'image': 'assets/Build_Self_love/Confidence_cards/7.png',
-        'quote': 'I am confident in my decisions.',
+        'quote': 'I want to grow stronger each day.',
       },
       {
         'image': 'assets/Build_Self_love/Confidence_cards/8.png',
-        'quote': 'I am proud of who I am.',
+        'quote': 'I will use my voice with courage.',
       },
       {
         'image': 'assets/Build_Self_love/Confidence_cards/9.png',
-        'quote': 'I am ready for whatever comes my way.',
+        'quote': 'I embrace challenges with confidence.',
+      },
+      {
+        'image': 'assets/Build_Self_love/Confidence_cards/10.png',
+        'quote': 'I keep moving forward, no matter what.',
       },
     ],
     'High Performance': [
       {
         'image': 'assets/Build_Self_love/High_performance_cards/10.png',
-        'quote': 'I am deeply grateful for this moment.',
+        'quote': 'I start strong.',
       },
       {
         'image': 'assets/Build_Self_love/High_performance_cards/11.png',
-        'quote': 'I appreciate the small joys in life.',
+        'quote': 'I move fast.',
       },
       {
         'image': 'assets/Build_Self_love/High_performance_cards/12.png',
-        'quote': 'I am thankful for my health and wellbeing.',
+        'quote': 'I push harder.',
       },
       {
         'image': 'assets/Build_Self_love/High_performance_cards/13.png',
-        'quote': 'I am grateful for the people who love me.',
+        'quote': 'I stay sharp.',
       },
       {
         'image': 'assets/Build_Self_love/High_performance_cards/14.png',
-        'quote': 'I appreciate the lessons life teaches me.',
+        'quote': 'I rise higher.',
       },
       {
         'image': 'assets/Build_Self_love/High_performance_cards/15.png',
-        'quote': 'I am thankful for new opportunities.',
+        'quote': 'I act now.',
       },
       {
         'image': 'assets/Build_Self_love/High_performance_cards/16.png',
-        'quote': 'I am grateful for my inner strength.',
+        'quote': 'I keep going.',
       },
       {
         'image': 'assets/Build_Self_love/High_performance_cards/17.png',
-        'quote': 'I appreciate the beauty around me.',
+        'quote': 'I break limits.',
       },
       {
         'image': 'assets/Build_Self_love/High_performance_cards/18.png',
-        'quote': 'I am thankful for my journey.',
+        'quote': 'I finish strong.',
       },
     ],
   };

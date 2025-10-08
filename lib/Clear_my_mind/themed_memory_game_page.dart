@@ -4,6 +4,7 @@ import 'dart:math';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../components/nav_logpage.dart';
 import '../utils/activity_tracker_mixin.dart';
+import 'memory_success_page.dart';
 
 class ThemedMemoryGamePage extends StatefulWidget {
   const ThemedMemoryGamePage({
@@ -453,16 +454,18 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
                             },
                           ),
                         ),
-                        // Win dialog overlay
+                        if (winCount > 0 && winCount == cards.length ~/ 2) _buildConfetti(),
+                      ],
+                    ),
+                  ),
+
+                  // Win dialog below the game
                         if (winCount > 0 && winCount == cards.length ~/ 2)
                           Container(
-                            color: Colors.black.withOpacity(0.5),
-                            child: Center(
-                              child: Container(
                                 margin: const EdgeInsets.all(16),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 24,
-                                  vertical: 16,
+                        vertical: 20,
                                 ),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
@@ -509,10 +512,15 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
                                       ),
                                     ),
                                     const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
                                     ElevatedButton(
                                       onPressed: () {
                                         // Reset win count first, then restart game
+                                  setState(() {
                                         winCount = 0;
+                                  });
                                         Future.microtask(() {
                                           if (mounted) {
                                             startGame();
@@ -522,15 +530,41 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.white,
                                         foregroundColor: successColor,
-                                      ),
-                                      child: const Text('Play Again'),
-                                    ),
-                                  ],
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 14,
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Play Again',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  _navigateToSuccessPage();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: successColor,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 14,
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Next',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
+                            ],
                           ),
-                        if (winCount > 0 && winCount == cards.length ~/ 2) _buildConfetti(),
                       ],
                     ),
                   ),
@@ -629,6 +663,19 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
                   ),
                 ),
         ),
+      ),
+    );
+  }
+
+  void _navigateToSuccessPage() {
+    // Track the activity
+    trackClick('memory_game_next');
+    
+    // Navigate to memory success page
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MemorySuccessPage(),
       ),
     );
   }
