@@ -19,10 +19,13 @@ class _SlidingPuzzlePageState extends State<SlidingPuzzlePage>
   bool showReference = true; // Toggle for showing/hiding reference
 
   // Animation properties
+
   final Map<int, AnimationController> _animationControllers = {};
   final Map<int, Animation<Offset>> _animations = {};
+
   Map<int, Offset> _tileOffsets = {};
   int? _draggingTileIndex;
+  
   Offset _dragOffset = Offset.zero;
 
   // Use a single image that will be split into tiles
