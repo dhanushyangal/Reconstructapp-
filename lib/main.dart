@@ -2,14 +2,8 @@ import 'package:flutter/material.dart';
 import 'vision_bord/vision_board_page.dart';
 import 'Annual_calender/annual_calendar_page.dart';
 import 'pages/planners_page.dart';
-import 'vision_bord/box_them_vision_board.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:flutter/services.dart';
-import 'vision_bord/premium_them_vision_board.dart';
-import 'vision_bord/post_it_theme_vision_board.dart';
-import 'vision_bord/winter_warmth_theme_vision_board.dart';
-import 'vision_bord/ruby_reds_theme_vision_board.dart';
-import 'vision_bord/coffee_hues_theme_vision_board.dart';
 import 'Annual_calender/animal_theme_annual_planner.dart';
 import 'Annual_calender/summer_theme_annual_planner.dart';
 import 'Annual_calender/spaniel_theme_annual_planner.dart';
@@ -40,14 +34,6 @@ import 'Daily_notes/daily_notes_page.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/gestures.dart';
-import 'Annual_planner/floral_theme_annual_planner.dart';
-import 'Annual_planner/postit_theme_annual_planner.dart';
-import 'Annual_planner/premium_theme_annual_planner.dart';
-import 'Annual_planner/watercolor_theme_annual_planner.dart';
-import 'weekly_planners/patterns_theme_weekly_planner.dart';
-import 'weekly_planners/floral_theme_weekly_planner.dart';
-import 'weekly_planners/watercolor_theme_weekly_planner.dart';
-import 'weekly_planners/japanese_theme_weekly_planner.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'utils/platform_features.dart';
 
@@ -60,8 +46,6 @@ import 'services/supabase_database_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'pages/vision_board_theme_picker.dart';
-import 'pages/vision_board_category_picker.dart';
 
 // Constants
 const String _hasCompletedPaymentKey = 'has_completed_payment';
@@ -273,40 +257,6 @@ class _MyAppState extends State<MyApp> {
           const SpanielThemeCalendarApp(monthIndex: 0),
       SummerThemeCalendarApp.routeName: (context) =>
           const SummerThemeCalendarApp(monthIndex: 0),
-      FloralThemeAnnualPlanner.routeName: (context) =>
-          const FloralThemeAnnualPlanner(monthIndex: 0),
-      PostItThemeAnnualPlanner.routeName: (context) =>
-          const PostItThemeAnnualPlanner(monthIndex: 0),
-      PremiumThemeAnnualPlanner.routeName: (context) =>
-          const PremiumThemeAnnualPlanner(monthIndex: 0),
-      WatercolorThemeAnnualPlanner.routeName: (context) =>
-          const WatercolorThemeAnnualPlanner(monthIndex: 0),
-      // Vision board routes
-      VisionBoardDetailsPage.routeName: (context) =>
-          const VisionBoardDetailsPage(title: 'Box Them Vision Board'),
-      '/visionboard/theme-picker': (context) =>
-          const VisionBoardThemePickerPage(),
-      '/visionboard/category-picker': (context) =>
-          const VisionBoardCategoryPickerPage(),
-      PostItThemeVisionBoard.routeName: (context) =>
-          const PostItThemeVisionBoard(),
-      CoffeeHuesThemeVisionBoard.routeName: (context) =>
-          const CoffeeHuesThemeVisionBoard(),
-      PremiumThemeVisionBoard.routeName: (context) =>
-          const PremiumThemeVisionBoard(),
-      RubyRedsThemeVisionBoard.routeName: (context) =>
-          const RubyRedsThemeVisionBoard(),
-      WinterWarmthThemeVisionBoard.routeName: (context) =>
-          const WinterWarmthThemeVisionBoard(),
-      // Weekly planner routes
-      PatternsThemeWeeklyPlanner.routeName: (context) =>
-          const PatternsThemeWeeklyPlanner(dayIndex: 0),
-      FloralThemeWeeklyPlanner.routeName: (context) =>
-          const FloralThemeWeeklyPlanner(dayIndex: 0),
-      WatercolorThemeWeeklyPlanner.routeName: (context) =>
-          const WatercolorThemeWeeklyPlanner(dayIndex: 0),
-      JapaneseThemeWeeklyPlanner.routeName: (context) =>
-          const JapaneseThemeWeeklyPlanner(dayIndex: 0),
     };
   }
 }

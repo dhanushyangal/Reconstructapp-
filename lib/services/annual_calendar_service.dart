@@ -39,38 +39,46 @@ class AnnualCalendarService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> loadUserTasks(
+  // Load annual planner tasks for a specific month (same across all themes)
+  Future<String?> loadUserTasks(
       Map<String, dynamic> userInfo,
       {String? theme}) async {
     try {
       if (userInfo['userName']?.isEmpty == true ||
           userInfo['email']?.isEmpty == true) {
         debugPrint('Invalid user info for loading tasks');
-        return [];
+        return null;
       }
 
+      // Use month as card_id, universal theme
       var query = _client
           .from('annual_calendar_tasks')
           .select()
           .eq('user_name', userInfo['userName'])
-          .eq('email', userInfo['email']);
+          .eq('email', userInfo['email'])
+          .eq('theme', 'AnnualPlanner'); // Universal theme
 
-      // If a theme is specified, filter tasks by that theme
       if (theme != null) {
-        query = query.eq('theme', theme);
+        query = query.eq('card_id', theme); // Use month as card_id
       }
 
       final response = await query;
 
-      debugPrint('Loaded ${response.length} tasks from Supabase');
-      return List<Map<String, dynamic>>.from(response);
+      if (response.isNotEmpty) {
+        final tasksJson = response[0]['tasks'] as String?;
+        debugPrint('Loaded annual planner tasks for month: $theme from Supabase');
+        return tasksJson;
+      }
+      
+      debugPrint('No annual planner tasks found for month: $theme');
+      return null;
     } catch (e) {
       debugPrint('Error loading tasks from Supabase: $e');
-      return [];
+      return null;
     }
   }
 
-  // Method to save annual calendar tasks - following vision board pattern exactly
+  // Method to save annual calendar tasks - using upsert for reliability
   Future<Map<String, dynamic>> saveAnnualCalendarTask({
     required String userName,
     required String email,
@@ -80,43 +88,35 @@ class AnnualCalendarService {
   }) async {
     try {
       debugPrint(
-          'Saving annual calendar task for user: $userName, card: $cardId');
+          'Saving annual calendar task for user: $userName, month: $cardId, theme: $theme');
       debugPrint(
           'Task data: ${tasks.substring(0, tasks.length > 100 ? 100 : tasks.length)}...');
 
-      // First, check if a record exists
-      final existingRecord = await _client
+      // Delete ALL existing records for this user and card (regardless of theme)
+      // This clears out any old theme-specific records
+      final deleteResult = await _client
           .from('annual_calendar_tasks')
-          .select('id')
+          .delete()
           .eq('user_name', userName)
           .eq('email', email)
           .eq('card_id', cardId)
-          .eq('theme', theme)
-          .maybeSingle();
-
-      if (existingRecord != null) {
-        // Update existing record
-        await _client
-            .from('annual_calendar_tasks')
-            .update({
-              'tasks': tasks,
-            })
-            .eq('user_name', userName)
-            .eq('email', email)
-            .eq('card_id', cardId)
-            .eq('theme', theme);
-        debugPrint('Updated existing record for $cardId');
-      } else {
-        // Insert new record
-        await _client.from('annual_calendar_tasks').insert({
-          'user_name': userName,
-          'email': email,
-          'card_id': cardId,
-          'tasks': tasks,
-          'theme': theme,
-        });
-        debugPrint('Inserted new record for $cardId');
-      }
+          .select();
+      
+      debugPrint('Deleted ${deleteResult.length} existing records for $cardId');
+      
+      // Small delay to ensure delete propagates in database
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Now insert the new record
+      await _client.from('annual_calendar_tasks').insert({
+        'user_name': userName,
+        'email': email,
+        'card_id': cardId,
+        'tasks': tasks,
+        'theme': theme,
+      });
+      
+      debugPrint('Successfully saved annual planner record for month: $cardId');
 
       return _formatResponse(
         success: true,
@@ -170,10 +170,10 @@ class AnnualCalendarService {
     }
   }
 
-  // Legacy method for backward compatibility
+  // Save annual planner tasks for a specific month (same across all themes)
   Future<bool> saveTodoItem(
-      Map<String, dynamic> userInfo, String month, String tasks,
-      {String theme = 'floral'}) async {
+      Map<String, dynamic> userInfo, String tasks,
+      {String theme = 'January'}) async {
     try {
       if (userInfo['userName']?.isEmpty == true ||
           userInfo['email']?.isEmpty == true) {
@@ -181,17 +181,18 @@ class AnnualCalendarService {
         return false;
       }
 
+      // Use month as card_id, universal theme
       final result = await saveAnnualCalendarTask(
         userName: userInfo['userName'],
         email: userInfo['email'],
-        cardId: month,
+        cardId: theme, // Use month as cardId
         tasks: tasks,
-        theme: theme,
+        theme: 'AnnualPlanner', // Universal theme
       );
 
       return result['success'] ?? false;
     } catch (e) {
-      debugPrint('Error in legacy saveTodoItem: $e');
+      debugPrint('Error in saveTodoItem: $e');
       return false;
     }
   }

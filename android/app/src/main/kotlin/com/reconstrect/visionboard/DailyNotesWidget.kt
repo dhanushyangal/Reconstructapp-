@@ -119,12 +119,14 @@ class DailyNotesWidget : AppWidgetProvider() {
         val selectedNoteId = flutterPrefs.getString("flutter.widget_selected_note_id", null) 
             ?: widgetPrefs.getString("widget_note_$appWidgetId", null)
         
-        // Load the saved notes data
+        // Load the saved notes data and current theme
         val notesData = flutterPrefs.getString("flutter.daily_notes_data", null)
         val displayText = flutterPrefs.getString("flutter.daily_notes_display_text", "Tap to add notes...")
+        val currentTheme = flutterPrefs.getString("flutter.daily_notes_theme", "Post-it Daily Notes")
 
         // Debug logging
         Log.d("DailyNotesWidget", "=== WIDGET UPDATE DEBUG ===")
+        Log.d("DailyNotesWidget", "Current theme: $currentTheme")
         Log.d("DailyNotesWidget", "Selected note ID: $selectedNoteId")
         Log.d("DailyNotesWidget", "Notes data available: ${notesData != null}")
         Log.d("DailyNotesWidget", "Notes data length: ${notesData?.length ?: 0}")
@@ -140,6 +142,9 @@ class DailyNotesWidget : AppWidgetProvider() {
                 Log.e("DailyNotesWidget", "Error parsing notes data", e)
             }
         }
+        
+        // Apply theme-based background
+        applyThemeBackground(views, currentTheme)
 
         if (notesData != null && selectedNoteId != null) {
             try {
@@ -157,7 +162,7 @@ class DailyNotesWidget : AppWidgetProvider() {
                 }
                 
                 if (noteToDisplay != null) {
-                    updateWidgetFromNote(context, views, noteToDisplay, displayText)
+                    updateWidgetFromNote(context, views, noteToDisplay, displayText, currentTheme)
                 } else {
                     // Selected note not found, clear the selection and show message
                     val widgetPrefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
@@ -167,15 +172,15 @@ class DailyNotesWidget : AppWidgetProvider() {
                     widgetPrefs.edit().remove("widget_note_$appWidgetId").apply()
                     flutterPrefs.edit().remove("flutter.widget_selected_note_id").apply()
                     
-                    setEmptyState(views, "Note no longer exists.\nTap app to select another note")
+                    setEmptyState(views, "Note no longer exists.\nTap app to select another note", currentTheme)
                 }
             } catch (e: Exception) {
                 // Error parsing data
-                setEmptyState(views, "Error loading note")
+                setEmptyState(views, "Error loading note", currentTheme)
             }
         } else {
             // No specific note selected, show message to select a note
-            setEmptyState(views, "Open the Reconstruct app\nand tap the widget icon (📱) on any note\nto display it here")
+            setEmptyState(views, "Open the Reconstruct app\nand tap the widget icon (📱) on any note\nto display it here", currentTheme)
         }
 
         // Create the intent for opening the Daily Notes page directly
@@ -205,7 +210,7 @@ class DailyNotesWidget : AppWidgetProvider() {
     /**
      * Update the widget with data from a specific note
      */
-    private fun updateWidgetFromNote(context: Context, views: RemoteViews, noteJson: JSONObject, displayText: String?) {
+    private fun updateWidgetFromNote(context: Context, views: RemoteViews, noteJson: JSONObject, displayText: String?, theme: String?) {
         // Get note data
         val title = noteJson.optString("title", "")
         val content = noteJson.optString("content", "")
@@ -213,11 +218,11 @@ class DailyNotesWidget : AppWidgetProvider() {
         val colorValue = noteJson.optInt("colorValue", Color.WHITE)
         val hasChecklistItems = noteJson.has("checklistItems") && noteJson.getJSONArray("checklistItems").length() > 0
         
-        // Set widget background to background image
-        views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.daily_notes_background)
-        
         // Hide the title view since we include it in the content
         views.setViewVisibility(R.id.note_title, View.GONE)
+        
+        // Apply text color based on theme
+        val textColor = getThemeTextColor(theme)
         
         // Handle image if available
         if (imagePath.isNotEmpty()) {
@@ -306,7 +311,7 @@ class DailyNotesWidget : AppWidgetProvider() {
             }
             
             views.setTextViewText(R.id.note_content, checklistText.toString().trim())
-            views.setTextColor(R.id.note_content, Color.WHITE)
+            views.setTextColor(R.id.note_content, textColor)
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         } else if (content.isNotEmpty()) {
             // We have regular text content
@@ -327,22 +332,22 @@ class DailyNotesWidget : AppWidgetProvider() {
             }
             
             views.setTextViewText(R.id.note_content, displayContent.toString())
-            views.setTextColor(R.id.note_content, Color.WHITE)
+            views.setTextColor(R.id.note_content, textColor)
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         } else if (title.isNotEmpty()) {
             // Only title, no content
             views.setTextViewText(R.id.note_content, "📝 $title")
-            views.setTextColor(R.id.note_content, Color.WHITE)
+            views.setTextColor(R.id.note_content, textColor)
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         } else if (displayText != null && displayText.isNotEmpty()) {
             // Use display text if available
             views.setTextViewText(R.id.note_content, displayText)
-            views.setTextColor(R.id.note_content, Color.WHITE)
+            views.setTextColor(R.id.note_content, textColor)
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         } else {
             // Empty note
             views.setTextViewText(R.id.note_content, "📝 Empty note")
-            views.setTextColor(R.id.note_content, Color.WHITE)
+            views.setTextColor(R.id.note_content, textColor)
             views.setViewVisibility(R.id.note_content, View.VISIBLE)
         }
     }
@@ -350,14 +355,49 @@ class DailyNotesWidget : AppWidgetProvider() {
     /**
      * Set the widget to show an empty state
      */
-    private fun setEmptyState(views: RemoteViews, message: String = "Tap to add notes...") {
+    private fun setEmptyState(views: RemoteViews, message: String = "Tap to add notes...", theme: String?) {
         views.setViewVisibility(R.id.note_image, View.GONE)
         views.setViewVisibility(R.id.note_title, View.GONE)
         views.setTextViewText(R.id.note_content, message)
-        views.setTextColor(R.id.note_content, Color.WHITE)
+        views.setTextColor(R.id.note_content, getThemeTextColor(theme))
         views.setViewVisibility(R.id.note_content, View.VISIBLE)
         views.setViewVisibility(R.id.checklist_container, View.GONE)
-        views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.daily_notes_background)
+    }
+    
+    /**
+     * Apply theme-based background to the widget
+     */
+    private fun applyThemeBackground(views: RemoteViews, theme: String?) {
+        when (theme) {
+            "Post-it Daily Notes" -> {
+                // Light green background for Post-it theme
+                views.setInt(R.id.widget_container, "setBackgroundColor", Color.parseColor("#C5E1A5"))
+            }
+            "Premium Daily Notes" -> {
+                // Black background for Premium theme
+                views.setInt(R.id.widget_container, "setBackgroundColor", Color.BLACK)
+            }
+            "Floral Daily Notes" -> {
+                // Use the floral background image
+                views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.daily_notes_background)
+            }
+            else -> {
+                // Default: Post-it theme (light green)
+                views.setInt(R.id.widget_container, "setBackgroundColor", Color.parseColor("#C5E1A5"))
+            }
+        }
+    }
+    
+    /**
+     * Get text color based on theme
+     */
+    private fun getThemeTextColor(theme: String?): Int {
+        return when (theme) {
+            "Premium Daily Notes" -> Color.WHITE // White text on black background
+            "Post-it Daily Notes" -> Color.parseColor("#212121") // Dark text on light green
+            "Floral Daily Notes" -> Color.WHITE // White text on floral background
+            else -> Color.parseColor("#212121") // Default: dark text
+        }
     }
 
     /**

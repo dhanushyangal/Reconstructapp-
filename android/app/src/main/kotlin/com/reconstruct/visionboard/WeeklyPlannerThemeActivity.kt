@@ -51,14 +51,14 @@ class WeeklyPlannerThemeActivity : Activity() {
         val prefs = HomeWidgetPlugin.getData(this)
         prefs.edit().putString("weekly_planner_theme_$appWidgetId", theme).apply()
 
-        // Launch day selection
-        val configIntent = Intent(this, WeeklyPlannerConfigureActivity::class.java).apply {
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            putExtra("day_index", 0)  // Start with first day
+        // Send broadcast to update widget - this will auto-add days with tasks
+        val updateIntent = Intent(this, WeeklyPlannerWidget::class.java).apply {
+            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(appWidgetId))
         }
-        startActivity(configIntent)
+        sendBroadcast(updateIntent)
 
-        // Set result and finish
+        // Finish immediately - widget will auto-populate with days that have tasks
         val resultValue = Intent().apply {
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
         }

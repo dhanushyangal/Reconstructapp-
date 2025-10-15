@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'postit_theme_annual_planner.dart';
-import 'premium_theme_annual_planner.dart';
-import 'watercolor_theme_annual_planner.dart';
-import 'floral_theme_annual_planner.dart';
+import 'unified_annual_planner_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
@@ -165,55 +162,14 @@ class _AnnualPlannerPageState extends State<AnnualPlannerPage>
           return;
         }
 
-        if (title == 'PostIt theme 2025 Planner') {
-          trackClick('$title content');
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PostItThemeAnnualPlanner(
-                monthIndex: 0,
-                eventId: null,
-                showEvents: false,
-              ),
-            ),
-          );
-        } else if (title == 'Watercolor them 2025 Planner') {
-          trackClick('$title content');
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => WatercolorThemeAnnualPlanner(
-                monthIndex: 0,
-                eventId: null,
-                showEvents: false,
-              ),
-            ),
-          );
-        } else if (title == 'Floral theme 2025 Planner') {
-          trackClick('$title content');
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => FloralThemeAnnualPlanner(
-                monthIndex: 0,
-                eventId: null,
-                showEvents: false,
-              ),
-            ),
-          );
-        } else if (title == 'Premium theme 2025 Planner') {
-          trackClick('$title content');
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PremiumThemeAnnualPlanner(
-                monthIndex: 0,
-                eventId: null,
-                showEvents: false,
-              ),
-            ),
-          );
-        }
+        trackClick('$title content');
+        // Navigate to unified annual planner page with theme name
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UnifiedAnnualPlannerPage(themeName: title),
+          ),
+        );
       },
       child: Card(
         elevation: 4,

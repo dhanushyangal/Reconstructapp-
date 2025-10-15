@@ -58,6 +58,18 @@ struct SharedDataModel {
         WidgetCenter.shared.reloadAllTimelines()
     }
     
+    static func getNotesTheme() -> String? {
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return nil }
+        return userDefaults.string(forKey: "notesTheme")
+    }
+    
+    static func saveNotesTheme(_ theme: String) {
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
+        userDefaults.set(theme, forKey: "notesTheme")
+        userDefaults.synchronize()
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+    
     // MARK: - Vision Board Methods
     static func saveTheme(_ theme: String) {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }

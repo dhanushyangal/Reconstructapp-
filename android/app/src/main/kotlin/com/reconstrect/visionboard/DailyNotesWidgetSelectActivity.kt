@@ -77,9 +77,13 @@ class DailyNotesWidgetSelectActivity : AppCompatActivity() {
         emptyView.visibility = View.GONE
         
         try {
-            // Get notes data from SharedPreferences
+            // Get notes data and theme from SharedPreferences
             val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
             val notesDataString = prefs.getString("flutter.daily_notes_data", null)
+            val currentTheme = prefs.getString("flutter.daily_notes_theme", "Post-it Daily Notes")
+            
+            // Apply theme background
+            applyThemeBackground(currentTheme)
             
             if (notesDataString != null && notesDataString.isNotEmpty()) {
                 val notesArray = JSONArray(notesDataString)
@@ -203,6 +207,31 @@ class DailyNotesWidgetSelectActivity : AppCompatActivity() {
             pinIndicator.visibility = if (isPinned) View.VISIBLE else View.GONE
             
             return view
+        }
+    }
+    
+    /**
+     * Apply theme-based background to the activity
+     */
+    private fun applyThemeBackground(theme: String?) {
+        val rootLayout = findViewById<android.view.View>(android.R.id.content)
+        when (theme) {
+            "Post-it Daily Notes" -> {
+                // Light green background for Post-it theme
+                rootLayout.setBackgroundColor(android.graphics.Color.parseColor("#C5E1A5"))
+            }
+            "Premium Daily Notes" -> {
+                // Black background for Premium theme
+                rootLayout.setBackgroundColor(android.graphics.Color.BLACK)
+            }
+            "Floral Daily Notes" -> {
+                // White background for Floral theme
+                rootLayout.setBackgroundColor(android.graphics.Color.WHITE)
+            }
+            else -> {
+                // Default: white background
+                rootLayout.setBackgroundColor(android.graphics.Color.WHITE)
+            }
         }
     }
 } 

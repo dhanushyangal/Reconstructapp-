@@ -736,46 +736,35 @@ class SupabaseDatabaseService {
     required String theme,
   }) async {
     try {
-      debugPrint('Saving vision board task for user: $userName, card: $cardId');
+      debugPrint('Saving vision board task for user: $userName, category: $cardId, theme: $theme');
       debugPrint(
           'Task data: ${tasks.substring(0, tasks.length > 100 ? 100 : tasks.length)}...');
 
-      // First, check if a record exists
-      final existingRecord = await _client
+      // Delete ALL existing records for this user and card (regardless of theme)
+      // This clears out any old theme-specific records
+      final deleteResult = await _client
           .from('vision_board_tasks')
-          .select('id')
+          .delete()
           .eq('user_name', userName)
           .eq('email', email)
           .eq('card_id', cardId)
-          .eq('theme', theme)
-          .maybeSingle();
-
-      if (existingRecord != null) {
-        // Update existing record
-        await _client
-            .from('vision_board_tasks')
-            .update({
-              'tasks': tasks,
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .eq('user_name', userName)
-            .eq('email', email)
-            .eq('card_id', cardId)
-            .eq('theme', theme);
-        debugPrint('Updated existing record for $cardId');
-      } else {
-        // Insert new record
-        await _client.from('vision_board_tasks').insert({
-          'user_name': userName,
-          'email': email,
-          'card_id': cardId,
-          'tasks': tasks,
-          'theme': theme,
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-        debugPrint('Inserted new record for $cardId');
-      }
+          .select();
+      
+      debugPrint('Deleted ${deleteResult.length} existing records for $cardId');
+      
+      // Small delay to ensure delete propagates in database
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Now insert the new record
+      await _client.from('vision_board_tasks').insert({
+        'user_name': userName,
+        'email': email,
+        'card_id': cardId,
+        'tasks': tasks,
+        'theme': theme,
+      });
+      
+      debugPrint('Successfully saved vision board record for category: $cardId');
 
       return _formatResponse(
         success: true,

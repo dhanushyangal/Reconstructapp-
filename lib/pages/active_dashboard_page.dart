@@ -267,7 +267,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
           _buildActionButton(
             title: "Clear my mind",
             subtitle: "Get a fresh start for renewed focus",
-                color: Color(0xFF60BAFF), // Medium blue background
+                color: Color(0xFF81D0FF), // Light blue background
             onTap: () {
               Navigator.push(
                 context,
@@ -285,7 +285,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
           _buildActionButton(
             title: "Plan my future",
             subtitle: "Turn goals into a clear path forward.",
-                color: Color(0xFF5AB8EE), // Darker blue background
+                color: Color(0xFF81D0FF), // Light blue background
             onTap: () {
               Navigator.push(
                 context,

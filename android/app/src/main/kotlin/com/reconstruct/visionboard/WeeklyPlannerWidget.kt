@@ -16,7 +16,7 @@ import android.graphics.Color
 
 class WeeklyPlannerWidget : AppWidgetProvider() {
     companion object {
-        private const val MAX_DAYS = 7
+        private const val MAX_DAYS = 5
         
         private val days = arrayOf(
             "Monday", "Tuesday", "Wednesday", "Thursday", 
@@ -83,6 +83,32 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
                 
                 Log.d("WeeklyWidget", "Total configured days: ${allConfiguredDays.size}")
                 
+                // Auto-add days with tasks if less than 4
+                if (allConfiguredDays.size < 4) {
+                    val prefs = HomeWidgetPlugin.getData(context)
+                    val existingDays = allConfiguredDays.map { it.second }.toSet()
+                    val daysWithTasks = days.filter { day ->
+                        day !in existingDays && hasDayTasks(context, appWidgetId, day)
+                    }
+                    
+                    val editor = prefs.edit()
+                    var added = 0
+                    for (day in daysWithTasks) {
+                        if (allConfiguredDays.size + added < 4) {
+                            val newIndex = allConfiguredDays.size + added
+                            editor.putString("day_${appWidgetId}_$newIndex", day)
+                            allConfiguredDays.add(Pair(newIndex, day))
+                            added++
+                            Log.d("WeeklyWidget", "Auto-added day: $day")
+                        } else {
+                            break
+                        }
+                    }
+                    if (added > 0) {
+                        editor.apply()
+                    }
+                }
+                
                 // Filter to only show days with tasks
                 val selectedDays = allConfiguredDays.filter { (_, day) ->
                     val hasTasks = hasDayTasks(context, appWidgetId, day)
@@ -92,24 +118,42 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
                 
                 Log.d("WeeklyWidget", "Days with tasks: ${selectedDays.size}")
 
+                // Handle empty state - show message if no days have tasks
+                if (selectedDays.isEmpty()) {
+                    Log.d("WeeklyWidget", "No days with tasks found for widget $appWidgetId")
+                    
+                    // Show empty state message on widget
+                    val emptyView = RemoteViews(context.packageName, R.layout.weekly_planner_day_item)
+                    emptyView.setTextViewText(R.id.day_name, "No Goals")
+                    emptyView.setTextViewText(R.id.todos_text, "Add goals in:\n$currentTheme\n\nTap + to add days")
+                    emptyView.setInt(R.id.day_container, "setBackgroundColor", 0xFFFFE4B5.toInt())
+                    emptyView.setTextColor(R.id.day_name, 0xFF000000.toInt())
+                    emptyView.setTextColor(R.id.todos_text, 0xFF666666.toInt())
+                    views.addView(R.id.days_container, emptyView)
+                }
+
                 // Add days with tasks
                 for (i in selectedDays.indices) {
                     val dayView = RemoteViews(context.packageName, R.layout.weekly_planner_day_item)
                     val dayEntry = selectedDays[i]
                     val day = dayEntry.second
                     
-                    // Apply theme-specific styling
-                    when (currentTheme) {
-                        "Japanese theme Weekly Planner" -> {
+                    // Apply theme-specific styling (match Flutter theme names)
+                    when {
+                        currentTheme.contains("Japanese") -> {
                             dayView.setImageViewResource(R.id.day_background, japaneseBackgrounds[i])
                         }
-                        "Patterns theme Weekly Planner" -> {
+                        currentTheme.contains("Patterns") -> {
                             dayView.setImageViewResource(R.id.day_background, patternsBackgrounds[i])
                         }
-                        "Watercolor theme Weekly Planner" -> {
+                        currentTheme.contains("Watercolor") -> {
                             dayView.setImageViewResource(R.id.day_background, watercolorBackgrounds[i])
                         }
-                        "Floral theme Weekly Planner" -> {
+                        currentTheme.contains("Floral") -> {
+                            dayView.setImageViewResource(R.id.day_background, floralBackgrounds[i])
+                        }
+                        else -> {
+                            // Default to floral theme
                             dayView.setImageViewResource(R.id.day_background, floralBackgrounds[i])
                         }
                     }
@@ -120,6 +164,8 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
                     // Set day name and todos
                     dayView.setTextViewText(R.id.day_name, day)
                     dayView.setTextViewText(R.id.todos_text, todos)
+                    
+                    Log.d("WeeklyWidget", "Day: $day, Theme: $currentTheme, Todos: ${todos.substring(0, minOf(50, todos.length))}")
                     
                     // Set text colors based on theme
                     dayView.setTextColor(R.id.day_name, Color.BLACK)
@@ -196,29 +242,30 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
         }
 
         private fun getCurrentTheme(context: Context, appWidgetId: Int): String {
-            return HomeWidgetPlugin.getData(context)
-                .getString("weekly_planner_theme_$appWidgetId", "Japanese theme Weekly Planner") ?: "Japanese theme Weekly Planner"
+            // Auto-detect current theme from last used theme in app
+            val prefs = HomeWidgetPlugin.getData(context)
+            return prefs.getString("flutter.weekly_planner_current_theme", null)
+                ?: prefs.getString("weekly_planner_current_theme", "Floral Weekly Planner")
+                ?: "Floral Weekly Planner"
         }
 
         private fun getTodosForDay(context: Context, theme: String, day: String): String {
+            // Use universal storage key (same across all themes)
             val prefs = HomeWidgetPlugin.getData(context)
-            val key = when (theme) {
-                "Japanese theme Weekly Planner" -> "JapaneseTheme_todos_$day"
-                "Patterns theme Weekly Planner" -> "PatternsTheme_todos_$day"
-                "Watercolor theme Weekly Planner" -> "WatercolorTheme_todos_$day"
-                "Floral theme Weekly Planner" -> "FloralTheme_todos_$day"
-                else -> "JapaneseTheme_todos_$day"
-            }
+            // Check both flutter. prefixed and non-prefixed keys
+            val todosJson = prefs.getString("flutter.weekly_planner_$day", null)
+                ?: prefs.getString("weekly_planner_$day", "[]")
+                ?: "[]"
 
             return try {
-                val todosJson = prefs.getString(key, "[]") ?: "[]"
                 val jsonArray = JSONArray(todosJson)
                 val todoItems = mutableListOf<String>()
                 
                 for (i in 0 until jsonArray.length()) {
                     val todoObj = jsonArray.getJSONObject(i)
                     val text = "• ${todoObj.getString("text")}"
-                    val isDone = todoObj.getBoolean("isDone")
+                    // Check both "completed" and "isDone" fields for compatibility
+                    val isDone = todoObj.optBoolean("completed", false) || todoObj.optBoolean("isDone", false)
                     
                     if (isDone) {
                         // Use a more visible strikethrough character combination
@@ -242,24 +289,23 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
          * Check if a day has any tasks for the given theme
          */
         fun hasDayTasks(context: Context, appWidgetId: Int, day: String): Boolean {
+            // Use universal storage key (check both flutter. prefix and without)
             val prefs = HomeWidgetPlugin.getData(context)
-            val currentTheme = getCurrentTheme(context, appWidgetId)
+            val todosJson = prefs.getString("flutter.weekly_planner_$day", null)
+                ?: prefs.getString("weekly_planner_$day", null)
             
-            val key = when (currentTheme) {
-                "Japanese theme Weekly Planner" -> "JapaneseTheme_todos_$day"
-                "Patterns theme Weekly Planner" -> "PatternsTheme_todos_$day"
-                "Watercolor theme Weekly Planner" -> "WatercolorTheme_todos_$day"
-                "Floral theme Weekly Planner" -> "FloralTheme_todos_$day"
-                else -> "JapaneseTheme_todos_$day"
+            if (todosJson?.isEmpty() != false) {
+                Log.d("WeeklyWidget", "No data found for day: $day")
+                return false
             }
-            
-            val todosJson = prefs.getString(key, null)
-            if (todosJson?.isEmpty() != false) return false
             
             return try {
                 val jsonArray = JSONArray(todosJson)
-                jsonArray.length() > 0
+                val hasTasks = jsonArray.length() > 0
+                Log.d("WeeklyWidget", "Day $day has ${jsonArray.length()} tasks")
+                hasTasks
             } catch (e: Exception) {
+                Log.e("WeeklyWidget", "Error parsing tasks for $day: ${e.message}")
                 todosJson?.trim()?.isNotEmpty() == true
             }
         }

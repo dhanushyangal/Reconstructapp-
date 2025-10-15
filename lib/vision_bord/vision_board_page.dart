@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
-import 'box_them_vision_board.dart';
-import 'post_it_theme_vision_board.dart';
-import 'premium_them_vision_board.dart';
-import 'winter_warmth_theme_vision_board.dart';
-import 'ruby_reds_theme_vision_board.dart';
-import 'coffee_hues_theme_vision_board.dart';
+import 'unified_vision_board_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
@@ -26,7 +21,6 @@ class _VisionBoardPageState extends State<VisionBoardPage>
   bool _isPremium = false;
   bool _isLoading = true;
 
-  @override
   String get pageName => 'Vision Board';
 
   @override
@@ -170,49 +164,13 @@ class _VisionBoardPageState extends State<VisionBoardPage>
           return;
         }
         trackClick('$title content');
-        if (title == 'Premium theme Vision Board') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const PremiumThemeVisionBoard(),
-            ),
-          );
-        } else if (title == 'PostIt theme Vision Board') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const PostItThemeVisionBoard(),
-            ),
-          );
-        } else if (title == 'Winter Warmth theme Vision Board') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const WinterWarmthThemeVisionBoard(),
-            ),
-          );
-        } else if (title == 'Ruby Reds theme Vision Board') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const RubyRedsThemeVisionBoard(),
-            ),
-          );
-        } else if (title == 'Coffee Hues theme Vision Board') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CoffeeHuesThemeVisionBoard(),
-            ),
-          );
-        } else if (title == 'Box theme Vision Board') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => VisionBoardDetailsPage(title: title),
-            ),
-          );
-        }
+        // Navigate to unified vision board page with theme name
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UnifiedVisionBoardPage(themeName: title),
+          ),
+        );
       },
       child: Card(
         elevation: 4,

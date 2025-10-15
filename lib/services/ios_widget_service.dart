@@ -48,14 +48,16 @@ class IOSWidgetService {
   static Future<void> updateNotesWidget({
     required List<Map<String, dynamic>> notesData,
     String? selectedNoteId,
+    String? theme,
   }) async {
     try {
       final notesDataJson = json.encode(notesData);
       await _channel.invokeMethod('updateNotesWidget', {
         'notesData': notesDataJson,
         'selectedNoteId': selectedNoteId,
+        'theme': theme,
       });
-      print('Notes widget updated successfully with ${notesData.length} notes');
+      print('Notes widget updated successfully with ${notesData.length} notes and theme: $theme');
     } catch (e) {
       print('Error updating Notes widget: $e');
     }
@@ -75,8 +77,9 @@ class IOSWidgetService {
   static Future<void> updateNotesWidgetWithRefresh({
     required List<Map<String, dynamic>> notesData,
     String? selectedNoteId,
+    String? theme,
   }) async {
-    await updateNotesWidget(notesData: notesData, selectedNoteId: selectedNoteId);
+    await updateNotesWidget(notesData: notesData, selectedNoteId: selectedNoteId, theme: theme);
     await refreshAllWidgets();
   }
 

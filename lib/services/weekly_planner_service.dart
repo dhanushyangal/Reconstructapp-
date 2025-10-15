@@ -38,52 +38,46 @@ class WeeklyPlannerService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> loadUserTasks(
+  // Load weekly planner tasks for a specific day (same across all themes)
+  Future<String?> loadUserTasks(
       Map<String, dynamic> userInfo,
       {String? theme}) async {
     try {
       if (userInfo['userName']?.isEmpty == true ||
           userInfo['email']?.isEmpty == true) {
         debugPrint('Invalid user info for loading weekly planner tasks');
-        return [];
+        return null;
       }
 
+      // Use day as card_id, universal theme
       var query = _client
           .from('weekly_planner_tasks')
           .select()
           .eq('user_name', userInfo['userName'])
-          .eq('email', userInfo['email']);
+          .eq('email', userInfo['email'])
+          .eq('theme', 'WeeklyPlanner'); // Universal theme
 
       if (theme != null) {
-        query = query.eq('theme', theme);
-
-        // Valid days in the week
-        final validDays = [
-          'Monday',
-          'Tuesday',
-          'Wednesday',
-          'Thursday',
-          'Friday',
-          'Saturday',
-          'Sunday'
-        ];
-
-        // Filter for valid days
-        query = query.inFilter('card_id', validDays);
+        query = query.eq('card_id', theme); // Use day as card_id
       }
 
       final response = await query;
 
-      debugPrint(
-          'Loaded ${response.length} weekly planner tasks from Supabase');
-      return List<Map<String, dynamic>>.from(response);
+      if (response.isNotEmpty) {
+        final tasksJson = response[0]['tasks'] as String?;
+        debugPrint('Loaded weekly planner tasks for day: $theme from Supabase');
+        return tasksJson;
+      }
+      
+      debugPrint('No weekly planner tasks found for day: $theme');
+      return null;
     } catch (e) {
       debugPrint('Error loading weekly planner tasks from Supabase: $e');
-      return [];
+      return null;
     }
   }
 
-  // Method to save weekly planner tasks - following the same pattern
+  // Method to save weekly planner tasks - using upsert for reliability
   Future<Map<String, dynamic>> saveWeeklyPlannerTask({
     required String userName,
     required String email,
@@ -93,43 +87,35 @@ class WeeklyPlannerService {
   }) async {
     try {
       debugPrint(
-          'Saving weekly planner task for user: $userName, day: $cardId');
+          'Saving weekly planner task for user: $userName, day: $cardId, theme: $theme');
       debugPrint(
           'Task data: ${tasks.substring(0, tasks.length > 100 ? 100 : tasks.length)}...');
 
-      // First, check if a record exists
-      final existingRecord = await _client
+      // Delete ALL existing records for this user and card (regardless of theme)
+      // This clears out any old theme-specific records
+      final deleteResult = await _client
           .from('weekly_planner_tasks')
-          .select('id')
+          .delete()
           .eq('user_name', userName)
           .eq('email', email)
           .eq('card_id', cardId)
-          .eq('theme', theme)
-          .maybeSingle();
-
-      if (existingRecord != null) {
-        // Update existing record
-        await _client
-            .from('weekly_planner_tasks')
-            .update({
-              'tasks': tasks,
-            })
-            .eq('user_name', userName)
-            .eq('email', email)
-            .eq('card_id', cardId)
-            .eq('theme', theme);
-        debugPrint('Updated existing weekly planner record for $cardId');
-      } else {
-        // Insert new record
-        await _client.from('weekly_planner_tasks').insert({
-          'user_name': userName,
-          'email': email,
-          'card_id': cardId,
-          'tasks': tasks,
-          'theme': theme,
-        });
-        debugPrint('Inserted new weekly planner record for $cardId');
-      }
+          .select();
+      
+      debugPrint('Deleted ${deleteResult.length} existing records for $cardId');
+      
+      // Small delay to ensure delete propagates in database
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Now insert the new record
+      await _client.from('weekly_planner_tasks').insert({
+        'user_name': userName,
+        'email': email,
+        'card_id': cardId,
+        'tasks': tasks,
+        'theme': theme,
+      });
+      
+      debugPrint('Successfully saved weekly planner record for day: $cardId');
 
       return _formatResponse(
         success: true,
@@ -183,10 +169,10 @@ class WeeklyPlannerService {
     }
   }
 
-  // Legacy method for backward compatibility
+  // Save weekly planner tasks for a specific day (same across all themes)
   Future<bool> saveTodoItem(
-      Map<String, dynamic> userInfo, String day, String tasks,
-      {String theme = 'japanese'}) async {
+      Map<String, dynamic> userInfo, String tasks,
+      {String theme = 'Monday'}) async {
     try {
       if (userInfo['userName']?.isEmpty == true ||
           userInfo['email']?.isEmpty == true) {
@@ -194,17 +180,18 @@ class WeeklyPlannerService {
         return false;
       }
 
+      // Use day as card_id, universal theme
       final result = await saveWeeklyPlannerTask(
         userName: userInfo['userName'],
         email: userInfo['email'],
-        cardId: day,
+        cardId: theme, // Use day as cardId
         tasks: tasks,
-        theme: theme,
+        theme: 'WeeklyPlanner', // Universal theme
       );
 
       return result['success'] ?? false;
     } catch (e) {
-      debugPrint('Error in legacy saveTodoItem: $e');
+      debugPrint('Error in saveTodoItem: $e');
       return false;
     }
   }

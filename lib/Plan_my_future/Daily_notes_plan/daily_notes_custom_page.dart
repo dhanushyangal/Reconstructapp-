@@ -79,6 +79,7 @@ class _DailyNotesCustomPageState extends State<DailyNotesCustomPage> {
     super.initState();
     _initializeAndLoadNotes();
     _loadCurrentWidgetNoteId();
+    _saveCurrentTheme(); // Save the current theme for widget use
 
     // Initialize HomeWidget
     HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
@@ -89,6 +90,19 @@ class _DailyNotesCustomPageState extends State<DailyNotesCustomPage> {
     platform.setMethodCallHandler(_handleMethodCall);
 
     _searchController.addListener(_filterNotes);
+  }
+
+  // Save the current theme to SharedPreferences for widget use
+  Future<void> _saveCurrentTheme() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('flutter.daily_notes_theme', widget.template);
+      await prefs.setString('daily_notes_theme', widget.template);
+      await HomeWidget.saveWidgetData('daily_notes_theme', widget.template);
+      debugPrint('Saved current theme for widget: ${widget.template}');
+    } catch (e) {
+      debugPrint('Error saving theme: $e');
+    }
   }
 
   @override
@@ -451,6 +465,9 @@ class _DailyNotesCustomPageState extends State<DailyNotesCustomPage> {
     try {
       debugPrint('=== WIDGET UPDATE DEBUG ===');
       debugPrint('Total notes to update: ${_notes.length}');
+      
+      // Always save the current theme
+      await _saveCurrentTheme();
 
       // Ensure we have notes to save
       if (_notes.isEmpty) {
@@ -578,8 +595,9 @@ class _DailyNotesCustomPageState extends State<DailyNotesCustomPage> {
           await IOSWidgetService.updateNotesWidgetWithRefresh(
             notesData: widgetData,
             selectedNoteId: _currentWidgetNoteId,
+            theme: widget.template,
           );
-          debugPrint('iOS widget updated successfully');
+          debugPrint('iOS widget updated successfully with theme: ${widget.template}');
         } catch (e) {
           debugPrint('Error updating iOS widget: $e');
         }
@@ -977,8 +995,9 @@ class _DailyNotesCustomPageState extends State<DailyNotesCustomPage> {
           await IOSWidgetService.updateNotesWidgetWithRefresh(
             notesData: notesList.cast<Map<String, dynamic>>(),
             selectedNoteId: note.id,
+            theme: widget.template,
           );
-          debugPrint('iOS widget updated with selected note');
+          debugPrint('iOS widget updated with selected note and theme: ${widget.template}');
         } catch (e) {
           debugPrint('Error updating iOS widget: $e');
         }

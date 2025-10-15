@@ -58,7 +58,7 @@ class CustomWeeklyPlannerPage extends StatefulWidget {
 class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   final screenshotController = ScreenshotController();
-  final Map<String, TextEditingController> _controllers = {};
+  // Different task list per day (same across all themes)
   final Map<String, List<TodoItem>> _todoLists = {};
   bool _isSyncing = false;
   DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
@@ -110,12 +110,6 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
   @override
   void initState() {
     super.initState();
-    
-    // Initialize controllers and todo lists for selected areas only
-    for (var category in widget.selectedAreas) {
-      _controllers[category] = TextEditingController();
-      _todoLists[category] = [];
-    }
 
     // Load all data from local storage first (fast)
     _loadAllFromLocalStorage().then((_) {
@@ -153,74 +147,25 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
     // Handle background updates if needed
   }
 
-  // Load all data from local storage (fast operation)
+  // Load data per day from local storage (fast operation)
   Future<void> _loadAllFromLocalStorage() async {
     final prefs = await SharedPreferences.getInstance();
-    final themeConfig = _themeConfig;
-    final storagePrefix = themeConfig['storagePrefix'] as String;
 
-    for (var category in widget.selectedAreas) {
-      try {
-        final savedTodos = prefs.getString('${storagePrefix}_todos_$category');
+    try {
+      // Load tasks for each selected area (day) using universal keys
+      for (var day in widget.selectedAreas) {
+        final savedTodos = prefs.getString('weekly_planner_$day');
         if (savedTodos != null) {
           final List<dynamic> decoded = json.decode(savedTodos);
-          setState(() {
-            _todoLists[category] =
-                decoded.map((item) => TodoItem.fromJson(item)).toList();
-            _controllers[category]?.text = _formatDisplayText(category);
-          });
-          debugPrint(
-              'Loaded ${_todoLists[category]?.length ?? 0} weekly tasks from local storage for $category');
+          _todoLists[day] = decoded.map((item) => TodoItem.fromJson(item)).toList();
+        } else {
+          _todoLists[day] = [];
         }
-
-        // Also check widget data to ensure it's in sync
-        try {
-          final dayForWidget = _mapCategoryToDay(category);
-          final themeTypeCapitalized = '${(themeConfig['type'] as String)[0].toUpperCase()}${(themeConfig['type'] as String).substring(1)}';
-          final widgetKey = '${themeTypeCapitalized}Theme_todos_$dayForWidget';
-          
-          final widgetTodos = await HomeWidget.getWidgetData(widgetKey);
-          if (widgetTodos != null) {
-            debugPrint('Found widget data for $category: $widgetTodos');
-
-            // If we have widget data but no local data, try to use widget data
-            if (savedTodos == null) {
-              try {
-                final List<dynamic> widgetDecoded = json.decode(widgetTodos);
-                // Convert widget format (with id, isDone) to our format (with completed)
-                final List<TodoItem> convertedItems = widgetDecoded
-                    .map((item) => TodoItem(
-                          text: item['text'],
-                          completed: item['isDone'] ?? false,
-                        ))
-                    .toList();
-
-                setState(() {
-                  _todoLists[category] = convertedItems;
-                  _controllers[category]?.text = _formatDisplayText(category);
-                });
-
-                debugPrint(
-                    'Loaded ${convertedItems.length} weekly tasks from widget data for $category');
-              } catch (decodeError) {
-                debugPrint('Error decoding widget data: $decodeError');
-              }
-            }
-          } else {
-            debugPrint('No widget data found for $category');
-          }
-        } catch (widgetError) {
-          debugPrint('Error accessing widget data: $widgetError');
-        }
-
-        // Ensure widget text is updated
-        if (_todoLists[category]?.isNotEmpty == true) {
-          await HomeWidget.saveWidgetData(
-              '${themeConfig['type']}_todo_text_$category', _formatDisplayText(category));
-        }
-      } catch (e) {
-        debugPrint('Error parsing local weekly tasks for $category: $e');
       }
+      setState(() {});
+      debugPrint('Loaded tasks for ${_todoLists.length} days from local storage');
+    } catch (e) {
+      debugPrint('Error parsing local weekly tasks: $e');
     }
 
     // Update the widget right after loading data
@@ -253,7 +198,7 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
     }
   }
 
-  // Sync all data with database at once
+  // Sync data per day with database
   Future<void> _syncWithDatabase() async {
     if (_isSyncing) return;
 
@@ -263,80 +208,45 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
 
     try {
       final userInfo = await UserService.instance.getUserInfo();
-      final themeConfig = _themeConfig;
-      final storagePrefix = themeConfig['storagePrefix'] as String;
+      final prefs = await SharedPreferences.getInstance();
 
       if (userInfo['userName']?.isNotEmpty == true &&
           userInfo['email']?.isNotEmpty == true) {
-        final allTasksFromDb =
-            await WeeklyPlannerService.instance.loadUserTasks(userInfo, theme: themeConfig['type']);
+        
+        // Load tasks for each day
+        for (var day in widget.selectedAreas) {
+          final tasksJson = await WeeklyPlannerService.instance.loadUserTasks(userInfo, theme: day);
 
-        if (allTasksFromDb.isNotEmpty) {
-          final prefs = await SharedPreferences.getInstance();
-
-          for (var dbTask in allTasksFromDb) {
-            final category = dbTask['card_id'];
-            if (_todoLists.containsKey(category)) {
-              try {
-                final tasksJson = dbTask['tasks'] as String?;
-                if (tasksJson == null || tasksJson.isEmpty) {
-                  debugPrint('No tasks data for $category, skipping');
-                  continue;
-                }
-                final List<dynamic> decoded = json.decode(tasksJson);
-
-                setState(() {
-                  _todoLists[category] =
-                      decoded.map((item) => TodoItem.fromJson(item)).toList();
-                  _controllers[category]?.text = _formatDisplayText(category);
-                });
-
-                await prefs.setString('${storagePrefix}_todos_$category', tasksJson);
-                // Map category to day for widget compatibility
-                final dayForWidget = _mapCategoryToDay(category);
-                
-                // Debug logging for sync
-                final themeTypeCapitalized = '${(themeConfig['type'] as String)[0].toUpperCase()}${(themeConfig['type'] as String).substring(1)}';
-                final syncWidgetKey = '${themeTypeCapitalized}Theme_todos_$dayForWidget';
-                debugPrint('Custom Weekly Planner Sync: Saving widget data with key: $syncWidgetKey');
-                debugPrint('Custom Weekly Planner Sync: Category: $category, DayForWidget: $dayForWidget');
-                debugPrint('Custom Weekly Planner Sync: Theme type: ${themeConfig['type']} -> Capitalized: $themeTypeCapitalized');
-                
-                await HomeWidget.saveWidgetData(
-                    '${storagePrefix}_todos_$category', tasksJson);
-                
-                // Convert to widget format for HomeWidget
-                final widgetEncoded = json.encode(_todoLists[category]!
-                    .map((item) => item.toWidgetJson())
-                    .toList());
-                await HomeWidget.saveWidgetData(syncWidgetKey, widgetEncoded);
-                await HomeWidget.saveWidgetData(
-                    '${themeConfig['type']}_todo_text_$category', _formatDisplayText(category));
-                await HomeWidget.saveWidgetData(
-                    '${themeConfig['type']}_todo_text_$dayForWidget', _formatDisplayText(category));
-
-                debugPrint(
-                    'Updated local storage for $category with database data');
-              } catch (e) {
-                debugPrint('Error processing database tasks for $category: $e');
-              }
+          if (tasksJson != null && tasksJson.isNotEmpty) {
+            try {
+              final List<dynamic> decoded = json.decode(tasksJson);
+              _todoLists[day] = decoded.map((item) => TodoItem.fromJson(item)).toList();
+              
+              // Save to local storage AND widget storage with universal key
+              await prefs.setString('weekly_planner_$day', tasksJson);
+              await HomeWidget.saveWidgetData('weekly_planner_$day', tasksJson);
+            } catch (e) {
+              debugPrint('Error processing database tasks for $day: $e');
             }
           }
+        }
 
-          // Update the widget after syncing
-          await HomeWidget.updateWidget(
-            androidName: 'WeeklyPlannerWidget',
-            iOSName: 'WeeklyPlannerWidget',
+        setState(() {});
+        debugPrint('Synced ${_todoLists.length} days from database');
+
+        // Update the widget after syncing
+        await HomeWidget.updateWidget(
+          androidName: 'WeeklyPlannerWidget',
+          iOSName: 'WeeklyPlannerWidget',
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Synced with cloud'),
+              duration: Duration(seconds: 1),
+            ),
           );
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Synced with cloud'),
-                duration: Duration(seconds: 1),
-              ),
-            );
-          }
         }
 
         _lastSyncTime = DateTime.now();
@@ -373,36 +283,15 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
     }
   }
 
-  // Improved to prioritize local storage
-  Future<void> _saveTodoList(String category) async {
+  // Save todo list for a specific day
+  Future<void> _saveTodoList(String day) async {
     final prefs = await SharedPreferences.getInstance();
-    final encoded = json
-        .encode(_todoLists[category]?.map((item) => item.toJson()).toList());
-    final themeConfig = _themeConfig;
-    final storagePrefix = themeConfig['storagePrefix'] as String;
+    final todoList = _todoLists[day] ?? [];
+    final encoded = json.encode(todoList.map((item) => item.toJson()).toList());
 
-    // Always save locally first (fast operation)
-    await prefs.setString('${storagePrefix}_todos_$category', encoded);
-    
-    // Map category to day for widget compatibility
-    final dayForWidget = _mapCategoryToDay(category);
-    
-    // Debug logging for widget data
-    final themeTypeCapitalized = '${(themeConfig['type'] as String)[0].toUpperCase()}${(themeConfig['type'] as String).substring(1)}';
-    final widgetKey = '${themeTypeCapitalized}Theme_todos_$dayForWidget';
-    debugPrint('Custom Weekly Planner: Saving widget data with key: $widgetKey');
-    debugPrint('Custom Weekly Planner: Category: $category, DayForWidget: $dayForWidget');
-    debugPrint('Custom Weekly Planner: Theme type: ${themeConfig['type']} -> Capitalized: $themeTypeCapitalized');
-    
-    await HomeWidget.saveWidgetData('${storagePrefix}_todos_$category', encoded);
-    
-    // Convert to widget format for HomeWidget
-    final widgetEncoded = json.encode(_todoLists[category]!.map((item) => item.toWidgetJson()).toList());
-    await HomeWidget.saveWidgetData(widgetKey, widgetEncoded);
-    await HomeWidget.saveWidgetData(
-        '${themeConfig['type']}_todo_text_$category', _formatDisplayText(category));
-    await HomeWidget.saveWidgetData(
-        '${themeConfig['type']}_todo_text_$dayForWidget', _formatDisplayText(category));
+    // Always save locally first with universal key (fast operation)
+    await prefs.setString('weekly_planner_$day', encoded);
+    await HomeWidget.saveWidgetData('weekly_planner_$day', encoded);
 
     // Update the widget
     await HomeWidget.updateWidget(
@@ -429,9 +318,9 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
       final isLoggedIn = userInfo['userName']?.isNotEmpty == true;
 
       if (isLoggedIn) {
-
+        // Save with day as identifier
         WeeklyPlannerService.instance
-            .saveTodoItem(userInfo, category, encoded, theme: themeConfig['type'])
+            .saveTodoItem(userInfo, encoded, theme: day)
             .then((success) {
           if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -462,51 +351,8 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
     }
   }
 
-  String _formatDisplayText(String category) {
-    final todos = _todoLists[category];
-    if (todos == null || todos.isEmpty) return '';
-
-    // Format each todo item with a bullet point and handle completion status
-    return todos.map((item) {
-      final checkmark = item.completed ? '✓ ' : '• ';
-      return "$checkmark${item.text}";
-    }).join('\n');
-  }
-
-  // Map custom category names to standard day names for widget compatibility
-  String _mapCategoryToDay(String category) {
-    // If it's already a standard day name, return it
-    final standardDays = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
-    ];
-    
-    if (standardDays.contains(category)) {
-      debugPrint('Custom Weekly Planner: Category $category is already a standard day');
-      return category;
-    }
-    
-    // Map custom categories to days based on their position in the selected areas
-    final selectedAreas = widget.selectedAreas;
-    final categoryIndex = selectedAreas.indexOf(category);
-    
-    debugPrint('Custom Weekly Planner: Category $category found at index $categoryIndex in selected areas: $selectedAreas');
-    
-    if (categoryIndex >= 0 && categoryIndex < standardDays.length) {
-      final mappedDay = standardDays[categoryIndex];
-      debugPrint('Custom Weekly Planner: Mapping category $category to day $mappedDay');
-      return mappedDay;
-    }
-    
-    // Fallback to Monday if no mapping found
-    debugPrint('Custom Weekly Planner: No mapping found for category $category, using Monday as fallback');
-    return 'Monday';
-  }
-
   @override
   void dispose() {
-    for (var controller in _controllers.values) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
@@ -561,7 +407,7 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: GestureDetector(
                 onTap: () => _showTodoDialog(title),
-                child: _todoLists[title]?.isEmpty ?? true
+                child: (_todoLists[title] ?? []).isEmpty
                     ? Text(
                         _isCustomCreatedCard(title) ? 'Create your\nweekly focus' : 'Plan your\nweekly goals',
                         style: TextStyle(
@@ -572,7 +418,7 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
                       )
                     : Text.rich(
                         TextSpan(
-                          children: _todoLists[title]?.map((todo) {
+                          children: (_todoLists[title] ?? []).map((todo) {
                                 return TextSpan(
                                   text: "• ${todo.text}\n",
                                   style: TextStyle(
@@ -585,8 +431,7 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
                                         : textColor,
                                   ),
                                 );
-                              }).toList() ??
-                              [],
+                              }).toList(),
                         ),
                       ),
               ),
@@ -647,7 +492,6 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
           onSave: (updatedItems) async {
             setState(() {
               _todoLists[category] = updatedItems;
-              _controllers[category]?.text = _formatDisplayText(category);
             });
             await _saveTodoList(category);
           },
@@ -967,21 +811,28 @@ class TodoListDialogState extends State<TodoListDialog> with ActivityTrackerMixi
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _textController,
-            decoration: InputDecoration(
-              hintText: 'Add a new weekly task',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.add),
-                onPressed: _addItem,
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _textController,
+                  decoration: const InputDecoration(
+                    hintText: 'Add a new weekly task',
+                  ),
+                  onSubmitted: (_) => _addItem(),
+                  onChanged: (value) {
+                    if (value.isNotEmpty && value.length % 10 == 0) {
+                      trackTextInput('Task text', value: value);
+                    }
+                  },
+                ),
               ),
-            ),
-            onSubmitted: (_) => _addItem(),
-            onChanged: (value) {
-              if (value.isNotEmpty && value.length % 10 == 0) {
-                trackTextInput('Task text', value: value);
-              }
-            },
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _addItem,
+                child: const Text('Add'),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Flexible(

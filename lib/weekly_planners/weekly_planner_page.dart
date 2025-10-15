@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'watercolor_theme_weekly_planner.dart';
-import 'patterns_theme_weekly_planner.dart';
-import 'floral_theme_weekly_planner.dart';
-import 'japanese_theme_weekly_planner.dart';
+import 'unified_weekly_planner_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/subscription_manager.dart';
 import 'package:provider/provider.dart';
@@ -163,56 +160,15 @@ class _WeeklyPlannerPageState extends State<WeeklyPlannerPage>
           _showPremiumDialog(context);
           return;
         }
-
-        if (title == 'Watercolor theme Weekly Planner') {
-          trackClick('$title content');
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => WatercolorThemeWeeklyPlanner(
-                dayIndex: 0,
-                eventId: null,
-                showEvents: false,
-              ),
-            ),
-          );
-        } else if (title == 'Patterns theme Weekly Planner') {
-          trackClick('$title content');
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PatternsThemeWeeklyPlanner(
-                dayIndex: 0,
-                eventId: null,
-                showEvents: false,
-              ),
-            ),
-          );
-        } else if (title == 'Floral theme Weekly Planner') {
-          trackClick('$title content');
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => FloralThemeWeeklyPlanner(
-                dayIndex: 0,
-                eventId: null,
-                showEvents: false,
-              ),
-            ),
-          );
-        } else if (title == 'Japanese theme Weekly Planner') {
-          trackClick('$title content');
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => JapaneseThemeWeeklyPlanner(
-                dayIndex: 0,
-                eventId: null,
-                showEvents: false,
-              ),
-            ),
-          );
-        }
+        
+        trackClick('$title content');
+        // Navigate to unified weekly planner page with theme name
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UnifiedWeeklyPlannerPage(themeName: title),
+          ),
+        );
       },
       child: Card(
         elevation: 4,

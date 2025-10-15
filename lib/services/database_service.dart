@@ -52,11 +52,12 @@ class DatabaseService {
     }
   }
 
-  // Save todo item to Supabase vision_board_tasks table
-  Future<bool> saveTodoItem(Map<String, dynamic> userInfo, String cardId,
-      String tasks, String theme) async {
+  // Save todo items to Supabase vision_board_tasks table
+  // Each category has its own task list, same across all themes
+  Future<bool> saveTodoItem(Map<String, dynamic> userInfo,
+      String tasks, String category) async {
     try {
-      debugPrint('Saving todo item to Supabase: $cardId, theme: $theme');
+      debugPrint('Saving todo items to Supabase, category: $category');
       debugPrint('Tasks data length: ${tasks.length} characters');
 
       // Ensure we have user info
@@ -72,14 +73,13 @@ class DatabaseService {
         return false;
       }
 
-      // Use upsert to handle both insert and update cases
-      // This will replace the existing record completely with the new task list
+      // Use category as cardId, universal theme
       final result = await _supabaseService.saveVisionBoardTask(
         userName: userInfo['userName'],
         email: userInfo['email'],
-        cardId: cardId,
+        cardId: category, // Use category as cardId
         tasks: tasks,
-        theme: theme,
+        theme: 'VisionBoard', // Universal theme
       );
 
       debugPrint(
@@ -92,42 +92,48 @@ class DatabaseService {
   }
 
   // Load user tasks from Supabase vision_board_tasks table
-  Future<List<Map<String, dynamic>>> loadUserTasks(
-      Map<String, dynamic> userInfo, String theme) async {
+  // Each category has its own task list
+  Future<String?> loadUserTasks(
+      Map<String, dynamic> userInfo, String category) async {
     try {
-      debugPrint('Loading user tasks from Supabase for theme: $theme');
+      debugPrint('Loading user tasks from Supabase for category: $category');
 
       // Ensure we have user info
       if (userInfo['userName']?.isEmpty == true ||
           userInfo['email']?.isEmpty == true) {
         debugPrint('Failed to load tasks: User info is incomplete');
-        return [];
+        return null;
       }
 
       // Ensure we have auth token
       if (!await _ensureAuthToken()) {
         debugPrint('Failed to load tasks: No valid auth token');
-        return [];
+        return null;
       }
 
       final result = await _supabaseService.getVisionBoardTasks(
         userName: userInfo['userName'],
         email: userInfo['email'],
-        theme: theme,
+        theme: 'VisionBoard', // Universal theme
+        cardId: category, // Use category as cardId
       );
 
       if (result['success'] == true) {
         final List<dynamic> data = result['data'] ?? [];
-        debugPrint('Loaded ${data.length} tasks from Supabase');
-        return data.cast<Map<String, dynamic>>();
+        if (data.isNotEmpty) {
+          final tasksJson = data[0]['tasks'] as String?;
+          debugPrint('Loaded tasks for category $category from Supabase');
+          return tasksJson;
+        }
+        debugPrint('No tasks found for category $category in Supabase');
+        return null;
       } else {
         debugPrint('Failed to load tasks: ${result['message']}');
-        return [];
-        
+        return null;
       }
     } catch (e) {
       debugPrint('Failed to load tasks from Supabase: $e');
-      return [];
+      return null;
     }
   }
 
@@ -173,10 +179,9 @@ class DatabaseService {
 
           if (tasksResult['success'] == true) {
             _isConnected = true;
-            final List<dynamic> tasks = tasksResult['data'] ?? [];
             String message =
                 'Supabase connection successful (User: ${userInfo['userName']})';
-            message += '\nFound ${tasks.length} existing tasks in database';
+            message += '\nDatabase connection active';
 
             return {'success': true, 'message': message, 'hasTaskTables': true};
           } else {

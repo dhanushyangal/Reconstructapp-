@@ -52,7 +52,7 @@ class CustomAnnualPlannerPage extends StatefulWidget {
 class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   final screenshotController = ScreenshotController();
-  final Map<String, TextEditingController> _controllers = {};
+  // Different task list per month (same across all themes)
   final Map<String, List<TodoItem>> _todoLists = {};
   bool _isSyncing = false;
   DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
@@ -165,12 +165,6 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
   @override
   void initState() {
     super.initState();
-    
-    // Initialize controllers and todo lists for selected areas only
-    for (var category in widget.selectedAreas) {
-      _controllers[category] = TextEditingController();
-      _todoLists[category] = [];
-    }
 
     // Load all data from local storage first (fast)
     _loadAllFromLocalStorage().then((_) {
@@ -204,28 +198,25 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
     _trackActivity();
   }
 
-  // Load all data from local storage (fast operation)
+  // Load data per month from local storage (fast operation)
   Future<void> _loadAllFromLocalStorage() async {
     final prefs = await SharedPreferences.getInstance();
-    final themeConfig = _themeConfig;
-    final storagePrefix = themeConfig['storagePrefix'] as String;
 
-    for (var category in widget.selectedAreas) {
-      try {
-        final savedTodos = prefs.getString('${storagePrefix}_todos_$category');
+    try {
+      // Load tasks for each selected area (month) using universal keys
+      for (var month in widget.selectedAreas) {
+        final savedTodos = prefs.getString('annual_planner_$month');
         if (savedTodos != null) {
           final List<dynamic> decoded = json.decode(savedTodos);
-          setState(() {
-            _todoLists[category] =
-                decoded.map((item) => TodoItem.fromJson(item)).toList();
-            _controllers[category]?.text = _formatDisplayText(category);
-          });
-          debugPrint(
-              'Loaded ${_todoLists[category]?.length ?? 0} monthly tasks from local storage for $category');
+          _todoLists[month] = decoded.map((item) => TodoItem.fromJson(item)).toList();
+        } else {
+          _todoLists[month] = [];
         }
-      } catch (e) {
-        debugPrint('Error parsing local monthly tasks for $category: $e');
       }
+      setState(() {});
+      debugPrint('Loaded tasks for ${_todoLists.length} months from local storage');
+    } catch (e) {
+      debugPrint('Error parsing local monthly tasks: $e');
     }
   }
 
@@ -252,7 +243,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
     }
   }
 
-  // Sync all data with database at once
+  // Sync data per month with database
   Future<void> _syncWithDatabase() async {
     if (_isSyncing) return;
 
@@ -262,78 +253,47 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
 
     try {
       final userInfo = await UserService.instance.getUserInfo();
-      final themeConfig = _themeConfig;
-      final storagePrefix = themeConfig['storagePrefix'] as String;
+      final prefs = await SharedPreferences.getInstance();
 
       if (userInfo['userName']?.isNotEmpty == true &&
           userInfo['email']?.isNotEmpty == true) {
-        final allTasksFromDb =
-            await AnnualCalendarService.instance.loadUserTasks(userInfo, theme: themeConfig['type']);
+        
+        // Load tasks for each month
+        for (var month in widget.selectedAreas) {
+          final tasksJson = await AnnualCalendarService.instance.loadUserTasks(userInfo, theme: month);
 
-        if (allTasksFromDb.isNotEmpty) {
-          final prefs = await SharedPreferences.getInstance();
-
-          for (var dbTask in allTasksFromDb) {
-            final category = dbTask['card_id'];
-            if (_todoLists.containsKey(category)) {
-              try {
-                final tasksJson = dbTask['tasks'] as String?;
-                if (tasksJson == null || tasksJson.isEmpty) {
-                  debugPrint('No tasks data for $category, skipping');
-                  continue;
-                }
-                final List<dynamic> decoded = json.decode(tasksJson);
-
-                setState(() {
-                  _todoLists[category] =
-                      decoded.map((item) => TodoItem.fromJson(item)).toList();
-                  _controllers[category]?.text = _formatDisplayText(category);
-                });
-
-                await prefs.setString('${storagePrefix}_todos_$category', tasksJson);
-                
-                // Map category to month for widget compatibility
-                final monthForWidget = _mapCategoryToMonth(category);
-                
-                await HomeWidget.saveWidgetData(
-                    '${storagePrefix}_todos_$category', tasksJson);
-                
-                // Debug logging for sync
-                final themeTypeCapitalized = '${(themeConfig['type'] as String)[0].toUpperCase()}${(themeConfig['type'] as String).substring(1)}';
-                final syncWidgetKey = '${themeTypeCapitalized}Theme_todos_$monthForWidget';
-                debugPrint('Custom Annual Planner Sync: Saving widget data with key: $syncWidgetKey');
-                debugPrint('Custom Annual Planner Sync: Category: $category, MonthForWidget: $monthForWidget');
-                debugPrint('Custom Annual Planner Sync: Theme type: ${themeConfig['type']} -> Capitalized: $themeTypeCapitalized');
-                
-                await HomeWidget.saveWidgetData(syncWidgetKey, tasksJson);
-                await HomeWidget.saveWidgetData(
-                    '${themeConfig['type']}_todo_text_$category', _formatDisplayText(category));
-                await HomeWidget.saveWidgetData(
-                    '${themeConfig['type']}_todo_text_$monthForWidget', _formatDisplayText(category));
-
-                debugPrint(
-                    'Updated local storage for $category with database data');
-              } catch (e) {
-                debugPrint('Error processing database tasks for $category: $e');
-              }
+          if (tasksJson != null && tasksJson.isNotEmpty) {
+            try {
+              final List<dynamic> decoded = json.decode(tasksJson);
+              _todoLists[month] = decoded.map((item) => TodoItem.fromJson(item)).toList();
+              
+              // Save to local storage AND widget storage with universal key
+              await prefs.setString('annual_planner_$month', tasksJson);
+              await HomeWidget.saveWidgetData('annual_planner_$month', tasksJson);
+            } catch (e) {
+              debugPrint('Error processing database tasks for $month: $e');
             }
           }
-
-          // Update the widget after syncing
-          await HomeWidget.updateWidget(
-            androidName: 'AnnualPlannerWidget',
-            iOSName: 'AnnualPlannerWidget',
-          );
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Synced with cloud'),
-                duration: Duration(seconds: 1),
-              ),
-            );
-          }
         }
+
+        setState(() {});
+        debugPrint('Synced ${_todoLists.length} months from database');
+
+        // Update the widget after syncing
+        await HomeWidget.updateWidget(
+          androidName: 'AnnualPlannerWidget',
+          iOSName: 'AnnualPlannerWidget',
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Synced with cloud'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+
         _lastSyncTime = DateTime.now();
       } else {
         debugPrint('No user info found');
@@ -368,55 +328,16 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
     }
   }
 
-  Future<void> _saveTodoList(String category) async {
+  // Save todo list for a specific month
+  Future<void> _saveTodoList(String month) async {
     try {
-      // Save to local storage first as backup
       final prefs = await SharedPreferences.getInstance();
-      final todos = _todoLists[category];
-
-      if (todos == null) return;
-
-      final encoded = json.encode(todos.map((item) => item.toJson()).toList());
-      final themeConfig = _themeConfig;
-      final storagePrefix = themeConfig['storagePrefix'] as String;
+      final todoList = _todoLists[month] ?? [];
+      final encoded = json.encode(todoList.map((item) => item.toJson()).toList());
       
-      await prefs.setString('${storagePrefix}_todos_$category', encoded);
-
-      // Map category to month for widget compatibility
-      final monthForWidget = _mapCategoryToMonth(category);
-      
-      // Save to HomeWidget with both category and month keys
-      await HomeWidget.saveWidgetData('${storagePrefix}_todos_$category', encoded);
-      
-      // Debug logging for widget data
-      final themeTypeCapitalized = '${(themeConfig['type'] as String)[0].toUpperCase()}${(themeConfig['type'] as String).substring(1)}';
-      final widgetKey = '${themeTypeCapitalized}Theme_todos_$monthForWidget';
-      debugPrint('Custom Annual Planner: Saving widget data with key: $widgetKey');
-      debugPrint('Custom Annual Planner: Category: $category, MonthForWidget: $monthForWidget');
-      debugPrint('Custom Annual Planner: Theme type: ${themeConfig['type']} -> Capitalized: $themeTypeCapitalized');
-      
-      await HomeWidget.saveWidgetData(widgetKey, encoded);
-      await HomeWidget.saveWidgetData(
-          '${themeConfig['type']}_todo_text_$category', _formatDisplayText(category));
-      await HomeWidget.saveWidgetData(
-          '${themeConfig['type']}_todo_text_$monthForWidget', _formatDisplayText(category));
-
-      // Set the annual planner theme for the widget (try multiple widget IDs)
-      final themeName = '$themeTypeCapitalized Annual Planner';
-      await HomeWidget.saveWidgetData('annual_planner_theme_1', themeName);
-      await HomeWidget.saveWidgetData('annual_planner_theme_2', themeName);
-      await HomeWidget.saveWidgetData('annual_planner_theme_3', themeName);
-      
-      debugPrint('Custom Annual Planner: Set theme to: $themeName');
-
-      // Set up month configuration for the widget (try multiple widget IDs)
-      final monthIndex = widget.selectedAreas.indexOf(category);
-      if (monthIndex >= 0) {
-        await HomeWidget.saveWidgetData('month_1_$monthIndex', monthForWidget);
-        await HomeWidget.saveWidgetData('month_2_$monthIndex', monthForWidget);
-        await HomeWidget.saveWidgetData('month_3_$monthIndex', monthForWidget);
-        debugPrint('Custom Annual Planner: Set month_1_$monthIndex to: $monthForWidget');
-      }
+      // Save with universal key (same across all themes)
+      await prefs.setString('annual_planner_$month', encoded);
+      await HomeWidget.saveWidgetData('annual_planner_$month', encoded);
 
       // Update the widget
       await HomeWidget.updateWidget(
@@ -429,8 +350,9 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
         final userInfo = await UserService.instance.getUserInfo();
         if (userInfo['userName']?.isNotEmpty == true &&
             userInfo['email']?.isNotEmpty == true) {
+          // Save with month as identifier
           final success = await AnnualCalendarService.instance
-              .saveTodoItem(userInfo, category, encoded, theme: themeConfig['type']);
+              .saveTodoItem(userInfo, encoded, theme: month);
 
           if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -477,22 +399,8 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
     }
   }
 
-  String _formatDisplayText(String category) {
-    final todos = _todoLists[category];
-    if (todos == null || todos.isEmpty) return '';
-
-    // Format each todo item with a bullet point and handle completion status
-    return todos.map((item) {
-      final checkmark = item.completed ? '✓ ' : '• ';
-      return "$checkmark${item.text}";
-    }).join('\n');
-  }
-
   @override
   void dispose() {
-    for (var controller in _controllers.values) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
@@ -554,7 +462,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: GestureDetector(
                 onTap: () => _showTodoDialog(title),
-                child: _todoLists[title]?.isEmpty ?? true
+                child: (_todoLists[title] ?? []).isEmpty
                     ? Text(
                         _isCustomCreatedCard(title) ? 'Create your\nmonthly goals' : 'Plan your\nmonthly goals',
                         style: TextStyle(
@@ -565,7 +473,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
                       )
                     : Text.rich(
                         TextSpan(
-                          children: _todoLists[title]?.map((todo) {
+                          children: (_todoLists[title] ?? []).map((todo) {
                                 return TextSpan(
                                   text: "• ${todo.text}\n",
                                   style: TextStyle(
@@ -578,8 +486,7 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
                                         : textColor,
                                   ),
                                 );
-                              }).toList() ??
-                              [],
+                              }).toList(),
                         ),
                       ),
               ),
@@ -638,14 +545,8 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
           onSave: (updatedItems) async {
             setState(() {
               _todoLists[category] = updatedItems;
-              _controllers[category]?.text = _formatDisplayText(category);
             });
             await _saveTodoList(category);
-
-            // Trigger a sync after saving
-            if (_hasNetworkConnectivity) {
-              await _syncWithDatabase();
-            }
           },
         ),
       ),
@@ -879,36 +780,6 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
     return !predefinedAreas.contains(title);
   }
 
-  // Map custom category names to standard month names for widget compatibility
-  String _mapCategoryToMonth(String category) {
-    // If it's already a standard month name, return it
-    final standardMonths = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    
-    if (standardMonths.contains(category)) {
-      debugPrint('Custom Annual Planner: Category $category is already a standard month');
-      return category;
-    }
-    
-    // Map custom categories to months based on their position in the selected areas
-    final selectedAreas = widget.selectedAreas;
-    final categoryIndex = selectedAreas.indexOf(category);
-    
-    debugPrint('Custom Annual Planner: Category $category found at index $categoryIndex in selected areas: $selectedAreas');
-    
-    if (categoryIndex >= 0 && categoryIndex < standardMonths.length) {
-      final mappedMonth = standardMonths[categoryIndex];
-      debugPrint('Custom Annual Planner: Mapping category $category to month $mappedMonth');
-      return mappedMonth;
-    }
-    
-    // Fallback to January if no mapping found
-    debugPrint('Custom Annual Planner: No mapping found for category $category, using January as fallback');
-    return 'January';
-  }
-
   // Helper method to get the correct image path based on theme and card index
   String _getCardImagePath(String themeType, int index) {
     switch (themeType) {
@@ -1015,21 +886,28 @@ class TodoListDialogState extends State<TodoListDialog>
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _textController,
-            decoration: InputDecoration(
-              hintText: 'Add a new monthly goal',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.add),
-                onPressed: _addItem,
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _textController,
+                  decoration: const InputDecoration(
+                    hintText: 'Add a new monthly goal',
+                  ),
+                  onChanged: (value) {
+                    if (value.isNotEmpty && value.length % 10 == 0) {
+                      trackTextInput('Task text', value: value);
+                    }
+                  },
+                  onSubmitted: (_) => _addItem(),
+                ),
               ),
-            ),
-            onChanged: (value) {
-              if (value.isNotEmpty && value.length % 10 == 0) {
-                trackTextInput('Task text', value: value);
-              }
-            },
-            onSubmitted: (_) => _addItem(),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _addItem,
+                child: const Text('Add'),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Flexible(

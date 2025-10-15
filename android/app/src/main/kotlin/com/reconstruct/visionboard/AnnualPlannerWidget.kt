@@ -15,7 +15,7 @@ import android.view.View
 
 class AnnualPlannerWidget : AppWidgetProvider() {
     companion object {
-        private const val MAX_MONTHS = 12
+        private const val MAX_MONTHS = 5
         
         private val monthsList = arrayOf(
             "January", "February", "March", "April", "May", "June",
@@ -87,9 +87,11 @@ class AnnualPlannerWidget : AppWidgetProvider() {
             views.removeAllViews(R.id.months_container)
             
             try {
-                // Get current theme and active months
+                // Auto-detect current theme from last used theme in app
                 val prefs = HomeWidgetPlugin.getData(context)
-                val currentTheme = prefs.getString("annual_planner_theme_$appWidgetId", "PostIt Annual Planner") ?: "PostIt Annual Planner"
+                val currentTheme = prefs.getString("flutter.annual_planner_current_theme", null)
+                    ?: prefs.getString("annual_planner_current_theme", "Floral Monthly Planner")
+                    ?: "Floral Monthly Planner"
                 
                 // Get all configured months
                 val allConfiguredMonths = mutableListOf<Pair<Int, String>>()
@@ -100,12 +102,63 @@ class AnnualPlannerWidget : AppWidgetProvider() {
                     }
                 }
                 
+                // Auto-add months with tasks if less than 4
+                if (allConfiguredMonths.size < 4) {
+                    val existingMonths = allConfiguredMonths.map { it.second }.toSet()
+                    val monthsWithTasks = monthsList.filter { month ->
+                        month !in existingMonths && hasMonthTasks(context, appWidgetId, month)
+                    }
+                    
+                    val editor = prefs.edit()
+                    var added = 0
+                    for (month in monthsWithTasks) {
+                        if (allConfiguredMonths.size + added < 4) {
+                            val newIndex = allConfiguredMonths.size + added
+                            editor.putString("month_${appWidgetId}_$newIndex", month)
+                            allConfiguredMonths.add(Pair(newIndex, month))
+                            added++
+                            Log.d("AnnualPlannerWidget", "Auto-added month: $month")
+                        } else {
+                            break
+                        }
+                    }
+                    if (added > 0) {
+                        editor.apply()
+                    }
+                }
+                
                 // Filter to only show months with tasks
                 val selectedMonths = allConfiguredMonths.filter { (_, month) ->
                     hasMonthTasks(context, appWidgetId, month)
                 }
                 
                 val activeMonthCount = selectedMonths.size
+
+                // Handle empty state - show message if no months have tasks
+                if (selectedMonths.isEmpty()) {
+                    Log.d("AnnualPlannerWidget", "No months with tasks found for widget $appWidgetId")
+                    
+                    // Show empty state message on widget
+                    val emptyView = RemoteViews(context.packageName, R.layout.annual_planner_month_item)
+                    emptyView.setTextViewText(R.id.month_name, "No Goals")
+                    emptyView.setTextViewText(R.id.todo_text, "Add goals in:\n$currentTheme\n\nTap + to add months")
+                    
+                    // Set styling based on theme (match Flutter theme names)
+                    when {
+                        currentTheme.contains("Premium") -> {
+                            emptyView.setInt(R.id.month_container, "setBackgroundColor", 0xFF202020.toInt())
+                            emptyView.setTextColor(R.id.month_name, 0xFFFFFFFF.toInt())
+                            emptyView.setTextColor(R.id.todo_text, 0xFFCCCCCC.toInt())
+                        }
+                        else -> {
+                            emptyView.setInt(R.id.month_container, "setBackgroundColor", 0xFFFFE4B5.toInt())
+                            emptyView.setTextColor(R.id.month_name, 0xFF000000.toInt())
+                            emptyView.setTextColor(R.id.todo_text, 0xFF666666.toInt())
+                        }
+                    }
+                    
+                    views.addView(R.id.months_container, emptyView)
+                }
 
                 // Add months with tasks
                 for (i in selectedMonths.indices) {
@@ -120,24 +173,24 @@ class AnnualPlannerWidget : AppWidgetProvider() {
                     monthItem.setTextViewText(R.id.month_name, month)
                     monthItem.setTextViewText(R.id.todo_text, todoText)
                     
-                    // Set background image based on theme
+                    // Set background image based on theme (match Flutter theme names)
                     val monthIndex = monthsList.indexOf(month)
-                    when (currentTheme) {
-                        "PostIt Annual Planner" -> {
+                    when {
+                        currentTheme.contains("PostIt") || currentTheme.contains("Post-it") -> {
                             views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.postit_background)
                             views.setInt(R.id.categories_container, "setBackgroundResource", 0) // Remove background
                             monthItem.setInt(R.id.month_container, "setBackgroundColor", postitColors[monthIndex])
                             monthItem.setTextColor(R.id.month_name, Color.parseColor("#1976D2")) // Using hex color for blue
                             monthItem.setTextColor(R.id.todo_text, Color.BLACK)
                         }
-                        "Premium Annual Planner" -> {
+                        currentTheme.contains("Premium") -> {
                             views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.vision_board_background)
                             views.setInt(R.id.categories_container, "setBackgroundResource", 0)
                             monthItem.setInt(R.id.month_container, "setBackgroundColor", premiumColors[monthIndex])
                             monthItem.setTextColor(R.id.month_name, 0xFFFFFFFF.toInt()) // White text
                             monthItem.setTextColor(R.id.todo_text, 0xFFFFFFFF.toInt())  // White text
                         }
-                        "Watercolor Annual Planner" -> {
+                        currentTheme.contains("Watercolor") -> {
                             views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.vision_board_background)
                             views.setInt(R.id.categories_container, "setBackgroundResource", 0)
                             monthItem.setImageViewResource(R.id.month_background, watercolorColors[monthIndex])
@@ -145,13 +198,22 @@ class AnnualPlannerWidget : AppWidgetProvider() {
                             monthItem.setTextColor(R.id.month_name, Color.BLACK)
                             monthItem.setTextColor(R.id.todo_text, Color.BLACK)
                         }
-                        "Floral Annual Planner" -> {
+                        currentTheme.contains("Floral") -> {
                             views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.vision_board_background)
                             views.setInt(R.id.categories_container, "setBackgroundResource", 0)
                             monthItem.setImageViewResource(R.id.month_background, floralBackgrounds[monthIndex])
                             monthItem.setInt(R.id.month_container, "setBackgroundColor", 0x00000000) // Transparent
                             monthItem.setTextColor(R.id.month_name, 0xFFFFFFFF.toInt()) // White text for month name
                             monthItem.setTextColor(R.id.todo_text, 0xFFFFFFFF.toInt())  // White text for todo text
+                        }
+                        else -> {
+                            // Default to floral theme
+                            views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.vision_board_background)
+                            views.setInt(R.id.categories_container, "setBackgroundResource", 0)
+                            monthItem.setImageViewResource(R.id.month_background, floralBackgrounds[monthIndex])
+                            monthItem.setInt(R.id.month_container, "setBackgroundColor", 0x00000000) // Transparent
+                            monthItem.setTextColor(R.id.month_name, 0xFFFFFFFF.toInt())
+                            monthItem.setTextColor(R.id.todo_text, 0xFFFFFFFF.toInt())
                         }
                     }
                     
@@ -214,20 +276,12 @@ class AnnualPlannerWidget : AppWidgetProvider() {
         }
         
         private fun getTodoTextForMonth(context: Context, theme: String, month: String): String {
+            // Use universal storage key (check both flutter. prefix and without)
             val prefs = HomeWidgetPlugin.getData(context)
+            val encodedTodos = prefs.getString("flutter.annual_planner_$month", null)
+                ?: prefs.getString("annual_planner_$month", null)
             
-            // Only use direct JSON parsing - skip pre-formatted text
-            val jsonKey = when (theme) {
-                "PostIt Annual Planner" -> "PostItTheme_todos_$month"
-                "Premium Annual Planner" -> "PremiumTheme_todos_$month"
-                "Watercolor Annual Planner" -> "WatercolorTheme_todos_$month"
-                "Floral Annual Planner" -> "FloralTheme_todos_$month"
-                else -> "PostItTheme_todos_$month"
-            }
-            
-            // Get JSON data directly and log for debugging
-            val encodedTodos = prefs.getString(jsonKey, null)
-            Log.d("AnnualPlannerWidget", "Loading todos for $month with key $jsonKey: ${encodedTodos?.length ?: 0} chars")
+            Log.d("AnnualPlannerWidget", "Loading todos for $month: ${encodedTodos?.length ?: 0} chars")
             
             return getTodoTextFromEncoded(encodedTodos)
         }
@@ -274,18 +328,11 @@ class AnnualPlannerWidget : AppWidgetProvider() {
          * Check if a month has any tasks for the given theme
          */
         fun hasMonthTasks(context: Context, appWidgetId: Int, month: String): Boolean {
+            // Use universal storage key (check both flutter. prefix and without)
             val prefs = HomeWidgetPlugin.getData(context)
-            val currentTheme = prefs.getString("annual_planner_theme_$appWidgetId", "PostIt Annual Planner") ?: "PostIt Annual Planner"
+            val encodedTodos = prefs.getString("flutter.annual_planner_$month", null)
+                ?: prefs.getString("annual_planner_$month", null)
             
-            val jsonKey = when (currentTheme) {
-                "PostIt Annual Planner" -> "PostItTheme_todos_$month"
-                "Premium Annual Planner" -> "PremiumTheme_todos_$month"
-                "Watercolor Annual Planner" -> "WatercolorTheme_todos_$month"
-                "Floral Annual Planner" -> "FloralTheme_todos_$month"
-                else -> "PostItTheme_todos_$month"
-            }
-            
-            val encodedTodos = prefs.getString(jsonKey, null)
             if (encodedTodos?.isEmpty() != false) return false
             
             return try {

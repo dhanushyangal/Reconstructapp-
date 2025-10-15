@@ -55,7 +55,7 @@ class CustomVisionBoardPage extends StatefulWidget {
 class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   final screenshotController = ScreenshotController();
-  final Map<String, TextEditingController> _controllers = {};
+  // Different task list per category (same across all themes)
   final Map<String, List<TodoItem>> _todoLists = {};
   bool _isSyncing = false;
   DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
@@ -188,14 +188,8 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
   @override
   void initState() {
     super.initState();
-    
-    // Initialize controllers and todo lists for selected areas only
-    for (var category in widget.selectedAreas) {
-      _controllers[category] = TextEditingController();
-      _todoLists[category] = [];
-    }
 
-    // Load all data from local storage first (fast)
+    // Load shared data from local storage first (fast)
     _loadAllFromLocalStorage().then((_) {
       // Then check database connectivity
       _checkDatabaseConnectivity().then((hasConnectivity) {
@@ -223,28 +217,25 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
     _trackActivity();
   }
 
-  // Load all data from local storage (fast operation)
+  // Load data per category from local storage (fast operation)
   Future<void> _loadAllFromLocalStorage() async {
     final prefs = await SharedPreferences.getInstance();
-    final themeConfig = _themeConfig;
-    final storagePrefix = themeConfig['storagePrefix'] as String;
 
-    for (var category in widget.selectedAreas) {
-      try {
-        final savedTodos = prefs.getString('${storagePrefix}_todos_$category');
+    try {
+      // Load tasks for each selected area (category) using universal keys
+      for (var category in widget.selectedAreas) {
+        final savedTodos = prefs.getString('vision_board_$category');
         if (savedTodos != null) {
           final List<dynamic> decoded = json.decode(savedTodos);
-          setState(() {
-            _todoLists[category] =
-                decoded.map((item) => TodoItem.fromJson(item)).toList();
-            _controllers[category]?.text = _formatDisplayText(category);
-          });
-          debugPrint(
-              'Loaded ${_todoLists[category]?.length ?? 0} tasks from local storage for $category');
+          _todoLists[category] = decoded.map((item) => TodoItem.fromJson(item)).toList();
+        } else {
+          _todoLists[category] = [];
         }
-      } catch (e) {
-        debugPrint('Error parsing local tasks for $category: $e');
       }
+      setState(() {});
+      debugPrint('Loaded tasks for ${_todoLists.length} categories from local storage');
+    } catch (e) {
+      debugPrint('Error parsing local vision board tasks: $e');
     }
   }
 
@@ -272,7 +263,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
     }
   }
 
-  // Sync all data with database at once
+  // Sync shared data with database
   Future<void> _syncWithDatabase() async {
     if (_isSyncing) return;
 
@@ -287,37 +278,28 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
 
       if (userInfo['userName']?.isNotEmpty == true &&
           userInfo['email']?.isNotEmpty == true) {
-        final allTasksFromDb =
-            await DatabaseService.instance.loadUserTasks(userInfo, storagePrefix);
+        // Load tasks for each selected area (category)
+      for (var category in widget.selectedAreas) {
+        final tasksJson = await DatabaseService.instance.loadUserTasks(userInfo, category);
 
-        if (allTasksFromDb.isNotEmpty) {
-          final prefs = await SharedPreferences.getInstance();
+        if (tasksJson != null && tasksJson.isNotEmpty) {
+          try {
+            final List<dynamic> decoded = json.decode(tasksJson);
+            final prefs = await SharedPreferences.getInstance();
 
-          for (var dbTask in allTasksFromDb) {
-            final category = dbTask['card_id'];
-            if (_todoLists.containsKey(category)) {
-              try {
-                final tasksJson = dbTask['tasks'] as String;
-                final List<dynamic> decoded = json.decode(tasksJson);
+            // Update the specific category's task list
+            _todoLists[category] = decoded.map((item) => TodoItem.fromJson(item)).toList();
 
-                setState(() {
-                  _todoLists[category] =
-                      decoded.map((item) => TodoItem.fromJson(item)).toList();
-                  _controllers[category]?.text = _formatDisplayText(category);
-                });
+            // Save to both local storage AND widget storage
+            await prefs.setString('vision_board_$category', tasksJson);
+            await HomeWidget.saveWidgetData('vision_board_$category', tasksJson);
 
-                await prefs.setString('${storagePrefix}_todos_$category', tasksJson);
-                await HomeWidget.saveWidgetData(
-                    '${storagePrefix}_todos_$category', tasksJson);
-
-                debugPrint(
-                    'Updated local storage for $category with database data');
-              } catch (e) {
-                debugPrint('Error processing database tasks for $category: $e');
-              }
-            }
+            debugPrint('Updated local storage for category: $category');
+          } catch (e) {
+            debugPrint('Error processing database tasks for $category: $e');
           }
         }
+      }
 
         _lastSyncTime = DateTime.now();
       }
@@ -332,17 +314,15 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
     }
   }
 
-  // Improved to prioritize local storage
+  // Save todo list for a specific category
   Future<void> _saveTodoList(String category) async {
     final prefs = await SharedPreferences.getInstance();
-    final encoded = json
-        .encode(_todoLists[category]?.map((item) => item.toJson()).toList());
-    final themeConfig = _themeConfig;
-    final storagePrefix = themeConfig['storagePrefix'] as String;
+    final todoList = _todoLists[category] ?? [];
+    final encoded = json.encode(todoList.map((item) => item.toJson()).toList());
 
-    // Always save locally first (fast operation)
-    await prefs.setString('${storagePrefix}_todos_$category', encoded);
-    await HomeWidget.saveWidgetData('${storagePrefix}_todos_$category', encoded);
+    // Always save locally AND to widget storage first (fast operation)
+    await prefs.setString('vision_board_$category', encoded);
+    await HomeWidget.saveWidgetData('vision_board_$category', encoded);
 
     // Update the widget
     await HomeWidget.updateWidget(
@@ -371,7 +351,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
         final userInfo = await UserService.instance.getUserInfo();
 
         DatabaseService.instance
-            .saveTodoItem(userInfo, category, encoded, storagePrefix)
+            .saveTodoItem(userInfo, encoded, category)
             .then((success) {
           if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -402,18 +382,8 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
     }
   }
 
-  String _formatDisplayText(String category) {
-    final todos = _todoLists[category];
-    if (todos == null || todos.isEmpty) return '';
-
-    return todos.map((item) => "• ${item.text}").join("\n");
-  }
-
   @override
   void dispose() {
-    for (var controller in _controllers.values) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
@@ -482,7 +452,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: GestureDetector(
                 onTap: () => _showTodoDialog(title),
-                child: _todoLists[title]?.isEmpty ?? true
+                child: (_todoLists[title] ?? []).isEmpty
                     ? Text(
                         _isCustomCreatedCard(title) ? 'Create your\ncustom vision' : 'Write your\nvision here',
                         style: TextStyle(
@@ -493,7 +463,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                       )
                     : Text.rich(
                         TextSpan(
-                          children: _todoLists[title]?.map((todo) {
+                          children: (_todoLists[title] ?? []).map((todo) {
                                 return TextSpan(
                                   text: "• ${todo.text}\n",
                                   style: TextStyle(
@@ -506,8 +476,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
                                         : textColor,
                                   ),
                                 );
-                              }).toList() ??
-                              [],
+                              }).toList(),
                         ),
                       ),
               ),
@@ -553,6 +522,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
   }
 
   void _showTodoDialog(String category) {
+    trackClick('Open $category tasks');
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -563,7 +533,6 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
           onSave: (updatedItems) async {
             setState(() {
               _todoLists[category] = updatedItems;
-              _controllers[category]?.text = _formatDisplayText(category);
             });
             await _saveTodoList(category);
           },
@@ -855,16 +824,23 @@ class TodoListDialogState extends State<TodoListDialog> {
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _textController,
-            decoration: InputDecoration(
-              hintText: 'Add a new task',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.add),
-                onPressed: _addItem,
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _textController,
+                  decoration: const InputDecoration(
+                    hintText: 'Add a new task',
+                  ),
+                  onSubmitted: (_) => _addItem(),
+                ),
               ),
-            ),
-            onSubmitted: (_) => _addItem(),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _addItem,
+                child: const Text('Add'),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Flexible(

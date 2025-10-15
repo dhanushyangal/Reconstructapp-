@@ -48,20 +48,14 @@ class AnnualPlannerThemeActivity : Activity() {
         val prefs = HomeWidgetPlugin.getData(this)
         prefs.edit().putString("annual_planner_theme_$appWidgetId", theme).apply()
 
-        // Send broadcast to update widget
+        // Send broadcast to update widget - this will auto-add months with tasks
         val updateIntent = Intent(this, AnnualPlannerWidget::class.java).apply {
             action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(appWidgetId))
         }
         sendBroadcast(updateIntent)
 
-        // Launch month selection
-        val configIntent = Intent(this, AnnualPlannerConfigureActivity::class.java).apply {
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            putExtra("month_index", 0)
-        }
-        startActivity(configIntent)
-
+        // Finish immediately - widget will auto-populate with months that have tasks
         val resultValue = Intent().apply {
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
         }

@@ -6,7 +6,7 @@ import '../services/database_service.dart';
 
 import '../services/user_service.dart';
 import '../services/journey_database_service.dart';
-import '../vision_bord/box_them_vision_board.dart';
+import '../vision_bord/unified_vision_board_page.dart';
 
 // Define the FinanceTask class
 class FinanceTask {
@@ -2129,7 +2129,7 @@ class _FinanceJourneyState extends State<FinanceJourney> {
             context,
             MaterialPageRoute(
               builder: (context) =>
-                  VisionBoardDetailsPage(title: 'Box Theme Vision Board'),
+                  const UnifiedVisionBoardPage(themeName: 'Box theme Vision Board'),
             ),
           );
         }

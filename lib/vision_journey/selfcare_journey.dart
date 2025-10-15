@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:home_widget/home_widget.dart';
-import '../vision_bord/box_them_vision_board.dart';
+import '../vision_bord/unified_vision_board_page.dart';
 import '../services/journey_database_service.dart';
 import '../services/user_service.dart';
 
@@ -2053,7 +2053,7 @@ class _SelfCareJourneyState extends State<SelfCareJourney> {
             context,
             MaterialPageRoute(
               builder: (context) =>
-                  VisionBoardDetailsPage(title: 'Box Theme Vision Board'),
+                  const UnifiedVisionBoardPage(themeName: 'Box theme Vision Board'),
             ),
           );
         }

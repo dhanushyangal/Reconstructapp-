@@ -66,7 +66,7 @@ class VisionBoardWidget : AppWidgetProvider() {
     }
 
     companion object {
-        private const val MAX_CATEGORIES = 5
+        private const val MAX_CATEGORIES = 5 // 4 auto-added + 1 manual
         
         // Color arrays for each theme's categories
         private val premiumColors = arrayOf(
@@ -130,8 +130,9 @@ class VisionBoardWidget : AppWidgetProvider() {
                 val prefs = HomeWidgetPlugin.getData(context)
                 val views = RemoteViews(context.packageName, R.layout.vision_board_widget)
                 
-                // Get current theme using widget-specific key
-                val currentTheme = prefs.getString(getThemeKey(appWidgetId), "Box Vision Board")
+                // Auto-detect current theme from last used theme in app
+                val currentTheme = prefs.getString("flutter.vision_board_current_theme", null)
+                    ?: prefs.getString("vision_board_current_theme", "Box Theme Vision Board")
                 
                 // Set widget background based on theme
                 when (currentTheme) {
@@ -194,24 +195,44 @@ class VisionBoardWidget : AppWidgetProvider() {
                     allCategories.add(category)
                     index++
                 }
+                
+                // Auto-add categories with tasks if less than 4
+                if (allCategories.size < 4) {
+                    val visionCategories = arrayOf(
+                        "BMI", "Career", "DIY", "Family", "Food",
+                        "Forgive", "Health", "Help", "Hobbies",
+                        "Income", "Inspiration", "Invest", "Knowledge",
+                        "Love", "Luxury", "Music", "Reading", "Self Care",
+                        "Social", "Tech", "Travel"
+                    )
+                    
+                    val categoriesWithTasks = visionCategories.filter { category ->
+                        category !in allCategories && hasCategoryTasks(context, appWidgetId, category)
+                    }
+                    
+                    val editor = prefs.edit()
+                    var added = 0
+                    for (category in categoriesWithTasks) {
+                        if (allCategories.size + added < 4) {
+                            editor.putString("category_${appWidgetId}_${allCategories.size + added}", category)
+                            allCategories.add(category)
+                            added++
+                            Log.d("VisionBoardWidget", "Auto-added category: $category")
+                        } else {
+                            break
+                        }
+                    }
+                    if (added > 0) {
+                        editor.apply()
+                    }
+                }
 
                 // Filter categories to only show those with tasks
                 val categoriesWithTasks = mutableListOf<String>()
                 for (category in allCategories) {
-                    // Load todos based on theme
-                    val savedTodos = when (currentTheme) {
-                        "Premium Vision Board" -> prefs.getString("premium_todos_$category", "")
-                        "PostIt Vision Board" -> prefs.getString("postit_todos_$category", "")
-                        "Ruby Reds Vision Board" -> prefs.getString("ruby_reds_todos_$category", "")
-                        "Winter Warmth Vision Board" -> prefs.getString("winter_warmth_todos_$category", "")
-                        "Coffee Hues Vision Board" -> prefs.getString("coffee_hues_todos_$category", "")
-                        "Box Vision Board" -> {
-                            val todos = prefs.getString("BoxThem_todos_$category", "")
-                            Log.d("VisionBoardWidget", "Retrieved todos for $category: $todos")
-                            todos
-                        }
-                        else -> ""
-                    }
+                    // Load todos using universal key (check both flutter. prefix and without)
+                    val savedTodos = prefs.getString("flutter.vision_board_$category", null)
+                        ?: prefs.getString("vision_board_$category", "")
                     
                     // Check if category has any tasks
                     if (savedTodos?.isNotEmpty() == true) {
@@ -231,8 +252,16 @@ class VisionBoardWidget : AppWidgetProvider() {
 
                 // Handle empty state - show message if no categories have tasks
                 if (categoriesWithTasks.isEmpty()) {
-                    // Show empty state message - for now just show the add button
                     Log.d("VisionBoardWidget", "No categories with tasks found for widget $appWidgetId")
+                    
+                    // Show empty state message on widget
+                    val emptyView = RemoteViews(context.packageName, R.layout.vision_board_grid_item)
+                    emptyView.setTextViewText(R.id.category_name, "No Goals")
+                    emptyView.setTextViewText(R.id.todo_text, "Add goals in:\n$currentTheme\n\nTap + to add categories")
+                    emptyView.setInt(R.id.category_container, "setBackgroundColor", 0x33FFFFFF)
+                    emptyView.setTextColor(R.id.category_name, 0xFF000000.toInt())
+                    emptyView.setTextColor(R.id.todo_text, 0xFF666666.toInt())
+                    views.addView(R.id.categories_container, emptyView)
                 } else {
                     // Add categories to container (only those with tasks)
                     for (i in categoriesWithTasks.indices) {
@@ -271,20 +300,9 @@ class VisionBoardWidget : AppWidgetProvider() {
                     itemView.setTextColor(R.id.category_name, textColor)
                     itemView.setTextColor(R.id.todo_text, textColor)
                     
-                    // Load todos based on theme (we already know this category has tasks)
-                    val savedTodos = when (currentTheme) {
-                        "Premium Vision Board" -> prefs.getString("premium_todos_$category", "")
-                        "PostIt Vision Board" -> prefs.getString("postit_todos_$category", "")
-                        "Ruby Reds Vision Board" -> prefs.getString("ruby_reds_todos_$category", "")
-                        "Winter Warmth Vision Board" -> prefs.getString("winter_warmth_todos_$category", "")
-                        "Coffee Hues Vision Board" -> prefs.getString("coffee_hues_todos_$category", "")
-                        "Box Vision Board" -> {
-                            val todos = prefs.getString("BoxThem_todos_$category", "")
-                            Log.d("VisionBoardWidget", "Retrieved todos for $category: $todos")
-                            todos
-                        }
-                        else -> ""
-                    }
+                    // Load todos using universal key (check both flutter. prefix and without)
+                    val savedTodos = prefs.getString("flutter.vision_board_$category", null)
+                        ?: prefs.getString("vision_board_$category", "")
 
                     val displayText = try {
                         val jsonArray = JSONArray(savedTodos)
@@ -362,18 +380,10 @@ class VisionBoardWidget : AppWidgetProvider() {
          * Check if a category has any tasks for the given theme
          */
         fun hasCategoryTasks(context: Context, appWidgetId: Int, category: String): Boolean {
+            // Use universal storage key (check both flutter. prefix and without)
             val prefs = HomeWidgetPlugin.getData(context)
-            val currentTheme = prefs.getString(getThemeKey(appWidgetId), "Box Vision Board")
-            
-            val savedTodos = when (currentTheme) {
-                "Premium Vision Board" -> prefs.getString("premium_todos_$category", "")
-                "PostIt Vision Board" -> prefs.getString("postit_todos_$category", "")
-                "Ruby Reds Vision Board" -> prefs.getString("ruby_reds_todos_$category", "")
-                "Winter Warmth Vision Board" -> prefs.getString("winter_warmth_todos_$category", "")
-                "Coffee Hues Vision Board" -> prefs.getString("coffee_hues_todos_$category", "")
-                "Box Vision Board" -> prefs.getString("BoxThem_todos_$category", "")
-                else -> ""
-            }
+            val savedTodos = prefs.getString("flutter.vision_board_$category", null)
+                ?: prefs.getString("vision_board_$category", "")
             
             if (savedTodos?.isEmpty() != false) return false
             

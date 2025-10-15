@@ -8,12 +8,7 @@ import 'dart:io';
 import '../services/auth_service.dart';
 import '../services/offline_sync_service.dart';
 import '../vision_bord/vision_board_page.dart';
-import '../vision_bord/box_them_vision_board.dart';
-import '../vision_bord/premium_them_vision_board.dart';
-import '../vision_bord/post_it_theme_vision_board.dart';
-import '../vision_bord/winter_warmth_theme_vision_board.dart';
-import '../vision_bord/ruby_reds_theme_vision_board.dart';
-import '../vision_bord/coffee_hues_theme_vision_board.dart';
+import '../vision_bord/unified_vision_board_page.dart';
 import '../Annual_calender/annual_calendar_page.dart';
 import '../Annual_calender/animal_theme_annual_planner.dart' as animal_calendar;
 import '../Annual_calender/summer_theme_annual_planner.dart' as summer_calendar;
@@ -22,15 +17,9 @@ import '../Annual_calender/spaniel_theme_annual_planner.dart'
 import '../Annual_calender/happy_couple_theme_annual_planner.dart'
     as happy_couple_calendar;
 import '../Annual_planner/annual_planner_page.dart';
-import '../Annual_planner/watercolor_theme_annual_planner.dart';
-import '../Annual_planner/postit_theme_annual_planner.dart';
-import '../Annual_planner/floral_theme_annual_planner.dart';
-import '../Annual_planner/premium_theme_annual_planner.dart';
+import '../Annual_planner/unified_annual_planner_page.dart';
 import '../weekly_planners/weekly_planner_page.dart';
-import '../weekly_planners/patterns_theme_weekly_planner.dart';
-import '../weekly_planners/japanese_theme_weekly_planner.dart';
-import '../weekly_planners/floral_theme_weekly_planner.dart';
-import '../weekly_planners/watercolor_theme_weekly_planner.dart';
+import '../weekly_planners/unified_weekly_planner_page.dart';
 import '../config/api_config.dart';
 import '../utils/activity_tracker_mixin.dart';
 
@@ -396,65 +385,44 @@ class _ActiveTasksPageState extends State<ActiveTasksPage>
   }
 
   void _checkVisionBoardTodos(Set<String> allKeys, SharedPreferences prefs) {
-    if (_checkBoardHasTasks(allKeys, 'BoxThem_todos_', prefs)) {
+    // Check for per-category keys (different data per category, same across themes)
+    final categories = ['Travel', 'Self Care', 'Forgive', 'Love', 'Family', 'Career', 'Health', 
+                       'Hobbies', 'Knowledge', 'Social', 'Reading', 'Food', 'Music', 'Tech', 
+                       'DIY', 'Luxury', 'Income', 'BMI', 'Invest', 'Inspiration', 'Help'];
+    
+    bool hasVisionBoardData = false;
+    for (var category in categories) {
+      if (allKeys.contains('vision_board_$category') && _hasValidTasks('vision_board_$category', prefs)) {
+        hasVisionBoardData = true;
+        break;
+      }
+    }
+    
+    if (hasVisionBoardData) {
       _activeBoards.add({
-        'name': 'Box Theme Vision Board',
-        'icon': Icons.crop_square,
+        'name': 'Vision Board',
+        'icon': Icons.dashboard_customize,
         'color': Colors.teal,
         'type': 'vision',
-        'theme': 'box'
+        'theme': 'Box theme Vision Board' // Default theme for navigation
       });
     }
+  }
 
-    if (_checkBoardHasTasks(allKeys, 'premium_todos_', prefs)) {
-      _activeBoards.add({
-        'name': 'Premium Theme Vision Board',
-        'icon': Icons.grade,
-        'color': Colors.amber,
-        'type': 'vision',
-        'theme': 'premium'
-      });
+  // Helper to check if a key has valid task data
+  bool _hasValidTasks(String key, SharedPreferences prefs) {
+    final tasksJson = prefs.getString(key);
+    if (tasksJson == null || tasksJson.isEmpty) return false;
+    
+    try {
+      final decoded = jsonDecode(tasksJson);
+      if (decoded is List && decoded.isNotEmpty) {
+        return true;
+      }
+    } catch (e) {
+      return false;
     }
-
-    if (_checkBoardHasTasks(allKeys, 'postit_todos_', prefs)) {
-      _activeBoards.add({
-        'name': 'PostIt Theme Vision Board',
-        'icon': Icons.sticky_note_2,
-        'color': Colors.yellow,
-        'type': 'vision',
-        'theme': 'postit'
-      });
-    }
-
-    if (_checkBoardHasTasks(allKeys, 'winterwarmth_todos_', prefs)) {
-      _activeBoards.add({
-        'name': 'Winter Warmth Theme Vision Board',
-        'icon': Icons.ac_unit,
-        'color': Colors.blue,
-        'type': 'vision',
-        'theme': 'winter'
-      });
-    }
-
-    if (_checkBoardHasTasks(allKeys, 'rubyreds_todos_', prefs)) {
-      _activeBoards.add({
-        'name': 'Ruby Reds Theme Vision Board',
-        'icon': Icons.favorite,
-        'color': Colors.red,
-        'type': 'vision',
-        'theme': 'ruby'
-      });
-    }
-
-    if (_checkBoardHasTasks(allKeys, 'coffeehues_todos_', prefs)) {
-      _activeBoards.add({
-        'name': 'Coffee Hues Theme Vision Board',
-        'icon': Icons.coffee,
-        'color': Colors.brown,
-        'type': 'vision',
-        'theme': 'coffee'
-      });
-    }
+    return false;
   }
 
   void _checkAnnualCalendarEvents(
@@ -743,385 +711,50 @@ class _ActiveTasksPageState extends State<ActiveTasksPage>
   }
 
   void _checkAnnualPlannerTodos(Set<String> allKeys, SharedPreferences prefs) {
-    if (_checkBoardHasTasks(allKeys, 'WatercolorTheme_todos_', prefs,
-        excludeKeys: [
-          'Monday',
-          'Tuesday',
-          'Wednesday',
-          'Thursday',
-          'Friday',
-          'Saturday',
-          'Sunday'
-        ],
-        requiredKeys: [
-          'January',
-          'February',
-          'March',
-          'April',
-          'May',
-          'June',
-          'July',
-          'August',
-          'September',
-          'October',
-          'November',
-          'December'
-        ])) {
-      _activeBoards.add({
-        'name': 'Watercolor Theme Annual Planner',
-        'icon': Icons.brush,
-        'color': Colors.purple,
-        'type': 'annual',
-        'theme': 'watercolor'
-      });
+    // Check for per-month keys (different data per month, same across themes)
+    final months = ['January', 'February', 'March', 'April', 'May', 'June',
+                   'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    bool hasAnnualData = false;
+    for (var month in months) {
+      if (allKeys.contains('annual_planner_$month') && _hasValidTasks('annual_planner_$month', prefs)) {
+        hasAnnualData = true;
+        break;
+      }
     }
-
-    if (_checkBoardHasTasks(allKeys, 'PostItTheme_todos_', prefs, excludeKeys: [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday'
-    ], requiredKeys: [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December'
-    ])) {
+    
+    if (hasAnnualData) {
       _activeBoards.add({
-        'name': 'PostIt Theme Annual Planner',
-        'icon': Icons.sticky_note_2,
-        'color': Colors.yellow,
-        'type': 'annual',
-        'theme': 'postit'
-      });
-    }
-
-    if (_checkBoardHasTasks(allKeys, 'FloralTheme_todos_', prefs, excludeKeys: [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday'
-    ], requiredKeys: [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December'
-    ])) {
-      _activeBoards.add({
-        'name': 'Floral Theme Annual Planner',
-        'icon': Icons.local_florist,
+        'name': 'Annual Planner',
+        'icon': Icons.calendar_month,
         'color': Colors.green,
         'type': 'annual',
-        'theme': 'floral'
-      });
-    }
-
-    if (_checkBoardHasTasks(allKeys, 'PremiumTheme_todos_', prefs,
-        excludeKeys: [
-          'Monday',
-          'Tuesday',
-          'Wednesday',
-          'Thursday',
-          'Friday',
-          'Saturday',
-          'Sunday'
-        ],
-        requiredKeys: [
-          'January',
-          'February',
-          'March',
-          'April',
-          'May',
-          'June',
-          'July',
-          'August',
-          'September',
-          'October',
-          'November',
-          'December'
-        ])) {
-      _activeBoards.add({
-        'name': 'Premium Theme Annual Planner',
-        'icon': Icons.grade,
-        'color': Colors.amber,
-        'type': 'annual',
-        'theme': 'premium'
+        'theme': 'Floral theme Annual Planner' // Default theme for navigation
       });
     }
   }
 
   void _checkWeeklyPlannerTodos(Set<String> allKeys, SharedPreferences prefs) {
-    if (_checkBoardHasTasks(allKeys, 'PatternsTheme_todos_', prefs,
-        excludeKeys: [
-          'January',
-          'February',
-          'March',
-          'April',
-          'May',
-          'June',
-          'July',
-          'August',
-          'September',
-          'October',
-          'November',
-          'December'
-        ],
-        requiredKeys: [
-          'Monday',
-          'Tuesday',
-          'Wednesday',
-          'Thursday',
-          'Friday',
-          'Saturday',
-          'Sunday'
-        ])) {
+    // Check for per-day keys (different data per day, same across themes)
+    final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    
+    bool hasWeeklyData = false;
+    for (var day in days) {
+      if (allKeys.contains('weekly_planner_$day') && _hasValidTasks('weekly_planner_$day', prefs)) {
+        hasWeeklyData = true;
+        break;
+      }
+    }
+    
+    if (hasWeeklyData) {
       _activeBoards.add({
-        'name': 'Patterns Theme Weekly Planner',
-        'icon': Icons.dashboard,
+        'name': 'Weekly Planner',
+        'icon': Icons.view_week,
         'color': Colors.indigo,
         'type': 'weekly',
-        'theme': 'patterns'
+        'theme': 'Floral theme Weekly Planner' // Default theme for navigation
       });
     }
-
-    if (_checkBoardHasTasks(allKeys, 'JapaneseTheme_todos_', prefs,
-        excludeKeys: [
-          'January',
-          'February',
-          'March',
-          'April',
-          'May',
-          'June',
-          'July',
-          'August',
-          'September',
-          'October',
-          'November',
-          'December'
-        ],
-        requiredKeys: [
-          'Monday',
-          'Tuesday',
-          'Wednesday',
-          'Thursday',
-          'Friday',
-          'Saturday',
-          'Sunday'
-        ])) {
-      _activeBoards.add({
-        'name': 'Japanese Theme Weekly Planner',
-        'icon': Icons.center_focus_strong,
-        'color': Colors.redAccent,
-        'type': 'weekly',
-        'theme': 'japanese'
-      });
-    }
-
-    if (_checkBoardHasTasks(allKeys, 'FloralTheme_todos_', prefs, excludeKeys: [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December'
-    ], requiredKeys: [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday'
-    ])) {
-      _activeBoards.add({
-        'name': 'Floral Theme Weekly Planner',
-        'icon': Icons.local_florist,
-        'color': Colors.green,
-        'type': 'weekly',
-        'theme': 'floral'
-      });
-    }
-
-    if (_checkBoardHasTasks(allKeys, 'WatercolorTheme_todos_', prefs,
-        excludeKeys: [
-          'January',
-          'February',
-          'March',
-          'April',
-          'May',
-          'June',
-          'July',
-          'August',
-          'September',
-          'October',
-          'November',
-          'December'
-        ],
-        requiredKeys: [
-          'Monday',
-          'Tuesday',
-          'Wednesday',
-          'Thursday',
-          'Friday',
-          'Saturday',
-          'Sunday'
-        ])) {
-      _activeBoards.add({
-        'name': 'Watercolor Theme Weekly Planner',
-        'icon': Icons.brush,
-        'color': Colors.purple,
-        'type': 'weekly',
-        'theme': 'watercolor'
-      });
-    }
-  }
-
-  bool _checkBoardHasTasks(
-      Set<String> allKeys, String prefix, SharedPreferences prefs,
-      {List<String>? excludeKeys, List<String>? requiredKeys}) {
-    final taskKeys = allKeys.where((key) => key.startsWith(prefix));
-
-    if (taskKeys.isEmpty) {
-      return false;
-    }
-
-    if (requiredKeys != null && requiredKeys.isNotEmpty) {
-      bool hasRequiredKey = false;
-      for (var requiredKey in requiredKeys) {
-        if (taskKeys.any((key) => key.contains(requiredKey))) {
-          hasRequiredKey = true;
-          break;
-        }
-      }
-      if (!hasRequiredKey) {
-        return false;
-      }
-    }
-
-    Set<String> filteredKeys = taskKeys.toSet();
-    if (excludeKeys != null && excludeKeys.isNotEmpty) {
-      filteredKeys = filteredKeys
-          .where((key) =>
-              !excludeKeys.any((excludeKey) => key.contains(excludeKey)))
-          .toSet();
-
-      if (filteredKeys.isEmpty) {
-        return false;
-      }
-    }
-
-    for (var key in filteredKeys) {
-      final tasksJson = prefs.getString(key);
-      if (tasksJson != null && tasksJson.isNotEmpty) {
-        try {
-          final dynamic parsedData = jsonDecode(tasksJson);
-
-          if (parsedData is List) {
-            final tasks = parsedData;
-
-            bool hasActiveTasks = false;
-
-            final hasIncompleteTasks = tasks.any((task) =>
-                task is Map &&
-                task.containsKey('completed') &&
-                task['completed'] == false);
-
-            final hasTasksWithoutCompletedField = tasks.any((task) =>
-                task is Map &&
-                !task.containsKey('completed') &&
-                (task.containsKey('text') ||
-                    task.containsKey('content') ||
-                    task.containsKey('title')));
-
-            final hasTasksWithDoneField = tasks.any((task) =>
-                task is Map &&
-                task.containsKey('done') &&
-                task['done'] == false);
-
-            final hasStringTasks =
-                tasks.any((task) => task is String && task.isNotEmpty);
-
-            hasActiveTasks = hasIncompleteTasks ||
-                hasTasksWithoutCompletedField ||
-                hasTasksWithDoneField ||
-                hasStringTasks;
-
-            if (hasActiveTasks) {
-              return true;
-            }
-          } else if (parsedData is Map) {
-            bool hasActiveTasks = false;
-
-            parsedData.forEach((taskId, taskData) {
-              if (taskData is Map) {
-                if (taskData.containsKey('completed') &&
-                    taskData['completed'] == false) {
-                  hasActiveTasks = true;
-                } else if (taskData.containsKey('done') &&
-                    taskData['done'] == false) {
-                  hasActiveTasks = true;
-                } else if ((taskData.containsKey('text') ||
-                        taskData.containsKey('content')) &&
-                    !taskData.containsKey('completed') &&
-                    !taskData.containsKey('done')) {
-                  hasActiveTasks = true;
-                }
-              } else if (taskData is String && taskData.isNotEmpty) {
-                hasActiveTasks = true;
-              }
-            });
-
-            if (hasActiveTasks) {
-              return true;
-            }
-
-            for (var categoryKey in parsedData.keys) {
-              final categoryData = parsedData[categoryKey];
-              if (categoryData is Map && categoryData.containsKey('tasks')) {
-                final categoryTasks = categoryData['tasks'];
-                if (categoryTasks is List && categoryTasks.isNotEmpty) {
-                  return true;
-                }
-              } else if (categoryData is List) {
-                return true;
-              }
-            }
-          }
-        } catch (e) {
-          // Error parsing JSON, continue to next key
-        }
-      }
-    }
-
-    return false;
   }
 
   void _detectAdditionalTaskPatterns(
@@ -1184,25 +817,31 @@ class _ActiveTasksPageState extends State<ActiveTasksPage>
   }
 
   bool _isKeyAlreadyChecked(String key) {
-    final List<String> checkedPrefixes = [
-      'BoxThem_todos_',
-      'premium_todos_',
-      'postit_todos_',
-      'winterwarmth_todos_',
-      'rubyreds_todos_',
-      'coffeehues_todos_',
-      'WatercolorTheme_todos_',
-      'PostItTheme_todos_',
-      'FloralTheme_todos_',
-      'PremiumTheme_todos_',
-      'PatternsTheme_todos_',
-      'JapaneseTheme_todos_',
+    final List<String> checkedKeys = [
+      // Universal shared todos (same tasks across ALL themes)
+      'vision_board_shared_todos',
+      'weekly_planner_shared_todos',
+      'annual_planner_shared_todos',
+      // Old format keys (keep for backward compatibility)
+      'BoxThem_shared_todos',
+      'Premium_shared_todos',
+      'PostIt_shared_todos',
+      'WinterWarmth_shared_todos',
+      'RubyReds_shared_todos',
+      'CoffeeHues_shared_todos',
+      'WeeklyWatercolor_shared_todos',
+      'WeeklyPatterns_shared_todos',
+      'WeeklyFloral_shared_todos',
+      'WeeklyJapanese_shared_todos',
+      'AnnualWatercolor_shared_todos',
+      'AnnualPostit_shared_todos',
+      'AnnualFloral_shared_todos',
+      'AnnualPremium_shared_todos',
     ];
 
-    for (String prefix in checkedPrefixes) {
-      if (key.startsWith(prefix)) {
-        return true;
-      }
+    // Check if key is in the exact list
+    if (checkedKeys.contains(key)) {
+      return true;
     }
 
     return false;
@@ -1311,22 +950,22 @@ class _ActiveTasksPageState extends State<ActiveTasksPage>
       case 'vision':
         switch (board['theme']) {
           case 'box':
-            destinationPage = VisionBoardDetailsPage(title: 'Box Vision Board');
+            destinationPage = const UnifiedVisionBoardPage(themeName: 'Box theme Vision Board');
             break;
           case 'premium':
-            destinationPage = const PremiumThemeVisionBoard();
+            destinationPage = const UnifiedVisionBoardPage(themeName: 'Premium theme Vision Board');
             break;
           case 'postit':
-            destinationPage = const PostItThemeVisionBoard();
+            destinationPage = const UnifiedVisionBoardPage(themeName: 'PostIt theme Vision Board');
             break;
           case 'winter':
-            destinationPage = const WinterWarmthThemeVisionBoard();
+            destinationPage = const UnifiedVisionBoardPage(themeName: 'Winter Warmth theme Vision Board');
             break;
           case 'ruby':
-            destinationPage = const RubyRedsThemeVisionBoard();
+            destinationPage = const UnifiedVisionBoardPage(themeName: 'Ruby Reds theme Vision Board');
             break;
           case 'coffee':
-            destinationPage = const CoffeeHuesThemeVisionBoard();
+            destinationPage = const UnifiedVisionBoardPage(themeName: 'Coffee Hues theme Vision Board');
             break;
           default:
             destinationPage = const VisionBoardPage();
@@ -1370,28 +1009,16 @@ class _ActiveTasksPageState extends State<ActiveTasksPage>
       case 'annual':
         switch (board['theme']) {
           case 'watercolor':
-            destinationPage = WatercolorThemeAnnualPlanner(
-              monthIndex: 0,
-              eventId: null,
-            );
+            destinationPage = const UnifiedAnnualPlannerPage(themeName: 'Watercolor them 2025 Planner');
             break;
           case 'postit':
-            destinationPage = PostItThemeAnnualPlanner(
-              monthIndex: 0,
-              eventId: null,
-            );
+            destinationPage = const UnifiedAnnualPlannerPage(themeName: 'PostIt theme 2025 Planner');
             break;
           case 'floral':
-            destinationPage = FloralThemeAnnualPlanner(
-              monthIndex: 0,
-              eventId: null,
-            );
+            destinationPage = const UnifiedAnnualPlannerPage(themeName: 'Floral theme 2025 Planner');
             break;
           case 'premium':
-            destinationPage = PremiumThemeAnnualPlanner(
-              monthIndex: 0,
-              eventId: null,
-            );
+            destinationPage = const UnifiedAnnualPlannerPage(themeName: 'Premium theme 2025 Planner');
             break;
           default:
             destinationPage = const AnnualPlannerPage();
@@ -1401,28 +1028,16 @@ class _ActiveTasksPageState extends State<ActiveTasksPage>
       case 'weekly':
         switch (board['theme']) {
           case 'patterns':
-            destinationPage = PatternsThemeWeeklyPlanner(
-              dayIndex: 0,
-              eventId: null,
-            );
+            destinationPage = const UnifiedWeeklyPlannerPage(themeName: 'Patterns theme Weekly Planner');
             break;
           case 'japanese':
-            destinationPage = JapaneseThemeWeeklyPlanner(
-              dayIndex: 0,
-              eventId: null,
-            );
+            destinationPage = const UnifiedWeeklyPlannerPage(themeName: 'Japanese theme Weekly Planner');
             break;
           case 'floral':
-            destinationPage = FloralThemeWeeklyPlanner(
-              dayIndex: 0,
-              eventId: null,
-            );
+            destinationPage = const UnifiedWeeklyPlannerPage(themeName: 'Floral theme Weekly Planner');
             break;
           case 'watercolor':
-            destinationPage = WatercolorThemeWeeklyPlanner(
-              dayIndex: 0,
-              eventId: null,
-            );
+            destinationPage = const UnifiedWeeklyPlannerPage(themeName: 'Watercolor theme Weekly Planner');
             break;
           default:
             destinationPage = const WeeklyPlannerPage();

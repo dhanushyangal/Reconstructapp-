@@ -41,6 +41,7 @@ import WidgetKit
              let notesDataJson = args["notesData"] as? String {
             
             let selectedNoteId = args["selectedNoteId"] as? String
+            let theme = args["theme"] as? String
             
             if let data = notesDataJson.data(using: .utf8) {
               do {
@@ -48,6 +49,10 @@ import WidgetKit
                 SharedDataModel.saveNotesData(notesData)
                 if let noteId = selectedNoteId {
                   SharedDataModel.saveSelectedNoteId(noteId)
+                }
+                if let notesTheme = theme {
+                  SharedDataModel.saveNotesTheme(notesTheme)
+                  print("Notes theme saved: \(notesTheme)")
                 }
                 WidgetCenter.shared.reloadAllTimelines()
                 result(true)
