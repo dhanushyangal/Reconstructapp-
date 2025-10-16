@@ -168,8 +168,12 @@ class WeeklyPlannerWidget : AppWidgetProvider() {
                     Log.d("WeeklyWidget", "Day: $day, Theme: $currentTheme, Todos: ${todos.substring(0, minOf(50, todos.length))}")
                     
                     // Set text colors based on theme
-                    dayView.setTextColor(R.id.day_name, Color.BLACK)
-                    dayView.setTextColor(R.id.todos_text, Color.BLACK)
+                    val textColor = when {
+                        currentTheme.contains("Floral", ignoreCase = true) -> Color.WHITE
+                        else -> Color.BLACK
+                    }
+                    dayView.setTextColor(R.id.day_name, textColor)
+                    dayView.setTextColor(R.id.todos_text, textColor)
                     
                     views.addView(R.id.days_container, dayView)
 

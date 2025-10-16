@@ -299,7 +299,7 @@ class DailyNotesWidget : AppWidgetProvider() {
                 val itemText = item.optString("text", "")
                 
                 if (itemText.isNotEmpty()) {
-                    checklistText.append(if (isChecked) "✅ " else "☐")
+                    checklistText.append(if (isChecked) "✅ " else " ")
                     checklistText.append(itemText)
                     if (i < itemsToShow - 1) checklistText.append("\n")
                 }

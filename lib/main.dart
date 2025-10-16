@@ -235,7 +235,7 @@ class _MyAppState extends State<MyApp> {
   Map<String, WidgetBuilder> _buildRoutes() {
     return {
       '/auth': (context) => const AuthWrapper(),
-      '/home': (context) => const HomePage(initialIndex: 0),
+      '/home': (context) => const HomePage(), // Opens with Dashboard by default
       '/browse': (context) => const HomePage(initialIndex: 1),
       '/dashboard': (context) => const HomePage(initialIndex: 2),
       '/tracker': (context) => const HomePage(initialIndex: 3),
@@ -494,7 +494,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 class HomePage extends StatefulWidget {
   final int initialIndex;
   
-  const HomePage({super.key, this.initialIndex = 0});
+  const HomePage({super.key, this.initialIndex = 2}); // Default to Dashboard (+ icon)
 
   @override
   State<HomePage> createState() => _HomePageState();
