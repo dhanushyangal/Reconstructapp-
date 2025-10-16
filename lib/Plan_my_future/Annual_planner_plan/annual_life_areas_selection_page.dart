@@ -281,26 +281,8 @@ class _AnnualLifeAreasSelectionPageState extends State<AnnualLifeAreasSelectionP
       title: 'Select monthly goal areas for your planner',
       showBackButton: false,
       selectedIndex: 2, // Dashboard index
-      onNavigationTap: (index) {
-        // Navigate to different pages based on index
-        switch (index) {
-          case 0:
-            Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-            break;
-          case 1:
-            Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
-            break;
-          case 2:
-            Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
-            break;
-          case 3:
-            Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
-            break;
-          case 4:
-            Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
-            break;
-        }
-      },
+      // Using default navigation handler from NavLogPage
+      // No need to provide onNavigationTap - NavLogPage handles it
       body: Column(
         children: [
           // Progress bar at the top
@@ -539,26 +521,7 @@ class _AnnualPlannerSuccessPageState extends State<AnnualPlannerSuccessPage>
       title: 'Success',
       showBackButton: false,
       selectedIndex: 2, // Dashboard index
-      onNavigationTap: (index) {
-        // Navigate to different pages based on index
-        switch (index) {
-          case 0:
-            Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-            break;
-          case 1:
-            Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
-            break;
-          case 2:
-            Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
-            break;
-          case 3:
-            Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
-            break;
-          case 4:
-            Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
-            break;
-        }
-      },
+      // Using default navigation handler from NavLogPage
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

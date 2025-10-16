@@ -39,7 +39,7 @@ class _AffirmationCardsPageState extends State<AffirmationCardsPage>
       },
       {
         'image': 'assets/Build_Self_love/Self_love/Loveyourself-4.png',
-        'quote': 'You deserve to do whatever you want to.',
+        'quote': 'Build positive self-talk.',
       },
       {
         'image': 'assets/Build_Self_love/Self_love/Loveyourself-5.png',
