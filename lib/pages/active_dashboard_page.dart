@@ -154,7 +154,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
         'subcategory': true
       },
       {
-        'name': 'Build self love',
+        'name': 'Build positive self-talk',
         'image': 'assets/Reset_my_emotions-images/build_self_love.png',
         'subcategory': true
       },
@@ -688,7 +688,7 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
         return '/bubble-wrap-popper';
       case 'Release negative thoughts':
         return '/release-negative-thoughts';
-      case 'Build self love':
+      case 'Build positive self-talk':
         return '/build-self-love';
       case 'Master your breathing':
         return '/master-breathing';
@@ -788,8 +788,8 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
           ),
         );
         break;
-      case 'Build self love':
-        // Navigate to the new Build Self Love page
+      case 'Build positive self-talk':
+        // Navigate to the new Build positive self-talke page
         Navigator.push(
           context,
           MaterialPageRoute(

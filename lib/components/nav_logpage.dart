@@ -1,8 +1,4 @@
 import 'package:flutter/material.dart';
-import '../pages/planners_page.dart';
-import '../pages/active_dashboard_page.dart';
-import '../Mind_tools/dashboard_traker.dart';
-import '../main.dart';
 
 class NavLogPage extends StatelessWidget {
   final String title;
@@ -26,44 +22,24 @@ class NavLogPage extends StatelessWidget {
   void _handleDefaultNavigation(BuildContext context, int index) {
     switch (index) {
       case 0:
-        // Navigate to HomePage
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-          (route) => false,
-        );
+        // Navigate to Home
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
         break;
       case 1:
-        // Navigate to PlannersPage
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const PlannersPage()),
-          (route) => false,
-        );
+        // Navigate to Browse
+        Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
         break;
       case 2:
-        // Navigate to ActiveDashboardPage
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const ActiveDashboardPage()),
-          (route) => false,
-        );
+        // Navigate to Dashboard
+        Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
         break;
       case 3:
-        // Navigate to DashboardTrackerPage
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const DashboardTrackerPage()),
-          (route) => false,
-        );
+        // Navigate to Tracker
+        Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
         break;
       case 4:
-        // Navigate to ProfilePage
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const ProfilePage()),
-          (route) => false,
-        );
+        // Navigate to Profile
+        Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
         break;
     }
   }

@@ -39,7 +39,7 @@ class _AffirmationCardsPageState extends State<AffirmationCardsPage>
       },
       {
         'image': 'assets/Build_Self_love/Self_love/Loveyourself-4.png',
-        'quote': 'Build positive self-talk.',
+        'quote': 'You deserve to do whatever you want to.',
       },
       {
         'image': 'assets/Build_Self_love/Self_love/Loveyourself-5.png',
@@ -325,26 +325,7 @@ class _AffirmationCardsPageState extends State<AffirmationCardsPage>
       title: widget.categoryName,
       showBackButton: true,
       selectedIndex: 2, // Dashboard index
-      onNavigationTap: (index) {
-        // Navigate to different pages based on index
-        switch (index) {
-          case 0:
-            Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-            break;
-          case 1:
-            Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
-            break;
-          case 2:
-            Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
-            break;
-          case 3:
-            Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
-            break;
-          case 4:
-            Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
-            break;
-        }
-      },
+      // Using default navigation handler from NavLogPage
       body: Column(
         children: [
           // Progress bar at the top

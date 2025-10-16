@@ -235,7 +235,11 @@ class _MyAppState extends State<MyApp> {
   Map<String, WidgetBuilder> _buildRoutes() {
     return {
       '/auth': (context) => const AuthWrapper(),
-      '/home': (context) => const HomePage(),
+      '/home': (context) => const HomePage(initialIndex: 0),
+      '/browse': (context) => const HomePage(initialIndex: 1),
+      '/dashboard': (context) => const HomePage(initialIndex: 2),
+      '/tracker': (context) => const HomePage(initialIndex: 3),
+      '/profile': (context) => const HomePage(initialIndex: 4),
       '/login': (context) => const LoginPage(),
       '/register': (context) => const RegisterPage(),
       // Activity pages
@@ -488,14 +492,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final int initialIndex;
+  
+  const HomePage({super.key, this.initialIndex = 0});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
-  int _selectedIndex = 2;
+  late int _selectedIndex;
   bool _isPremium = false;
   late dynamic supabaseUser;
   List<Widget> _pages = [];
@@ -505,6 +511,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialIndex; // Use the initial index from widget
     WidgetsBinding.instance.addObserver(this);
 
     _initializeHomePage();
