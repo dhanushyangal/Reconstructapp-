@@ -133,10 +133,13 @@ class VisionBoardWidget : AppWidgetProvider() {
                 // Auto-detect current theme from last used theme in app
                 val currentTheme = prefs.getString("flutter.vision_board_current_theme", null)
                     ?: prefs.getString("vision_board_current_theme", "Box Theme Vision Board")
+                    ?: "Box Theme Vision Board" // Ensure non-null
                 
-                // Set widget background based on theme
-                when (currentTheme) {
-                    "Premium Vision Board" -> {
+                Log.d("VisionBoardWidget", "Current theme detected: $currentTheme")
+                
+                // Set widget background based on theme (using flexible matching)
+                when {
+                    currentTheme.contains("Premium", ignoreCase = true) || currentTheme.contains("black", ignoreCase = true) -> {
                         views.setInt(R.id.widget_container, "setBackgroundColor", 0xFF000000.toInt())
                         
                         // Set category text color to white
@@ -151,23 +154,23 @@ class VisionBoardWidget : AppWidgetProvider() {
                             }
                         }
                     }
-                    "PostIt Vision Board" -> {
+                    currentTheme.contains("PostIt", ignoreCase = true) || currentTheme.contains("Post it", ignoreCase = true) || currentTheme.contains("Post-it", ignoreCase = true) -> {
                         views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.postit_background)
                         views.setInt(R.id.categories_container, "setBackgroundResource", R.drawable.postit_background)
                     }
-                    "Box Vision Board" -> {
+                    currentTheme.contains("Box", ignoreCase = true) || currentTheme.contains("Boxy", ignoreCase = true) -> {
                         views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.box_vision_background)
                         views.setInt(R.id.categories_container, "setBackgroundResource", R.drawable.box_vision_background)
                     }
-                    "Ruby Reds Vision Board" -> {
+                    currentTheme.contains("Ruby", ignoreCase = true) || currentTheme.contains("Reds", ignoreCase = true) -> {
                         views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.ruby_reds_background)
                         views.setInt(R.id.categories_container, "setBackgroundResource", R.drawable.ruby_reds_background)
                     }
-                    "Winter Warmth Vision Board" -> {
+                    currentTheme.contains("Winter", ignoreCase = true) || currentTheme.contains("Warmth", ignoreCase = true) || currentTheme.contains("Floral", ignoreCase = true) -> {
                         views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.winter_warmth_background)
                         views.setInt(R.id.categories_container, "setBackgroundResource", R.drawable.winter_warmth_background)
                     }
-                    "Coffee Hues Vision Board" -> {
+                    currentTheme.contains("Coffee", ignoreCase = true) || currentTheme.contains("Hues", ignoreCase = true) -> {
                         views.setInt(R.id.widget_container, "setBackgroundResource", R.drawable.watercolor_background)
                         views.setInt(R.id.categories_container, "setBackgroundResource", R.drawable.watercolor_background)
                     }
@@ -268,33 +271,33 @@ class VisionBoardWidget : AppWidgetProvider() {
                     val itemView = RemoteViews(context.packageName, R.layout.vision_board_grid_item)
                     val category = categoriesWithTasks[i]
                     
-                    // Set category background color based on theme and position
-                    val backgroundColor = when (currentTheme) {
-                        "Premium Vision Board" -> premiumColors[i % premiumColors.size]
-                        "PostIt Vision Board" -> postitColors[i % postitColors.size]
-                        "Ruby Reds Vision Board" -> rubyRedsColors[i % rubyRedsColors.size]
-                        "Winter Warmth Vision Board" -> winterWarmthColors[i % winterWarmthColors.size]
-                        "Coffee Hues Vision Board" -> coffeeHuesColors[i % coffeeHuesColors.size]
-                        "Box Vision Board" -> 0x33FFFFFF // Transparent background for Box Vision Board
+                    // Set category background color based on theme and position (flexible matching)
+                    val backgroundColor = when {
+                        currentTheme.contains("Premium", ignoreCase = true) || currentTheme.contains("black", ignoreCase = true) -> premiumColors[i % premiumColors.size]
+                        currentTheme.contains("PostIt", ignoreCase = true) || currentTheme.contains("Post it", ignoreCase = true) || currentTheme.contains("Post-it", ignoreCase = true) -> postitColors[i % postitColors.size]
+                        currentTheme.contains("Ruby", ignoreCase = true) || currentTheme.contains("Reds", ignoreCase = true) -> rubyRedsColors[i % rubyRedsColors.size]
+                        currentTheme.contains("Winter", ignoreCase = true) || currentTheme.contains("Warmth", ignoreCase = true) || currentTheme.contains("Floral", ignoreCase = true) -> winterWarmthColors[i % winterWarmthColors.size]
+                        currentTheme.contains("Coffee", ignoreCase = true) || currentTheme.contains("Hues", ignoreCase = true) -> coffeeHuesColors[i % coffeeHuesColors.size]
+                        currentTheme.contains("Box", ignoreCase = true) || currentTheme.contains("Boxy", ignoreCase = true) -> 0x33FFFFFF // Transparent background for Box Vision Board
                         else -> boxColors[i % boxColors.size]
                     }
                     
                     // Set the background color for the category container
                     itemView.setInt(R.id.category_container, "setBackgroundColor", backgroundColor)
                     
-                    // Keep the floating background drawable
-                    if (currentTheme == "Box Vision Board") {
+                    // Keep the floating background drawable for Box theme
+                    if (currentTheme.contains("Box", ignoreCase = true) || currentTheme.contains("Boxy", ignoreCase = true)) {
                         itemView.setInt(R.id.category_container, "setBackgroundResource", R.drawable.floating_category_background)
                     }
                     
-                    // Set text color based on background brightness
-                    val textColor = when (currentTheme) {
-                        "Premium Vision Board" -> 0xFFFFFFFF.toInt() // White text
-                        "Ruby Reds Vision Board" -> 0xFFFFFFFF.toInt() // White text
-                        "Winter Warmth Vision Board" -> 0xFFFFFFFF.toInt() // White text
-                        "Coffee Hues Vision Board" -> 0xFFFFFFFF.toInt() // White text
-                        "PostIt Vision Board" -> 0xFFFFFFFF.toInt() // White text
-                        "Box Vision Board" -> 0xFF000000.toInt() // Black text
+                    // Set text color based on background brightness (flexible matching)
+                    val textColor = when {
+                        currentTheme.contains("Premium", ignoreCase = true) || currentTheme.contains("black", ignoreCase = true) -> 0xFFFFFFFF.toInt() // White text
+                        currentTheme.contains("Ruby", ignoreCase = true) || currentTheme.contains("Reds", ignoreCase = true) -> 0xFFFFFFFF.toInt() // White text
+                        currentTheme.contains("Winter", ignoreCase = true) || currentTheme.contains("Warmth", ignoreCase = true) || currentTheme.contains("Floral", ignoreCase = true) -> 0xFFFFFFFF.toInt() // White text
+                        currentTheme.contains("Coffee", ignoreCase = true) || currentTheme.contains("Hues", ignoreCase = true) -> 0xFFFFFFFF.toInt() // White text
+                        currentTheme.contains("PostIt", ignoreCase = true) || currentTheme.contains("Post it", ignoreCase = true) || currentTheme.contains("Post-it", ignoreCase = true) -> 0xFF000000.toInt() // Black text
+                        currentTheme.contains("Box", ignoreCase = true) || currentTheme.contains("Boxy", ignoreCase = true) -> 0xFF000000.toInt() // Black text
                         else -> 0xFF000000.toInt() // Black text for other themes
                     }
                     itemView.setTextColor(R.id.category_name, textColor)

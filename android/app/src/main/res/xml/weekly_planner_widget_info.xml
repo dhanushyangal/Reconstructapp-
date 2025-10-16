@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:configure="com.reconstrect.visionboard.WeeklyPlannerConfigureActivity"
     android:initialLayout="@layout/weekly_planner_widget"
     android:minWidth="180dp"
     android:minHeight="110dp"

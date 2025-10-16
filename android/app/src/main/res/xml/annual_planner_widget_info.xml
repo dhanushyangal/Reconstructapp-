@@ -4,7 +4,6 @@
     android:minHeight="110dp"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/annual_planner_widget"
-    android:configure="com.reconstrect.visionboard.AnnualPlannerConfigureActivity"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:previewImage="@drawable/annual_planner_preview"

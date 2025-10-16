@@ -110,6 +110,7 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
   @override
   void initState() {
     super.initState();
+    _saveCurrentTheme(); // Save theme for widget auto-detection
 
     // Load all data from local storage first (fast)
     _loadAllFromLocalStorage().then((_) {
@@ -141,6 +142,18 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
 
     // Track activity
     _trackActivity();
+  }
+
+  Future<void> _saveCurrentTheme() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('flutter.weekly_planner_current_theme', widget.template);
+      await prefs.setString('weekly_planner_current_theme', widget.template);
+      await HomeWidget.saveWidgetData('weekly_planner_current_theme', widget.template);
+      debugPrint('Saved current weekly planner theme: ${widget.template}');
+    } catch (e) {
+      debugPrint('Error saving theme: $e');
+    }
   }
 
   static Future<void> backgroundCallback(Uri? uri) async {
@@ -525,26 +538,8 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
                 onPressed: _syncWithDatabase,
               ),
       ],
-      onNavigationTap: (index) {
-        // Navigate to different pages based on index
-        switch (index) {
-          case 0:
-            Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-            break;
-          case 1:
-            Navigator.pushNamedAndRemoveUntil(context, '/browse', (route) => false);
-            break;
-          case 2:
-            Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
-            break;
-          case 3:
-            Navigator.pushNamedAndRemoveUntil(context, '/tracker', (route) => false);
-            break;
-          case 4:
-            Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
-            break;
-        }
-      },
+      // Using default navigation handler from NavLogPage
+      // No need to provide onNavigationTap - NavLogPage handles it
       body: Column(
         children: [
           if (!_hasNetworkConnectivity)
