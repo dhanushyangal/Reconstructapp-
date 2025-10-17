@@ -35,20 +35,24 @@ struct VisionBoardProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<VisionBoardEntry>) -> ()) {
         let currentDate = Date()
-        let theme = SharedDataModel.getTheme()
+        // Default theme if none was chosen in-app
+        let currentTheme = SharedDataModel.getTheme() ?? "Premium Vision Board"
         var categories = SharedDataModel.getCategories()
         var todosByCategory: [String: [SharedDataModel.TodoItem]] = [:]
 
-        if let currentTheme = theme {
-            for category in categories {
-                if let todosJson = SharedDataModel.getTodos(for: category, theme: currentTheme) {
-                    if let data = todosJson.data(using: .utf8) {
-                        do {
-                            let decodedTodos = try JSONDecoder().decode([SharedDataModel.TodoItem].self, from: data)
-                            todosByCategory[category] = decodedTodos
-                        } catch {
-                            print("Failed to decode todos for \(category): \(error)")
-                        }
+        // If no categories saved yet, provide a sensible starter based on theme
+        if categories.isEmpty {
+            categories = defaultStarterCategory(for: currentTheme)
+        }
+
+        for category in categories {
+            if let todosJson = SharedDataModel.getTodos(for: category, theme: currentTheme) {
+                if let data = todosJson.data(using: .utf8) {
+                    do {
+                        let decodedTodos = try JSONDecoder().decode([SharedDataModel.TodoItem].self, from: data)
+                        todosByCategory[category] = decodedTodos
+                    } catch {
+                        print("Failed to decode todos for \(category): \(error)")
                     }
                 }
             }
@@ -56,7 +60,7 @@ struct VisionBoardProvider: TimelineProvider {
 
         let entry = VisionBoardEntry(
             date: currentDate,
-            theme: theme,
+            theme: currentTheme,
             categories: categories,
             todosByCategory: todosByCategory
         )

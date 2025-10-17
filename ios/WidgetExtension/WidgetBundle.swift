@@ -7,5 +7,7 @@ struct NotesWidgetBundle: WidgetBundle {
         NotesWidget()
         VisionBoardWidget()
         CalendarWidget()
+        WeeklyPlannerWidget()
+        AnnualPlannerWidget()
     }
 }

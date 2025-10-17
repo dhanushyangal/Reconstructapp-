@@ -169,4 +169,63 @@ struct SharedDataModel {
         
         return [:]
     }
+
+    // MARK: - Weekly Planner Methods
+    static func getWeeklyTheme() -> String {
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return "Floral Weekly Planner" }
+        return userDefaults.string(forKey: "flutter.weekly_planner_current_theme")
+            ?? userDefaults.string(forKey: "weekly_planner_current_theme")
+            ?? "Floral Weekly Planner"
+    }
+
+    static func getWeeklyTodos(for day: String) -> [TodoItem] {
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return [] }
+        let jsonString = userDefaults.string(forKey: "flutter.weekly_planner_\(day)")
+            ?? userDefaults.string(forKey: "weekly_planner_\(day)")
+            ?? "[]"
+
+        if let data = jsonString.data(using: .utf8) {
+            if let decoded = try? JSONDecoder().decode([TodoItem].self, from: data) {
+                return decoded
+            }
+            // Fallback: tolerate alternate key name "isDone"
+            if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                return jsonArray.compactMap { dict in
+                    guard let text = dict["text"] as? String else { return nil }
+                    let isCompleted = (dict["completed"] as? Bool) ?? (dict["isDone"] as? Bool) ?? false
+                    return TodoItem(text: text, isCompleted: isCompleted)
+                }
+            }
+        }
+        return []
+    }
+
+    // MARK: - Annual Planner Methods
+    static func getAnnualTheme() -> String {
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return "Floral Monthly Planner" }
+        return userDefaults.string(forKey: "flutter.annual_planner_current_theme")
+            ?? userDefaults.string(forKey: "annual_planner_current_theme")
+            ?? "Floral Monthly Planner"
+    }
+
+    static func getAnnualTodos(for month: String) -> [TodoItem] {
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return [] }
+        let jsonString = userDefaults.string(forKey: "flutter.annual_planner_\(month)")
+            ?? userDefaults.string(forKey: "annual_planner_\(month)")
+            ?? "[]"
+
+        if let data = jsonString.data(using: .utf8) {
+            if let decoded = try? JSONDecoder().decode([TodoItem].self, from: data) {
+                return decoded
+            }
+            if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                return jsonArray.compactMap { dict in
+                    guard let text = dict["text"] as? String else { return nil }
+                    let isCompleted = (dict["completed"] as? Bool) ?? (dict["isDone"] as? Bool) ?? false
+                    return TodoItem(text: text, isCompleted: isCompleted)
+                }
+            }
+        }
+        return []
+    }
 }
