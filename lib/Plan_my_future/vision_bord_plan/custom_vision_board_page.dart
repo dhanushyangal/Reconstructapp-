@@ -189,6 +189,7 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
   void initState() {
     super.initState();
     _saveCurrentTheme(); // Save theme for widget auto-detection
+    _saveCategories(); // Save categories for widget
 
     // Load shared data from local storage first (fast)
     _loadAllFromLocalStorage().then((_) {
@@ -227,6 +228,23 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
       debugPrint('Saved current vision board theme: ${widget.template}');
     } catch (e) {
       debugPrint('Error saving theme: $e');
+    }
+  }
+
+  Future<void> _saveCategories() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Save to SharedPreferences
+      await prefs.setStringList('selected_life_areas', widget.selectedAreas);
+      // Also save to HomeWidget (app group) so iOS widget can access
+      await HomeWidget.saveWidgetData('selected_life_areas', widget.selectedAreas.join(','));
+      // Also save individual category indices for compatibility
+      for (int i = 0; i < widget.selectedAreas.length && i < 5; i++) {
+        await HomeWidget.saveWidgetData('category_$i', widget.selectedAreas[i]);
+      }
+      debugPrint('Saved ${widget.selectedAreas.length} categories to widget storage');
+    } catch (e) {
+      debugPrint('Error saving categories: $e');
     }
   }
 

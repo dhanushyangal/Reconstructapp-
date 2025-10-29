@@ -46,15 +46,9 @@ struct VisionBoardProvider: TimelineProvider {
         }
 
         for category in categories {
-            if let todosJson = SharedDataModel.getTodos(for: category, theme: currentTheme) {
-                if let data = todosJson.data(using: .utf8) {
-                    do {
-                        let decodedTodos = try JSONDecoder().decode([SharedDataModel.TodoItem].self, from: data)
-                        todosByCategory[category] = decodedTodos
-                    } catch {
-                        print("Failed to decode todos for \(category): \(error)")
-                    }
-                }
+            let todos = SharedDataModel.getVisionBoardTodos(for: category, theme: currentTheme)
+            if !todos.isEmpty {
+                todosByCategory[category] = todos
             }
         }
 

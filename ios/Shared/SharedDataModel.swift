@@ -2,7 +2,7 @@ import Foundation
 import WidgetKit
 
 struct SharedDataModel {
-    static let appGroupIdentifier = "group.com.mentalfitness.reconstruct.widgets"
+    static let appGroupIdentifier = "group.com.reconstrect.visionboard"
     
     // MARK: - Notes Data
     struct NoteData: Codable {
@@ -74,6 +74,8 @@ struct SharedDataModel {
     static func saveTheme(_ theme: String) {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
         userDefaults.set(theme, forKey: "widget_theme")
+        userDefaults.set(theme, forKey: "vision_board_current_theme") // Also save with Flutter key
+        userDefaults.set(theme, forKey: "flutter.vision_board_current_theme") // Also save with Flutter key
         userDefaults.synchronize()
         print("Vision Board theme saved: \(theme)")
         WidgetCenter.shared.reloadAllTimelines()
@@ -81,7 +83,10 @@ struct SharedDataModel {
     
     static func getTheme() -> String? {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return nil }
-        return userDefaults.string(forKey: "widget_theme")
+        // Try Flutter keys first (as that's what Flutter saves), then fallback to widget_theme
+        return userDefaults.string(forKey: "vision_board_current_theme")
+            ?? userDefaults.string(forKey: "flutter.vision_board_current_theme")
+            ?? userDefaults.string(forKey: "widget_theme")
     }
     
     static func saveCategories(_ categories: [String]) {
@@ -98,6 +103,15 @@ struct SharedDataModel {
     
     static func getCategories() -> [String] {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return [] }
+        // Try comma-separated string from HomeWidget first (what Flutter saves via HomeWidget)
+        if let categoriesString = userDefaults.string(forKey: "selected_life_areas"), !categoriesString.isEmpty {
+            return categoriesString.split(separator: ",").map { String($0.trimmingCharacters(in: .whitespaces)) }
+        }
+        // Try array format (from SharedPreferences)
+        if let categoriesArray = userDefaults.array(forKey: "selected_life_areas") as? [String], !categoriesArray.isEmpty {
+            return categoriesArray
+        }
+        // Fallback to indexed category keys (for compatibility)
         var categories: [String] = []
         for i in 0..<5 { // Max 5 categories
             if let category = userDefaults.string(forKey: "category_\(i)") {
@@ -128,6 +142,13 @@ struct SharedDataModel {
     
     static func getTodos(for category: String, theme: String) -> String? {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return nil }
+        // Flutter saves with universal key: "vision_board_\(category)"
+        // Try universal key first (as that's what Flutter uses), then theme-specific keys
+        if let universalData = userDefaults.string(forKey: "vision_board_\(category)"), !universalData.isEmpty {
+            return universalData
+        }
+        
+        // Fallback to theme-specific keys (for backwards compatibility)
         let key: String
         switch theme {
         case "Premium Vision Board": key = "premium_todos_\(category)"
@@ -170,6 +191,36 @@ struct SharedDataModel {
         return [:]
     }
 
+    // MARK: - Vision Board Todo Methods (with isDone support)
+    static func getVisionBoardTodos(for category: String, theme: String) -> [TodoItem] {
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return [] }
+        // Try universal key first (what Flutter uses)
+        var jsonString: String? = userDefaults.string(forKey: "vision_board_\(category)")
+        
+        // If not found, try theme-specific keys
+        if jsonString == nil || jsonString!.isEmpty {
+            jsonString = getTodos(for: category, theme: theme)
+        }
+        
+        guard let jsonString = jsonString, !jsonString.isEmpty else { return [] }
+        
+        if let data = jsonString.data(using: .utf8) {
+            // Try standard decode first
+            if let decoded = try? JSONDecoder().decode([TodoItem].self, from: data) {
+                return decoded
+            }
+            // Fallback: handle both "isDone" and "completed" field names
+            if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                return jsonArray.compactMap { dict in
+                    guard let text = dict["text"] as? String else { return nil }
+                    let isCompleted = (dict["completed"] as? Bool) ?? (dict["isDone"] as? Bool) ?? false
+                    return TodoItem(text: text, isCompleted: isCompleted)
+                }
+            }
+        }
+        return []
+    }
+    
     // MARK: - Weekly Planner Methods
     static func getWeeklyTheme() -> String {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return "Floral Weekly Planner" }
