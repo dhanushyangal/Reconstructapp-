@@ -234,6 +234,7 @@ struct SharedDataModel {
         let jsonString = userDefaults.string(forKey: "flutter.weekly_planner_\(day)")
             ?? userDefaults.string(forKey: "weekly_planner_\(day)")
             ?? "[]"
+            
 
         if let data = jsonString.data(using: .utf8) {
             if let decoded = try? JSONDecoder().decode([TodoItem].self, from: data) {
