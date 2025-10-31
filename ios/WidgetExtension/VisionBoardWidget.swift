@@ -38,6 +38,7 @@ struct VisionBoardProvider: TimelineProvider {
         // Get theme - should be normalized by SharedDataModel
         let currentTheme = SharedDataModel.getTheme() ?? "Premium Vision Board"
         
+        
         print("Vision Board Widget: Current theme = \(currentTheme)")
         
         // Get all possible vision board categories (matching Android logic)
