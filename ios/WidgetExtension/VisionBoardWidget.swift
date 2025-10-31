@@ -37,25 +37,48 @@ struct VisionBoardProvider: TimelineProvider {
         let currentDate = Date()
         // Default theme if none was chosen in-app
         let currentTheme = SharedDataModel.getTheme() ?? "Premium Vision Board"
-        var categories = SharedDataModel.getCategories()
+        
+        // Get all possible vision board categories (matching Android logic)
+        let allPossibleCategories = [
+            "BMI", "Career", "DIY", "Family", "Food",
+            "Forgive", "Health", "Help", "Hobbies",
+            "Income", "Inspiration", "Invest", "Knowledge",
+            "Love", "Luxury", "Music", "Reading", "Self Care",
+            "Social", "Tech", "Travel"
+        ]
+        
+        // Only include categories that have tasks (like Android does)
+        var categoriesWithTasks: [String] = []
         var todosByCategory: [String: [SharedDataModel.TodoItem]] = [:]
-
-        // If no categories saved yet, provide a sensible starter based on theme
-        if categories.isEmpty {
-            categories = defaultStarterCategory(for: currentTheme)
-        }
-
-        for category in categories {
+        
+        // Check all possible categories and only add those with tasks
+        for category in allPossibleCategories {
             let todos = SharedDataModel.getVisionBoardTodos(for: category, theme: currentTheme)
             if !todos.isEmpty {
+                categoriesWithTasks.append(category)
                 todosByCategory[category] = todos
             }
         }
-
+        
+        // Also check saved categories from Flutter (selected_life_areas)
+        let savedCategories = SharedDataModel.getCategories()
+        for category in savedCategories {
+            if !categoriesWithTasks.contains(category) {
+                let todos = SharedDataModel.getVisionBoardTodos(for: category, theme: currentTheme)
+                if !todos.isEmpty {
+                    categoriesWithTasks.append(category)
+                    todosByCategory[category] = todos
+                }
+            }
+        }
+        
+        // Limit to 4 categories (matching Android MAX_CATEGORIES - 1)
+        let categoriesToShow = Array(categoriesWithTasks.prefix(4))
+        
         let entry = VisionBoardEntry(
             date: currentDate,
             theme: currentTheme,
-            categories: categories,
+            categories: categoriesToShow,
             todosByCategory: todosByCategory
         )
         
@@ -64,18 +87,6 @@ struct VisionBoardProvider: TimelineProvider {
         completion(timeline)
     }
     
-    // Helper to provide a default starter category based on theme
-    private func defaultStarterCategory(for theme: String) -> [String] {
-        switch theme {
-        case "Premium Vision Board": return ["Career"]
-        case "PostIt Vision Board": return ["Travel"]
-        case "Ruby Reds Vision Board": return ["Love"]
-        case "Winter Warmth Vision Board": return ["Family"]
-        case "Coffee Hues Vision Board": return ["Health"]
-        case "Box Vision Board": return ["Hobbies"]
-        default: return ["Vision"]
-        }
-    }
 }
 
 struct VisionBoardEntry: TimelineEntry {
@@ -96,56 +107,27 @@ struct VisionBoardWidgetEntryView: View {
                 .fill(themeBackgroundColor(entry.theme))
 
             VStack(spacing: 8) {
-                if let theme = entry.theme {
-                    if entry.categories.isEmpty {
-                        // Theme selected but no categories yet – prompt to select categories
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.black.opacity(0.35))
-                            VStack(spacing: 8) {
-                                Text("Select categories")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.white)
-                                Text("Tap to choose up to 5 categories")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.white.opacity(0.9))
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding(12)
-                        }
-                        .padding(.horizontal, 12)
-                        .widgetURL(URL(string: "mentalfitness://visionboard/category-select"))
-                    } else {
-                        // Show categories grid
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
-                            ForEach(entry.categories, id: \.self) { category in
-                                CategoryBoxView(
-                                    category: category,
-                                    todos: entry.todosByCategory[category] ?? [],
-                                    theme: theme
-                                )
-                                .widgetURL(URL(string: "mentalfitness://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
-                            }
-                            
-                            // Add category button if less than 5 categories
-                            if entry.categories.count < 5 {
-                                AddCategoryBoxView(theme: theme)
-                                    .widgetURL(URL(string: "mentalfitness://visionboard/category-select"))
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.top, 8)
-                    }
-                } else {
-                    // No theme selected - show theme selection prompt
+                // Theme name header
+                HStack {
+                    Text(entry.theme ?? "Vision Board")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+                
+                if entry.categories.isEmpty {
+                    // No categories with tasks - show empty state
                     ZStack {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(Color.black.opacity(0.35))
                         VStack(spacing: 8) {
-                            Text("Select a theme to start")
+                            Text("No Goals")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.white)
-                            Text("Tap to choose your Vision Board theme")
+                            Text("Add goals and tap widget\nto open app")
                                 .font(.system(size: 13))
                                 .foregroundColor(.white.opacity(0.9))
                                 .multilineTextAlignment(.center)
@@ -153,7 +135,21 @@ struct VisionBoardWidgetEntryView: View {
                         .padding(12)
                     }
                     .padding(.horizontal, 12)
-                    .widgetURL(URL(string: "mentalfitness://visionboard/theme"))
+                    .widgetURL(URL(string: "mentalfitness://visionboard"))
+                } else {
+                    // Show categories grid with tasks
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
+                        ForEach(entry.categories, id: \.self) { category in
+                            CategoryBoxView(
+                                category: category,
+                                todos: entry.todosByCategory[category] ?? [],
+                                theme: entry.theme ?? "Premium Vision Board"
+                            )
+                            .widgetURL(URL(string: "mentalfitness://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
                 }
                 
                 Spacer()
@@ -229,45 +225,6 @@ struct CategoryBoxView: View {
         case "Coffee Hues Vision Board": return Color(red: 0.6, green: 0.4, blue: 0.2)
         case "Box Vision Board": return Color(red: 0.9, green: 0.9, blue: 0.9)
         default: return Color.blue
-        }
-    }
-    
-    private var textColor: Color {
-        switch theme {
-        case "Box Vision Board": return Color.black
-        default: return Color.white
-        }
-    }
-}
-
-struct AddCategoryBoxView: View {
-    let theme: String
-    
-    var body: some View {
-        VStack {
-            Image(systemName: "plus")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(textColor)
-            
-            Text("Add category")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(textColor)
-        }
-        .frame(height: 80)
-        .frame(maxWidth: .infinity)
-        .background(backgroundColor)
-        .cornerRadius(8)
-    }
-    
-    private var backgroundColor: Color {
-        switch theme {
-        case "Premium Vision Board": return Color(red: 0.2, green: 0.3, blue: 0.8).opacity(0.7)
-        case "PostIt Vision Board": return Color(red: 1.0, green: 0.9, blue: 0.1).opacity(0.7)
-        case "Ruby Reds Vision Board": return Color(red: 0.8, green: 0.2, blue: 0.2).opacity(0.7)
-        case "Winter Warmth Vision Board": return Color(red: 0.9, green: 0.6, blue: 0.4).opacity(0.7)
-        case "Coffee Hues Vision Board": return Color(red: 0.6, green: 0.4, blue: 0.2).opacity(0.7)
-        case "Box Vision Board": return Color(red: 0.9, green: 0.9, blue: 0.9).opacity(0.7)
-        default: return Color.blue.opacity(0.7)
         }
     }
     

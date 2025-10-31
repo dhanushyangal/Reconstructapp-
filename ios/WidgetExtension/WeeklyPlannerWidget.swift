@@ -62,19 +62,16 @@ struct WeeklyPlannerWidgetEntryView: View {
         ZStack {
             weeklyBackground(for: entry.theme)
             VStack(spacing: 8) {
+                // Theme name header
                 HStack {
-                    Text("Weekly Planner")
+                    Text(entry.theme)
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(headerTextColor(for: entry.theme))
+                        .lineLimit(1)
                     Spacer()
-                    if let url = URL(string: "mentalfitness://weekly-planner/add") {
-                        Link(destination: url) {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundColor(headerTextColor(for: entry.theme))
-                        }
-                    }
                 }
                 .padding(.horizontal, 8)
+                .padding(.top, 8)
 
                 if entry.days.isEmpty {
                     emptyState
@@ -100,13 +97,15 @@ struct WeeklyPlannerWidgetEntryView: View {
                 Text("No Goals")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
-                Text("Tap + to add days")
+                Text("Add goals and tap widget\nto open app")
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.9))
+                    .multilineTextAlignment(.center)
             }
             .padding(10)
         }
         .padding(.horizontal, 12)
+        .widgetURL(URL(string: "mentalfitness://weekly-planner"))
     }
 
     private func dayBox(day: String, todos: [SharedDataModel.TodoItem], theme: String) -> some View {
@@ -187,6 +186,7 @@ struct WeeklyPlannerWidget: Widget {
         .supportedFamilies([.systemMedium, .systemLarge])
     }
 }
+
 
 
 
