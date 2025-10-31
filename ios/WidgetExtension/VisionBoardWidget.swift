@@ -35,8 +35,10 @@ struct VisionBoardProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<VisionBoardEntry>) -> ()) {
         let currentDate = Date()
-        // Default theme if none was chosen in-app
+        // Get theme - should be normalized by SharedDataModel
         let currentTheme = SharedDataModel.getTheme() ?? "Premium Vision Board"
+        
+        print("Vision Board Widget: Current theme = \(currentTheme)")
         
         // Get all possible vision board categories (matching Android logic)
         let allPossibleCategories = [
@@ -47,23 +49,32 @@ struct VisionBoardProvider: TimelineProvider {
             "Social", "Tech", "Travel"
         ]
         
+        // First, check saved categories from Flutter (selected_life_areas) - these are the ones user selected
+        let savedCategories = SharedDataModel.getCategories()
+        print("Vision Board Widget: Saved categories = \(savedCategories)")
+        
         // Only include categories that have tasks (like Android does)
         var categoriesWithTasks: [String] = []
         var todosByCategory: [String: [SharedDataModel.TodoItem]] = [:]
         
-        // Check all possible categories and only add those with tasks
-        for category in allPossibleCategories {
+        // Priority 1: Check saved categories first (these are what user actually selected)
+        for category in savedCategories {
             let todos = SharedDataModel.getVisionBoardTodos(for: category, theme: currentTheme)
+            print("Vision Board Widget: Category '\(category)' has \(todos.count) todos")
             if !todos.isEmpty {
-                categoriesWithTasks.append(category)
-                todosByCategory[category] = todos
+                if !categoriesWithTasks.contains(category) {
+                    categoriesWithTasks.append(category)
+                    todosByCategory[category] = todos
+                }
             }
         }
         
-        // Also check saved categories from Flutter (selected_life_areas)
-        let savedCategories = SharedDataModel.getCategories()
-        for category in savedCategories {
-            if !categoriesWithTasks.contains(category) {
+        // Priority 2: Check all possible categories if we still have room (max 4)
+        if categoriesWithTasks.count < 4 {
+            for category in allPossibleCategories {
+                if categoriesWithTasks.count >= 4 { break }
+                if categoriesWithTasks.contains(category) { continue }
+                
                 let todos = SharedDataModel.getVisionBoardTodos(for: category, theme: currentTheme)
                 if !todos.isEmpty {
                     categoriesWithTasks.append(category)
@@ -71,6 +82,8 @@ struct VisionBoardProvider: TimelineProvider {
                 }
             }
         }
+        
+        print("Vision Board Widget: Found \(categoriesWithTasks.count) categories with tasks: \(categoriesWithTasks)")
         
         // Limit to 4 categories (matching Android MAX_CATEGORIES - 1)
         let categoriesToShow = Array(categoriesWithTasks.prefix(4))
@@ -111,7 +124,7 @@ struct VisionBoardWidgetEntryView: View {
                 HStack {
                     Text(entry.theme ?? "Vision Board")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(themeHeaderTextColor(entry.theme))
                         .lineLimit(1)
                     Spacer()
                 }
@@ -120,16 +133,18 @@ struct VisionBoardWidgetEntryView: View {
                 
                 if entry.categories.isEmpty {
                     // No categories with tasks - show empty state
+                    let isBoxTheme = (entry.theme ?? "") == "Box Vision Board"
+                    let emptyTextColor = themeHeaderTextColor(entry.theme)
                     ZStack {
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.black.opacity(0.35))
+                            .fill(isBoxTheme ? Color.black.opacity(0.1) : Color.black.opacity(0.35))
                         VStack(spacing: 8) {
                             Text("No Goals")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(emptyTextColor)
                             Text("Add goals and tap widget\nto open app")
                                 .font(.system(size: 13))
-                                .foregroundColor(.white.opacity(0.9))
+                                .foregroundColor(emptyTextColor.opacity(0.9))
                                 .multilineTextAlignment(.center)
                         }
                         .padding(12)
@@ -171,6 +186,17 @@ private func themeBackgroundColor(_ theme: String?) -> Color {
     case "Box Vision Board": return Color(red: 0.95, green: 0.95, blue: 0.95)
     default: return Color(red: 0.12, green: 0.12, blue: 0.12)
     }
+}
+
+// MARK: - Theme Header Text Color
+private func themeHeaderTextColor(_ theme: String?) -> Color {
+    guard let theme = theme else { return Color.white }
+    // Box theme needs black text on light background
+    if theme == "Box Vision Board" {
+        return Color.black
+    }
+    // All other themes use white text
+    return Color.white
 }
 
 struct CategoryBoxView: View {
