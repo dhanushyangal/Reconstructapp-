@@ -3,8 +3,10 @@ import 'package:screenshot/screenshot.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
 import 'dart:convert';
+import 'dart:io';
 import '../services/database_service.dart';
 import '../services/user_service.dart';
+import '../services/ios_widget_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import '../pages/active_dashboard_page.dart';
@@ -274,9 +276,6 @@ class _UnifiedVisionBoardPageState extends State<UnifiedVisionBoardPage>
   @override
   void initState() {
     super.initState();
-    // Initialize HomeWidget with correct app group ID for iOS
-    HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
-    
     theme = VisionBoardTheme.getTheme(widget.themeName);
     _saveCurrentTheme(); // Save theme for widget auto-detection
 
@@ -309,14 +308,11 @@ class _UnifiedVisionBoardPageState extends State<UnifiedVisionBoardPage>
   Future<void> _saveCurrentTheme() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      // Save with both flutter. prefix and without (like Notes page)
       await prefs.setString('flutter.vision_board_current_theme', theme.displayName);
       await prefs.setString('vision_board_current_theme', theme.displayName);
-      
-      // Ensure app group is set before saving
-      HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
       await HomeWidget.saveWidgetData('vision_board_current_theme', theme.displayName);
-      await HomeWidget.saveWidgetData('flutter.vision_board_current_theme', theme.displayName);
-      
+      await HomeWidget.saveWidgetData('widget_theme', theme.displayName); // Fallback key
       debugPrint('Saved current vision board theme: ${theme.displayName}');
     } catch (e) {
       debugPrint('Error saving theme: $e');
@@ -384,19 +380,41 @@ class _UnifiedVisionBoardPageState extends State<UnifiedVisionBoardPage>
                 decoded.map((item) => TodoItem.fromJson(item)).toList();
             
             // Save to local storage AND widget storage with universal key
+            // Save with both flutter. prefix and without (like Notes page)
             await prefs.setString('vision_board_$category', tasksJson);
-            await prefs.setString('flutter.vision_board_$category', tasksJson); // Also save with flutter prefix
-            
-            // Ensure app group is set before saving
-            HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
+            await prefs.setString('flutter.vision_board_$category', tasksJson);
             await HomeWidget.saveWidgetData('vision_board_$category', tasksJson);
-            
-            debugPrint('Synced and saved todos for category "$category" to widget storage');
           }
         }
         
         setState(() {});
         _lastSyncTime = DateTime.now();
+        
+        // Save categories list after sync
+        final categoriesJson = json.encode(visionCategories);
+        await prefs.setString('vision_board_categories', categoriesJson);
+        await prefs.setString('flutter.vision_board_categories', categoriesJson);
+        await HomeWidget.saveWidgetData('vision_board_categories', categoriesJson);
+        
+        // Update iOS widget after sync
+        if (Platform.isIOS) {
+          try {
+            final todosByCategoryJson = <String, String>{};
+            for (var cat in visionCategories) {
+              final todos = _todoLists[cat] ?? [];
+              todosByCategoryJson[cat] = json.encode(todos.map((item) => item.toJson()).toList());
+            }
+            
+            await IOSWidgetService.updateVisionBoardWidget(
+              theme: theme.displayName,
+              categories: visionCategories,
+              todosByCategoryJson: todosByCategoryJson,
+            );
+            debugPrint('iOS Vision Board widget updated after sync');
+          } catch (e) {
+            debugPrint('Error updating iOS widget after sync: $e');
+          }
+        }
       }
     } catch (e) {
       debugPrint('Sync error: $e');
@@ -411,19 +429,42 @@ class _UnifiedVisionBoardPageState extends State<UnifiedVisionBoardPage>
     final encoded = json.encode(todoList.map((item) => item.toJson()).toList());
 
     // Save to local storage with universal key (same across all themes)
+    // Save with both flutter. prefix and without (like Notes page)
     await prefs.setString('vision_board_$category', encoded);
-    await prefs.setString('flutter.vision_board_$category', encoded); // Also save with flutter prefix
-    
-    // Ensure app group is set before saving
-    HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
+    await prefs.setString('flutter.vision_board_$category', encoded);
     await HomeWidget.saveWidgetData('vision_board_$category', encoded);
-    
-    debugPrint('Saved todos for category "$category": ${todoList.length} items, ${encoded.length} chars');
-    
+
+    // Save categories list for widget
+    final categoriesJson = json.encode(visionCategories);
+    await prefs.setString('vision_board_categories', categoriesJson);
+    await prefs.setString('flutter.vision_board_categories', categoriesJson);
+    await HomeWidget.saveWidgetData('vision_board_categories', categoriesJson);
+
     await HomeWidget.updateWidget(
       androidName: 'VisionBoardWidget',
       iOSName: 'VisionBoardWidget',
     );
+
+    // Update iOS widget specifically (like Notes page)
+    if (Platform.isIOS) {
+      try {
+        // Build todosByCategoryJson map
+        final todosByCategoryJson = <String, String>{};
+        for (var cat in visionCategories) {
+          final todos = _todoLists[cat] ?? [];
+          todosByCategoryJson[cat] = json.encode(todos.map((item) => item.toJson()).toList());
+        }
+        
+        await IOSWidgetService.updateVisionBoardWidget(
+          theme: theme.displayName,
+          categories: visionCategories,
+          todosByCategoryJson: todosByCategoryJson,
+        );
+        debugPrint('iOS Vision Board widget updated successfully');
+      } catch (e) {
+        debugPrint('Error updating iOS Vision Board widget: $e');
+      }
+    }
 
     if (!_hasNetworkConnectivity) {
       if (mounted) {

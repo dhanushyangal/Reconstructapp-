@@ -60,16 +60,19 @@ struct AnnualPlannerWidgetEntryView: View {
         ZStack {
             annualBackground(for: entry.theme)
             VStack(spacing: 8) {
-                // Theme name header
                 HStack {
-                    Text(entry.theme)
+                    Text("Annual Planner")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(headerTextColor(for: entry.theme))
-                        .lineLimit(1)
                     Spacer()
+                    if let url = URL(string: "mentalfitness://annual-planner/add") {
+                        Link(destination: url) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(headerTextColor(for: entry.theme))
+                        }
+                    }
                 }
                 .padding(.horizontal, 8)
-                .padding(.top, 8)
 
                 if entry.months.isEmpty {
                     emptyState
@@ -95,15 +98,13 @@ struct AnnualPlannerWidgetEntryView: View {
                 Text("No Goals")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
-                Text("Add goals and tap widget\nto open app")
+                Text("Tap + to add months")
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.9))
-                    .multilineTextAlignment(.center)
             }
             .padding(10)
         }
         .padding(.horizontal, 12)
-        .widgetURL(URL(string: "mentalfitness://annual-planner"))
     }
 
     private func monthBox(month: String, todos: [SharedDataModel.TodoItem], theme: String) -> some View {
@@ -185,12 +186,5 @@ struct AnnualPlannerWidget: Widget {
         .supportedFamilies([.systemMedium, .systemLarge])
     }
 }
-
-
-
-
-
-
-
 
 

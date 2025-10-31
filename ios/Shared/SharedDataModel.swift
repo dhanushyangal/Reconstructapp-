@@ -2,7 +2,7 @@ import Foundation
 import WidgetKit
 
 struct SharedDataModel {
-    static let appGroupIdentifier = "group.com.reconstrect.visionboard"
+    static let appGroupIdentifier = "group.com.mentalfitness.reconstruct.widgets"
     
     // MARK: - Notes Data
     struct NoteData: Codable {
@@ -25,6 +25,38 @@ struct SharedDataModel {
     struct TodoItem: Codable {
         let text: String
         let isCompleted: Bool
+        
+        // Manual initializer
+        init(text: String, isCompleted: Bool) {
+            self.text = text
+            self.isCompleted = isCompleted
+        }
+        
+        // Flutter format uses "isDone" instead of "isCompleted"
+        enum CodingKeys: String, CodingKey {
+            case text
+            case isCompleted
+            case isDone
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            text = try container.decode(String.self, forKey: .text)
+            // Support both "isCompleted" and "isDone" for compatibility
+            if let completed = try? container.decode(Bool.self, forKey: .isCompleted) {
+                isCompleted = completed
+            } else if let done = try? container.decode(Bool.self, forKey: .isDone) {
+                isCompleted = done
+            } else {
+                isCompleted = false
+            }
+        }
+        
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(text, forKey: .text)
+            try container.encode(isCompleted, forKey: .isCompleted)
+        }
     }
     
     // MARK: - Notes Methods
@@ -74,8 +106,6 @@ struct SharedDataModel {
     static func saveTheme(_ theme: String) {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
         userDefaults.set(theme, forKey: "widget_theme")
-        userDefaults.set(theme, forKey: "vision_board_current_theme") // Also save with Flutter key
-        userDefaults.set(theme, forKey: "flutter.vision_board_current_theme") // Also save with Flutter key
         userDefaults.synchronize()
         print("Vision Board theme saved: \(theme)")
         WidgetCenter.shared.reloadAllTimelines()
@@ -83,46 +113,10 @@ struct SharedDataModel {
     
     static func getTheme() -> String? {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return nil }
-        // Try Flutter keys first (as that's what Flutter saves), then fallback to widget_theme
-        let rawTheme = userDefaults.string(forKey: "vision_board_current_theme")
-            ?? userDefaults.string(forKey: "flutter.vision_board_current_theme")
-            ?? userDefaults.string(forKey: "widget_theme")
-        
-        // Normalize theme name to match iOS widget expectations
-        guard let theme = rawTheme else { return nil }
-        return normalizeThemeName(theme)
-    }
-    
-    // Normalize Flutter theme names to iOS widget format
-    private static func normalizeThemeName(_ theme: String) -> String {
-        let lowercased = theme.lowercased()
-        
-        print("🔧 SharedDataModel: Normalizing theme name '\(theme)'")
-        
-        // Handle various Flutter theme name formats
-        if lowercased.contains("premium") {
-            print("✅ Normalized to: Premium Vision Board")
-            return "Premium Vision Board"
-        } else if lowercased.contains("postit") || lowercased.contains("post-it") || lowercased.contains("post it") {
-            print("✅ Normalized to: PostIt Vision Board")
-            return "PostIt Vision Board"
-        } else if lowercased.contains("ruby") && lowercased.contains("red") {
-            print("✅ Normalized to: Ruby Reds Vision Board")
-            return "Ruby Reds Vision Board"
-        } else if lowercased.contains("winter") && lowercased.contains("warmth") {
-            print("✅ Normalized to: Winter Warmth Vision Board")
-            return "Winter Warmth Vision Board"
-        } else if lowercased.contains("coffee") && lowercased.contains("hue") {
-            print("✅ Normalized to: Coffee Hues Vision Board")
-            return "Coffee Hues Vision Board"
-        } else if lowercased.contains("box") || lowercased.contains("boxy") {
-            print("✅ Normalized to: Box Vision Board")
-            return "Box Vision Board"
-        }
-        
-        // Return original if no match found
-        print("⚠️ No normalization match, returning original: \(theme)")
-        return theme
+        // Flutter saves theme with these keys
+        return userDefaults.string(forKey: "flutter.vision_board_current_theme")
+            ?? userDefaults.string(forKey: "vision_board_current_theme")
+            ?? userDefaults.string(forKey: "widget_theme") // Fallback for old format
     }
     
     static func saveCategories(_ categories: [String]) {
@@ -138,22 +132,7 @@ struct SharedDataModel {
     }
     
     static func getCategories() -> [String] {
-        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else {
-            print("SharedDataModel: App group not available for getCategories")
-            return []
-        }
-        // Try comma-separated string from HomeWidget first (what Flutter saves via HomeWidget)
-        if let categoriesString = userDefaults.string(forKey: "selected_life_areas"), !categoriesString.isEmpty {
-            let categories = categoriesString.split(separator: ",").map { String($0.trimmingCharacters(in: .whitespaces)) }
-            print("SharedDataModel: Found categories from comma-separated string: \(categories)")
-            return categories
-        }
-        // Try array format (from SharedPreferences)
-        if let categoriesArray = userDefaults.array(forKey: "selected_life_areas") as? [String], !categoriesArray.isEmpty {
-            print("SharedDataModel: Found categories from array: \(categoriesArray)")
-            return categoriesArray
-        }
-        // Fallback to indexed category keys (for compatibility)
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return [] }
         var categories: [String] = []
         for i in 0..<5 { // Max 5 categories
             if let category = userDefaults.string(forKey: "category_\(i)") {
@@ -161,11 +140,6 @@ struct SharedDataModel {
             } else {
                 break
             }
-        }
-        if !categories.isEmpty {
-            print("SharedDataModel: Found categories from indexed keys: \(categories)")
-        } else {
-            print("SharedDataModel: No categories found")
         }
         return categories
     }
@@ -189,24 +163,59 @@ struct SharedDataModel {
     
     static func getTodos(for category: String, theme: String) -> String? {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return nil }
-        // Flutter saves with universal key: "vision_board_\(category)"
-        // Try universal key first (as that's what Flutter uses), then theme-specific keys
-        if let universalData = userDefaults.string(forKey: "vision_board_\(category)"), !universalData.isEmpty {
-            return universalData
+        // Flutter uses universal key: vision_board_$category (same across all themes)
+        return userDefaults.string(forKey: "vision_board_\(category)")
+    }
+    
+    // Get Vision Board todos as TodoItem array (handles Flutter format)
+    static func getVisionBoardTodos(for category: String) -> [TodoItem] {
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return [] }
+        let jsonString = userDefaults.string(forKey: "vision_board_\(category)") ?? "[]"
+        
+        if let data = jsonString.data(using: .utf8) {
+            if let decoded = try? JSONDecoder().decode([TodoItem].self, from: data) {
+                return decoded
+            }
+            // Fallback: handle Flutter's format with "id", "text", "isDone"
+            if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                return jsonArray.compactMap { dict in
+                    guard let text = dict["text"] as? String else { return nil }
+                    let isCompleted = (dict["isDone"] as? Bool) ?? (dict["isCompleted"] as? Bool) ?? false
+                    return TodoItem(text: text, isCompleted: isCompleted)
+                }
+            }
+        }
+        return []
+    }
+    
+    // Get all categories that have todos (scan all possible categories)
+    static func getCategoriesWithTodos() -> [String] {
+        let allPossibleCategories = [
+            "Travel", "Self Care", "Forgive", "Love", "Family", "Career",
+            "Health", "Hobbies", "Knowledge", "Social", "Reading", "Food",
+            "Music", "Tech", "DIY", "Luxury", "Income", "BMI", "Invest",
+            "Inspiration", "Help", "Fitness", "Skill", "Education",
+            "Relationships", "Spirituality", "Personal Growth",
+            "Financial Planning", "Home & Living", "Technology",
+            "Environment", "Community", "Creativity", "Adventure", "Wellness"
+        ]
+        
+        var categoriesWithData: [String] = []
+        for category in allPossibleCategories {
+            if !getVisionBoardTodos(for: category).isEmpty {
+                categoriesWithData.append(category)
+            }
         }
         
-        // Fallback to theme-specific keys (for backwards compatibility)
-        let key: String
-        switch theme {
-        case "Premium Vision Board": key = "premium_todos_\(category)"
-        case "PostIt Vision Board": key = "postit_todos_\(category)"
-        case "Ruby Reds Vision Board": key = "rubyreds_todos_\(category)"
-        case "Winter Warmth Vision Board": key = "winterwarmth_todos_\(category)"
-        case "Coffee Hues Vision Board": key = "coffeehues_todos_\(category)"
-        case "Box Vision Board": key = "BoxThem_todos_\(category)"
-        default: key = "todos_\(category)"
+        // Also check saved categories from widget configuration
+        let savedCategories = getCategories()
+        for category in savedCategories {
+            if !categoriesWithData.contains(category) && !getVisionBoardTodos(for: category).isEmpty {
+                categoriesWithData.append(category)
+            }
         }
-        return userDefaults.string(forKey: key)
+        
+        return categoriesWithData
     }
     
     // MARK: - Calendar Data Methods
@@ -238,89 +247,6 @@ struct SharedDataModel {
         return [:]
     }
 
-    // MARK: - Vision Board Todo Methods (with isDone support)
-    static func getVisionBoardTodos(for category: String, theme: String) -> [TodoItem] {
-        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else {
-            print("❌ SharedDataModel: App group '\(appGroupIdentifier)' not available!")
-            return []
-        }
-        
-        print("✅ SharedDataModel: App group accessible for reading todos")
-        
-        // Try multiple key variations
-        var jsonString: String? = nil
-        let keysToTry = [
-            "vision_board_\(category)",
-            "flutter.vision_board_\(category)"
-        ]
-        
-        for key in keysToTry {
-            if let data = userDefaults.string(forKey: key), !data.isEmpty {
-                jsonString = data
-                print("✅ SharedDataModel: Found data for '\(category)' using key '\(key)' (\(data.count) chars)")
-                break
-            }
-        }
-        
-        // If not found, try theme-specific keys (fallback)
-        if jsonString == nil || jsonString!.isEmpty {
-            print("⚠️ SharedDataModel: Universal key not found, trying theme-specific key")
-            jsonString = getTodos(for: category, theme: theme)
-            if jsonString != nil && !jsonString!.isEmpty {
-                print("✅ SharedDataModel: Found data using theme-specific key")
-            }
-        }
-        
-        guard let jsonString = jsonString, !jsonString.isEmpty else {
-            print("❌ SharedDataModel: No data found for category '\(category)' (tried all keys)")
-            return []
-        }
-        
-        // Check if it's valid JSON array (not empty)
-        let trimmed = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed == "[]" || trimmed.isEmpty {
-            print("⚠️ SharedDataModel: Empty array for category '\(category)'")
-            return []
-        }
-        
-        // Print first 100 chars for debugging
-        let preview = String(trimmed.prefix(100))
-        print("📝 SharedDataModel: JSON preview for '\(category)': \(preview)...")
-        
-        if let data = jsonString.data(using: .utf8) {
-            // Try standard decode first
-            if let decoded = try? JSONDecoder().decode([TodoItem].self, from: data) {
-                print("✅ SharedDataModel: Successfully decoded \(decoded.count) todos for '\(category)' using Codable")
-                return decoded
-            }
-            
-            // Fallback: handle both "isDone" and "completed" field names, and "id" field
-            if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-                print("📋 SharedDataModel: Parsing JSON array with \(jsonArray.count) items")
-                let todos = jsonArray.compactMap { dict -> TodoItem? in
-                    // Support both "text" field and check for existence
-                    guard let text = dict["text"] as? String else {
-                        print("⚠️ SharedDataModel: Missing 'text' field in todo item: \(dict)")
-                        return nil
-                    }
-                    // Handle both "isDone" and "completed" field names
-                    let isCompleted = (dict["completed"] as? Bool) ?? (dict["isDone"] as? Bool) ?? false
-                    return TodoItem(text: text, isCompleted: isCompleted)
-                }
-                print("✅ SharedDataModel: Parsed \(todos.count) todos from JSON array for '\(category)'")
-                return todos
-            } else {
-                print("❌ SharedDataModel: Failed to parse JSON for category '\(category)'")
-                if let error = try? JSONSerialization.jsonObject(with: data) {
-                    print("📄 SharedDataModel: Parsed object type: \(type(of: error))")
-                }
-            }
-        } else {
-            print("❌ SharedDataModel: Failed to convert string to data for category '\(category)'")
-        }
-        return []
-    }
-    
     // MARK: - Weekly Planner Methods
     static func getWeeklyTheme() -> String {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return "Floral Weekly Planner" }
@@ -334,7 +260,6 @@ struct SharedDataModel {
         let jsonString = userDefaults.string(forKey: "flutter.weekly_planner_\(day)")
             ?? userDefaults.string(forKey: "weekly_planner_\(day)")
             ?? "[]"
-            
 
         if let data = jsonString.data(using: .utf8) {
             if let decoded = try? JSONDecoder().decode([TodoItem].self, from: data) {
