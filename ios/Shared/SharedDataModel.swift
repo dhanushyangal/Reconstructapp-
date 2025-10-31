@@ -97,22 +97,31 @@ struct SharedDataModel {
     private static func normalizeThemeName(_ theme: String) -> String {
         let lowercased = theme.lowercased()
         
+        print("🔧 SharedDataModel: Normalizing theme name '\(theme)'")
+        
         // Handle various Flutter theme name formats
         if lowercased.contains("premium") {
+            print("✅ Normalized to: Premium Vision Board")
             return "Premium Vision Board"
         } else if lowercased.contains("postit") || lowercased.contains("post-it") || lowercased.contains("post it") {
+            print("✅ Normalized to: PostIt Vision Board")
             return "PostIt Vision Board"
         } else if lowercased.contains("ruby") && lowercased.contains("red") {
+            print("✅ Normalized to: Ruby Reds Vision Board")
             return "Ruby Reds Vision Board"
         } else if lowercased.contains("winter") && lowercased.contains("warmth") {
+            print("✅ Normalized to: Winter Warmth Vision Board")
             return "Winter Warmth Vision Board"
         } else if lowercased.contains("coffee") && lowercased.contains("hue") {
+            print("✅ Normalized to: Coffee Hues Vision Board")
             return "Coffee Hues Vision Board"
-        } else if lowercased.contains("box") {
+        } else if lowercased.contains("box") || lowercased.contains("boxy") {
+            print("✅ Normalized to: Box Vision Board")
             return "Box Vision Board"
         }
         
         // Return original if no match found
+        print("⚠️ No normalization match, returning original: \(theme)")
         return theme
     }
     
@@ -232,58 +241,82 @@ struct SharedDataModel {
     // MARK: - Vision Board Todo Methods (with isDone support)
     static func getVisionBoardTodos(for category: String, theme: String) -> [TodoItem] {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else {
-            print("SharedDataModel: App group not available")
+            print("❌ SharedDataModel: App group '\(appGroupIdentifier)' not available!")
             return []
         }
         
-        // Try universal key first (what Flutter uses) - this is the primary storage key
-        var jsonString: String? = userDefaults.string(forKey: "vision_board_\(category)")
+        print("✅ SharedDataModel: App group accessible for reading todos")
         
-        print("SharedDataModel: Reading todos for category '\(category)' with key 'vision_board_\(category)'")
-        print("SharedDataModel: Found data: \(jsonString != nil ? "Yes (\(jsonString!.count) chars)" : "No")")
+        // Try multiple key variations
+        var jsonString: String? = nil
+        let keysToTry = [
+            "vision_board_\(category)",
+            "flutter.vision_board_\(category)"
+        ]
+        
+        for key in keysToTry {
+            if let data = userDefaults.string(forKey: key), !data.isEmpty {
+                jsonString = data
+                print("✅ SharedDataModel: Found data for '\(category)' using key '\(key)' (\(data.count) chars)")
+                break
+            }
+        }
         
         // If not found, try theme-specific keys (fallback)
         if jsonString == nil || jsonString!.isEmpty {
-            print("SharedDataModel: Trying theme-specific key")
+            print("⚠️ SharedDataModel: Universal key not found, trying theme-specific key")
             jsonString = getTodos(for: category, theme: theme)
+            if jsonString != nil && !jsonString!.isEmpty {
+                print("✅ SharedDataModel: Found data using theme-specific key")
+            }
         }
         
         guard let jsonString = jsonString, !jsonString.isEmpty else {
-            print("SharedDataModel: No data found for category '\(category)'")
+            print("❌ SharedDataModel: No data found for category '\(category)' (tried all keys)")
             return []
         }
         
         // Check if it's valid JSON array (not empty)
-        if jsonString.trimmingCharacters(in: .whitespacesAndNewlines) == "[]" {
-            print("SharedDataModel: Empty array for category '\(category)'")
+        let trimmed = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed == "[]" || trimmed.isEmpty {
+            print("⚠️ SharedDataModel: Empty array for category '\(category)'")
             return []
         }
+        
+        // Print first 100 chars for debugging
+        let preview = String(trimmed.prefix(100))
+        print("📝 SharedDataModel: JSON preview for '\(category)': \(preview)...")
         
         if let data = jsonString.data(using: .utf8) {
             // Try standard decode first
             if let decoded = try? JSONDecoder().decode([TodoItem].self, from: data) {
-                print("SharedDataModel: Successfully decoded \(decoded.count) todos for '\(category)'")
+                print("✅ SharedDataModel: Successfully decoded \(decoded.count) todos for '\(category)' using Codable")
                 return decoded
             }
+            
             // Fallback: handle both "isDone" and "completed" field names, and "id" field
             if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                print("📋 SharedDataModel: Parsing JSON array with \(jsonArray.count) items")
                 let todos = jsonArray.compactMap { dict -> TodoItem? in
                     // Support both "text" field and check for existence
                     guard let text = dict["text"] as? String else {
-                        print("SharedDataModel: Missing 'text' field in todo item")
+                        print("⚠️ SharedDataModel: Missing 'text' field in todo item: \(dict)")
                         return nil
                     }
                     // Handle both "isDone" and "completed" field names
                     let isCompleted = (dict["completed"] as? Bool) ?? (dict["isDone"] as? Bool) ?? false
                     return TodoItem(text: text, isCompleted: isCompleted)
                 }
-                print("SharedDataModel: Parsed \(todos.count) todos from JSON array for '\(category)'")
+                print("✅ SharedDataModel: Parsed \(todos.count) todos from JSON array for '\(category)'")
                 return todos
             } else {
-                print("SharedDataModel: Failed to parse JSON for category '\(category)'")
+                print("❌ SharedDataModel: Failed to parse JSON for category '\(category)'")
+                if let error = try? JSONSerialization.jsonObject(with: data) {
+                    print("📄 SharedDataModel: Parsed object type: \(type(of: error))")
+                }
             }
         } else {
-            print("SharedDataModel: Failed to convert string to data for category '\(category)'")
+            print("❌ SharedDataModel: Failed to convert string to data for category '\(category)'")
         }
         return []
     }

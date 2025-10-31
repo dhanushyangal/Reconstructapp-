@@ -188,6 +188,9 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
   @override
   void initState() {
     super.initState();
+    // Initialize HomeWidget with correct app group ID for iOS
+    HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
+    
     _saveCurrentTheme(); // Save theme for widget auto-detection
     _saveCategories(); // Save categories for widget
 
@@ -224,7 +227,12 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('flutter.vision_board_current_theme', widget.template);
       await prefs.setString('vision_board_current_theme', widget.template);
+      
+      // Ensure app group is set before saving
+      HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
       await HomeWidget.saveWidgetData('vision_board_current_theme', widget.template);
+      await HomeWidget.saveWidgetData('flutter.vision_board_current_theme', widget.template);
+      
       debugPrint('Saved current vision board theme: ${widget.template}');
     } catch (e) {
       debugPrint('Error saving theme: $e');
@@ -236,13 +244,21 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
       final prefs = await SharedPreferences.getInstance();
       // Save to SharedPreferences
       await prefs.setStringList('selected_life_areas', widget.selectedAreas);
+      
+      // Ensure app group is set before saving
+      HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
+      
       // Also save to HomeWidget (app group) so iOS widget can access
-      await HomeWidget.saveWidgetData('selected_life_areas', widget.selectedAreas.join(','));
+      final categoriesString = widget.selectedAreas.join(',');
+      await HomeWidget.saveWidgetData('selected_life_areas', categoriesString);
+      
       // Also save individual category indices for compatibility
       for (int i = 0; i < widget.selectedAreas.length && i < 5; i++) {
         await HomeWidget.saveWidgetData('category_$i', widget.selectedAreas[i]);
       }
-      debugPrint('Saved ${widget.selectedAreas.length} categories to widget storage');
+      
+      debugPrint('Saved ${widget.selectedAreas.length} categories to widget storage: ${widget.selectedAreas}');
+      debugPrint('Categories string: $categoriesString');
     } catch (e) {
       debugPrint('Error saving categories: $e');
     }
@@ -304,8 +320,6 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
 
     try {
       final userInfo = await UserService.instance.getUserInfo();
-      final themeConfig = _themeConfig;
-      final storagePrefix = themeConfig['storagePrefix'] as String;
 
       if (userInfo['userName']?.isNotEmpty == true &&
           userInfo['email']?.isNotEmpty == true) {
@@ -323,9 +337,13 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
 
             // Save to both local storage AND widget storage
             await prefs.setString('vision_board_$category', tasksJson);
+            await prefs.setString('flutter.vision_board_$category', tasksJson); // Also save with flutter prefix
+            
+            // Ensure app group is set before saving
+            HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
             await HomeWidget.saveWidgetData('vision_board_$category', tasksJson);
-
-            debugPrint('Updated local storage for category: $category');
+            
+            debugPrint('Synced and saved todos for category "$category" to widget storage');
           } catch (e) {
             debugPrint('Error processing database tasks for $category: $e');
           }
@@ -353,7 +371,14 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
 
     // Always save locally AND to widget storage first (fast operation)
     await prefs.setString('vision_board_$category', encoded);
+    await prefs.setString('flutter.vision_board_$category', encoded); // Also save with flutter prefix
+    
+    // Ensure app group is set before saving
+    HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
     await HomeWidget.saveWidgetData('vision_board_$category', encoded);
+    
+    debugPrint('Saved todos for category "$category": ${todoList.length} items, ${encoded.length} chars');
+    debugPrint('Todo data preview: ${encoded.substring(0, encoded.length > 100 ? 100 : encoded.length)}...');
 
     // Update the widget
     await HomeWidget.updateWidget(

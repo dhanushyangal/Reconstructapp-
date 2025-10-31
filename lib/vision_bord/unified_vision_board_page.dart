@@ -274,6 +274,9 @@ class _UnifiedVisionBoardPageState extends State<UnifiedVisionBoardPage>
   @override
   void initState() {
     super.initState();
+    // Initialize HomeWidget with correct app group ID for iOS
+    HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
+    
     theme = VisionBoardTheme.getTheme(widget.themeName);
     _saveCurrentTheme(); // Save theme for widget auto-detection
 
@@ -308,7 +311,12 @@ class _UnifiedVisionBoardPageState extends State<UnifiedVisionBoardPage>
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('flutter.vision_board_current_theme', theme.displayName);
       await prefs.setString('vision_board_current_theme', theme.displayName);
+      
+      // Ensure app group is set before saving
+      HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
       await HomeWidget.saveWidgetData('vision_board_current_theme', theme.displayName);
+      await HomeWidget.saveWidgetData('flutter.vision_board_current_theme', theme.displayName);
+      
       debugPrint('Saved current vision board theme: ${theme.displayName}');
     } catch (e) {
       debugPrint('Error saving theme: $e');
@@ -377,7 +385,13 @@ class _UnifiedVisionBoardPageState extends State<UnifiedVisionBoardPage>
             
             // Save to local storage AND widget storage with universal key
             await prefs.setString('vision_board_$category', tasksJson);
+            await prefs.setString('flutter.vision_board_$category', tasksJson); // Also save with flutter prefix
+            
+            // Ensure app group is set before saving
+            HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
             await HomeWidget.saveWidgetData('vision_board_$category', tasksJson);
+            
+            debugPrint('Synced and saved todos for category "$category" to widget storage');
           }
         }
         
@@ -398,7 +412,14 @@ class _UnifiedVisionBoardPageState extends State<UnifiedVisionBoardPage>
 
     // Save to local storage with universal key (same across all themes)
     await prefs.setString('vision_board_$category', encoded);
+    await prefs.setString('flutter.vision_board_$category', encoded); // Also save with flutter prefix
+    
+    // Ensure app group is set before saving
+    HomeWidget.setAppGroupId('group.com.reconstrect.visionboard');
     await HomeWidget.saveWidgetData('vision_board_$category', encoded);
+    
+    debugPrint('Saved todos for category "$category": ${todoList.length} items, ${encoded.length} chars');
+    
     await HomeWidget.updateWidget(
       androidName: 'VisionBoardWidget',
       iOSName: 'VisionBoardWidget',
