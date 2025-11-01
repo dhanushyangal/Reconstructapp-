@@ -81,7 +81,6 @@ import WidgetKit
             }
             
             userDefaults.set(theme, forKey: "flutter.vision_board_current_theme")
-            
             userDefaults.set(theme, forKey: "vision_board_current_theme")
             userDefaults.set(theme, forKey: "widget_theme") // Fallback
             print("Vision Board theme saved: \(theme)")

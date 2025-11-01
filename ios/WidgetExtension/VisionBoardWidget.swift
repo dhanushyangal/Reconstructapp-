@@ -92,6 +92,17 @@ struct VisionBoardWidgetEntryView: View {
             let textColor = themeTextColor(for: entry.theme)
 
             VStack(spacing: 8) {
+                // Theme name header at the top
+                HStack {
+                    Text(entry.theme ?? "Vision Board")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(textColor)
+                        .lineLimit(1)
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+                
                 if entry.categories.isEmpty {
                     // No categories with data - show empty state
                     VStack(spacing: 8) {
@@ -107,18 +118,38 @@ struct VisionBoardWidgetEntryView: View {
                     .widgetURL(URL(string: "mentalfitness://visionboard"))
                 } else {
                     // Show categories grid with data
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
-                        ForEach(entry.categories, id: \.self) { category in
-                            CategoryBoxView(
-                                category: category,
-                                todos: entry.todosByCategory[category] ?? [],
-                                theme: entry.theme ?? "Premium Vision Board"
-                            )
-                            .widgetURL(URL(string: "mentalfitness://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
-                        }
+                    // Only show categories that actually have todos
+                    let categoriesWithTodos = entry.categories.filter { category in
+                        let todos = entry.todosByCategory[category] ?? []
+                        return !todos.isEmpty
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
+                    
+                    if categoriesWithTodos.isEmpty {
+                        // Fallback: show empty state even if categories exist but no todos
+                        VStack(spacing: 8) {
+                            Text("No Goals")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(textColor)
+                            Text("Add goals in app\nto see them here")
+                                .font(.system(size: 13))
+                                .foregroundColor(textColor.opacity(0.8))
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(12)
+                        .widgetURL(URL(string: "mentalfitness://visionboard"))
+                    } else {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                            ForEach(categoriesWithTodos, id: \.self) { category in
+                                CategoryBoxView(
+                                    category: category,
+                                    todos: entry.todosByCategory[category] ?? [],
+                                    theme: entry.theme ?? "Premium Vision Board"
+                                )
+                                .widgetURL(URL(string: "mentalfitness://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                    }
                 }
                 
                 Spacer()
@@ -180,23 +211,34 @@ struct CategoryBoxView: View {
             
             // Todo items (max 3)
             VStack(alignment: .leading, spacing: 2) {
-                ForEach(Array(todos.prefix(3).enumerated()), id: \.offset) { index, todo in
-                    HStack(spacing: 4) {
-                        Text(todo.isCompleted ? "✓" : "•")
-                            .font(.system(size: 12))
-                            .foregroundColor(textColor)
-                        
-                        Text(todo.text)
-                            .font(.system(size: 11))
-                            .foregroundColor(textColor)
-                            .lineLimit(1)
+                if todos.isEmpty {
+                    Text("No tasks")
+                        .font(.system(size: 11))
+                        .foregroundColor(textColor.opacity(0.6))
+                        .lineLimit(1)
+                } else {
+                    ForEach(Array(todos.prefix(3).indices), id: \.self) { index in
+                        let todo = todos[index]
+                        HStack(spacing: 4) {
+                            Text(todo.isCompleted ? "✓" : "•")
+                                .font(.system(size: 12))
+                                .foregroundColor(textColor)
+                            
+                            Text(todo.text)
+                                .font(.system(size: 11))
+                                .foregroundColor(textColor)
+                                .lineLimit(1)
+                        }
                     }
-                }
-                
-                if todos.count > 3 {
-                    Text("+\(todos.count - 3) more")
-                        .font(.system(size: 10))
-                        .foregroundColor(textColor.opacity(0.7))
+                    
+                    if todos.count > 3 {
+                        let remaining = todos.count - 3
+                        if remaining > 0 {
+                            Text("+\(remaining) more")
+                                .font(.system(size: 10))
+                                .foregroundColor(textColor.opacity(0.7))
+                        }
+                    }
                 }
             }
             
