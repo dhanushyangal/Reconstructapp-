@@ -121,14 +121,22 @@ struct SharedDataModel {
     
     static func saveCategories(_ categories: [String]) {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
-        for (index, category) in categories.enumerated() {
-            userDefaults.set(category, forKey: "category_\(index)")
+        
+        // Save categories (max 5)
+        let maxCategories = min(categories.count, 5)
+        for index in 0..<maxCategories {
+            userDefaults.set(categories[index], forKey: "category_\(index)")
         }
-        for i in categories.count..<5 { // Clear any old categories beyond the new count
-            userDefaults.removeObject(forKey: "category_\(i)")
+        
+        // Clear any old categories beyond the new count (only if we have fewer than 5)
+        if maxCategories < 5 {
+            for i in maxCategories..<5 {
+                userDefaults.removeObject(forKey: "category_\(i)")
+            }
         }
+        
         userDefaults.synchronize()
-        print("Vision Board categories saved: \(categories.count)")
+        print("Vision Board categories saved: \(maxCategories)")
     }
     
     static func getCategories() -> [String] {

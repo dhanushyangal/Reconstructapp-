@@ -55,9 +55,10 @@ struct VisionBoardProvider: TimelineProvider {
         }
 
         // Limit to 4 categories max (matching Android)
-        let categoriesToShow = Array(categories.prefix(4))
+        let maxCategories = min(4, categories.count)
+        let categoriesToShow = Array(categories.prefix(maxCategories))
         let filteredTodosByCategory = categoriesToShow.reduce(into: [String: [SharedDataModel.TodoItem]]()) { result, category in
-            if let todos = todosByCategory[category] {
+            if let todos = todosByCategory[category], !todos.isEmpty {
                 result[category] = todos
             }
         }
@@ -217,8 +218,9 @@ struct CategoryBoxView: View {
                         .foregroundColor(textColor.opacity(0.6))
                         .lineLimit(1)
                 } else {
-                    ForEach(Array(todos.prefix(3).indices), id: \.self) { index in
-                        let todo = todos[index]
+                    // Safely get up to 3 todos
+                    let todosToShow = Array(todos.prefix(min(3, todos.count)))
+                    ForEach(Array(todosToShow.enumerated()), id: \.offset) { _, todo in
                         HStack(spacing: 4) {
                             Text(todo.isCompleted ? "✓" : "•")
                                 .font(.system(size: 12))
@@ -231,13 +233,12 @@ struct CategoryBoxView: View {
                         }
                     }
                     
-                    if todos.count > 3 {
-                        let remaining = todos.count - 3
-                        if remaining > 0 {
-                            Text("+\(remaining) more")
-                                .font(.system(size: 10))
-                                .foregroundColor(textColor.opacity(0.7))
-                        }
+                    // Show remaining count if more than 3
+                    let remaining = todos.count - 3
+                    if remaining > 0 {
+                        Text("+\(remaining) more")
+                            .font(.system(size: 10))
+                            .foregroundColor(textColor.opacity(0.7))
                     }
                 }
             }
