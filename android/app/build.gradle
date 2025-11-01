@@ -32,8 +32,8 @@ android {
         applicationId "com.reconstrect.visionboard"
         minSdk 23
         targetSdk = 35
-        versionCode = 79
-        versionName = "1.2.79"
+        versionCode = 80
+        versionName = "1.2.80"
         multiDexEnabled true
         
         resValue "string", "server_client_id", "633982729642-4lotqibb3rnglifn79rt0ibjorg40oib.apps.googleusercontent.com"
@@ -61,8 +61,11 @@ android {
         }
     }
 
-    packagingOptions {
-        doNotStrip "**/*.so"
+    // Explicitly ensure 16 KB page size alignment for native libraries
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
     }
 
     bundle {

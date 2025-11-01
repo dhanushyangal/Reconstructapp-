@@ -74,13 +74,29 @@ import WidgetKit
              let categories = args["categories"] as? [String],
              let todosByCategoryJson = args["todosByCategoryJson"] as? [String: String] {
             
-            SharedDataModel.saveTheme(theme)
-            SharedDataModel.saveCategories(categories)
-            
-            for (category, todosJson) in todosByCategoryJson {
-              SharedDataModel.saveTodos(todosJson, for: category, theme: theme)
+            // Save theme (using same keys as Flutter)
+            guard let userDefaults = UserDefaults(suiteName: "group.com.mentalfitness.reconstruct.widgets") else {
+              result(FlutterError(code: "STORAGE_ERROR", message: "Failed to access shared storage", details: nil))
+              return
             }
             
+            userDefaults.set(theme, forKey: "flutter.vision_board_current_theme")
+            userDefaults.set(theme, forKey: "vision_board_current_theme")
+            userDefaults.set(theme, forKey: "widget_theme") // Fallback
+            print("Vision Board theme saved: \(theme)")
+            
+            // Save categories
+            SharedDataModel.saveCategories(categories)
+            
+            // Save todos using universal keys (matching Flutter's storage)
+            // Flutter uses: vision_board_$category (not theme-specific)
+            for (category, todosJson) in todosByCategoryJson {
+              userDefaults.set(todosJson, forKey: "vision_board_\(category)")
+              userDefaults.set(todosJson, forKey: "flutter.vision_board_\(category)")
+              print("Todos for \(category) saved to universal key: vision_board_\(category)")
+            }
+            
+            userDefaults.synchronize()
             WidgetCenter.shared.reloadAllTimelines()
             result(true)
           } else {

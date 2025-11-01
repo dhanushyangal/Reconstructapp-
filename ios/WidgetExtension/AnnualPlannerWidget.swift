@@ -53,8 +53,7 @@ struct AnnualPlannerProvider: TimelineProvider {
 
 struct AnnualPlannerWidgetEntryView: View {
     var entry: AnnualPlannerProvider.Entry
-    @Environment(\.
-        widgetFamily) var family
+    @Environment(\.widgetFamily) var family
 
     var body: some View {
         ZStack {

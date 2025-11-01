@@ -147,7 +147,7 @@ extension CalendarWidgetEntryView {
             if UIImage(named: imageName) != nil {
                 Image(imageName)
                     .resizable()
-                    .aspectRatio(contentMode: .cover)
+                    .aspectRatio(contentMode: .fill)
             } else {
                 LinearGradient(
                     gradient: Gradient(colors: [

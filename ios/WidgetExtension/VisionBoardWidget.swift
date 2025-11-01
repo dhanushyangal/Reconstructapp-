@@ -37,14 +37,18 @@ struct VisionBoardProvider: TimelineProvider {
     private func buildEntry(date: Date) -> VisionBoardEntry {
         // Get theme from Flutter (with fallback)
         let currentTheme = SharedDataModel.getTheme() ?? "Premium Vision Board"
+        print("Vision Board Widget: Current theme = \(currentTheme)")
         
         // Get categories that have todos (from Flutter data)
         var categories = SharedDataModel.getCategoriesWithTodos()
+        print("Vision Board Widget: Found \(categories.count) categories with todos: \(categories)")
+        
         var todosByCategory: [String: [SharedDataModel.TodoItem]] = [:]
-
+ 
         // Load todos for each category using Flutter's universal storage
         for category in categories {
             let todos = SharedDataModel.getVisionBoardTodos(for: category)
+            print("Vision Board Widget: Category '\(category)' has \(todos.count) todos")
             if !todos.isEmpty {
                 todosByCategory[category] = todos
             }
@@ -57,6 +61,8 @@ struct VisionBoardProvider: TimelineProvider {
                 result[category] = todos
             }
         }
+        
+        print("Vision Board Widget: Returning entry with \(categoriesToShow.count) categories, \(filteredTodosByCategory.count) with todos")
 
         return VisionBoardEntry(
             date: date,
