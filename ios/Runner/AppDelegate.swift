@@ -85,7 +85,15 @@ import WidgetKit
             userDefaults.set(theme, forKey: "widget_theme") // Fallback
             print("Vision Board theme saved: \(theme)")
             
-            // Save categories
+            // Save full categories list as JSON (for widget to scan all categories)
+            if let categoriesJson = try? JSONEncoder().encode(categories),
+               let jsonString = String(data: categoriesJson, encoding: .utf8) {
+                userDefaults.set(jsonString, forKey: "vision_board_categories")
+                userDefaults.set(jsonString, forKey: "flutter.vision_board_categories")
+                print("Vision Board Widget: Saved \(categories.count) categories to scan")
+            }
+            
+            // Also save using the old method for compatibility (but only first 5 for old code)
             SharedDataModel.saveCategories(categories)
             
             // Save todos using universal keys (matching Flutter's storage)

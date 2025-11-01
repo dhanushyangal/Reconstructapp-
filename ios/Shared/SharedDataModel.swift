@@ -227,44 +227,49 @@ struct SharedDataModel {
         return []
     }
     
-    // Get all categories that have todos (prioritize saved categories first)
+    // Get all categories that have todos (scan ALL categories, not just saved ones)
     static func getCategoriesWithTodos() -> [String] {
         var categoriesWithData: [String] = []
+        var categoriesToCheck: Set<String> = []
         
-        // First, check saved categories (these are the ones user actually selected)
-        let savedCategories = getCategories()
-        for category in savedCategories {
+        // First, try to get the full categories list from Flutter (vision_board_categories)
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else {
+            return []
+        }
+        
+        // Try to get full categories list from Flutter
+        if let categoriesJson = userDefaults.string(forKey: "flutter.vision_board_categories")
+            ?? userDefaults.string(forKey: "vision_board_categories") {
+            if let data = categoriesJson.data(using: .utf8),
+               let categories = try? JSONDecoder().decode([String].self, from: data) {
+                categoriesToCheck = Set(categories)
+                print("Vision Board Widget: Found \(categories.count) categories from Flutter list")
+            }
+        }
+        
+        // If no Flutter categories list, use all possible categories
+        if categoriesToCheck.isEmpty {
+            let allPossibleCategories = [
+                "Travel", "Self Care", "Forgive", "Love", "Family", "Career",
+                "Health", "Hobbies", "Knowledge", "Social", "Reading", "Food",
+                "Music", "Tech", "DIY", "Luxury", "Income", "BMI", "Invest",
+                "Inspiration", "Help", "Fitness", "Skill", "Education",
+                "Relationships", "Spirituality", "Personal Growth",
+                "Financial Planning", "Home & Living", "Technology",
+                "Environment", "Community", "Creativity", "Adventure", "Wellness"
+            ]
+            categoriesToCheck = Set(allPossibleCategories)
+        }
+        
+        // Scan ALL categories (not just saved ones) to find ones with todos
+        for category in categoriesToCheck.sorted() {
             let todos = getVisionBoardTodos(for: category)
             if !todos.isEmpty {
                 categoriesWithData.append(category)
             }
         }
         
-        // If we have saved categories with data, use those
-        if !categoriesWithData.isEmpty {
-            return categoriesWithData
-        }
-        
-        // Otherwise, scan all possible categories (fallback)
-        let allPossibleCategories = [
-            "Travel", "Self Care", "Forgive", "Love", "Family", "Career",
-            "Health", "Hobbies", "Knowledge", "Social", "Reading", "Food",
-            "Music", "Tech", "DIY", "Luxury", "Income", "BMI", "Invest",
-            "Inspiration", "Help", "Fitness", "Skill", "Education",
-            "Relationships", "Spirituality", "Personal Growth",
-            "Financial Planning", "Home & Living", "Technology",
-            "Environment", "Community", "Creativity", "Adventure", "Wellness"
-        ]
-        
-        for category in allPossibleCategories {
-            if !categoriesWithData.contains(category) {
-                let todos = getVisionBoardTodos(for: category)
-                if !todos.isEmpty {
-                    categoriesWithData.append(category)
-                }
-            }
-        }
-        
+        print("Vision Board Widget: Found \(categoriesWithData.count) categories with todos: \(categoriesWithData)")
         return categoriesWithData
     }
     
