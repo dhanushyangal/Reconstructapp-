@@ -6,8 +6,8 @@ struct VisionBoardProvider: TimelineProvider {
     func placeholder(in context: Context) -> VisionBoardEntry {
         VisionBoardEntry(
             date: Date(),
-            theme: "Premium Vision Board",
-            categories: ["Career", "Health", "Travel"],
+            theme: "Boxy theme board",
+            categories: ["Career", "Health", "Travel", "Family", "Income"],
             todosByCategory: [
                 "Career": [
                     SharedDataModel.TodoItem(text: "Get promoted", isCompleted: false),
@@ -15,6 +15,15 @@ struct VisionBoardProvider: TimelineProvider {
                 ],
                 "Health": [
                     SharedDataModel.TodoItem(text: "Exercise daily", isCompleted: false)
+                ],
+                "Travel": [
+                    SharedDataModel.TodoItem(text: "Plan vacation", isCompleted: false)
+                ],
+                "Family": [
+                    SharedDataModel.TodoItem(text: "Spend quality time", isCompleted: false)
+                ],
+                "Income": [
+                    SharedDataModel.TodoItem(text: "Increase savings", isCompleted: false)
                 ]
             ]
         )
@@ -491,8 +500,8 @@ struct VisionBoardWidget: Widget {
 } timeline: {
     VisionBoardEntry(
         date: .now,
-        theme: "Premium Vision Board",
-        categories: ["Career", "Health", "Travel"],
+        theme: "Boxy theme board",
+        categories: ["Career", "Health", "Travel", "Family", "Income"],
         todosByCategory: [
             "Career": [
                 SharedDataModel.TodoItem(text: "Get promoted", isCompleted: false),
@@ -500,6 +509,15 @@ struct VisionBoardWidget: Widget {
             ],
             "Health": [
                 SharedDataModel.TodoItem(text: "Exercise daily", isCompleted: false)
+            ],
+            "Travel": [
+                SharedDataModel.TodoItem(text: "Plan vacation", isCompleted: false)
+            ],
+            "Family": [
+                SharedDataModel.TodoItem(text: "Spend quality time", isCompleted: false)
+            ],
+            "Income": [
+                SharedDataModel.TodoItem(text: "Increase savings", isCompleted: false)
             ]
         ]
     )
