@@ -283,7 +283,7 @@ struct CategoryBoxView: View {
         }
         
         // For light backgrounds, use darker pattern
-        return backgroundColor.opacity(0.3).brightness(-0.2)
+        return backgroundColor.opacity(0.3).brightness(-0.2) as! color
     }
     
     private var isBoxTheme: Bool {
