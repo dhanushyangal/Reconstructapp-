@@ -271,7 +271,7 @@ struct CategoryBoxView: View {
             }
             .padding(12)
         }
-        .frame(height: 70)
+        .frame(height: 55)
     }
     
     private var patternColor: Color {
