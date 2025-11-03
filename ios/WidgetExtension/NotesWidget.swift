@@ -19,6 +19,7 @@ struct NotesEntry: TimelineEntry {
     let title: String
     let content: String
     let theme: String
+    let imagePath: String?
 }
 
 struct NotesProvider: TimelineProvider {
@@ -29,7 +30,8 @@ struct NotesProvider: TimelineProvider {
             date: Date(), 
             title: "My Notes",
             content: "Add your notes here",
-            theme: "Post-it Daily Notes"
+            theme: "Post-it Daily Notes",
+            imagePath: nil
         )
     }
 
@@ -65,6 +67,7 @@ struct NotesProvider: TimelineProvider {
         }()
 
         let title = chosen?.title ?? "My Notes"
+        let imagePath = chosen?.imagePath
         let content: String = {
             guard let note = chosen else { return "Add your notes here" }
             if !note.checklistItems.isEmpty {
@@ -78,7 +81,7 @@ struct NotesProvider: TimelineProvider {
             return "Add your notes here"
         }()
 
-        return NotesEntry(date: date, title: title, content: content, theme: theme)
+        return NotesEntry(date: date, title: title, content: content, theme: theme, imagePath: imagePath)
     }
 }
 
@@ -113,6 +116,38 @@ struct NotesWidgetView: View {
                         Spacer()
                     }
                 }
+                
+                // Display note image if available
+                if let imagePath = entry.imagePath, !imagePath.isEmpty {
+                    // Handle both file:// URLs and direct paths
+                    let actualPath: String
+                    if imagePath.hasPrefix("file://") {
+                        actualPath = String(imagePath.dropFirst(7))
+                    } else if imagePath.hasPrefix("/") {
+                        actualPath = imagePath
+                    } else {
+                        actualPath = imagePath
+                    }
+                    
+                    // Try to load image from file system
+                    if let uiImage = UIImage(contentsOfFile: actualPath) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: isSmall ? 60 : 100)
+                            .clipped()
+                            .cornerRadius(6)
+                    } else {
+                        // If image not found, show placeholder
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: isSmall ? 60 : 100)
+                            .overlay(
+                                Image(systemName: "photo")
+                                    .foregroundColor(textColor.opacity(0.5))
+                            )
+                    }
+                }
 
                 Text(entry.content)
                     .font(isSmall ? .caption2 : .callout)
@@ -145,40 +180,63 @@ struct NotesWidgetView: View {
     // Theme-based background
     @ViewBuilder
     private func themeBackground(for theme: String) -> some View {
-        switch theme {
-        case "Post-it Daily Notes":
-            // Light green background for Post-it theme
+        let lowercased = theme.lowercased()
+        
+        // Box/Boxy Daily Notes - white background
+        if lowercased.contains("box") || lowercased.contains("boxy") {
+            Color.white
+        }
+        // Post-it Daily Notes - light green background
+        else if lowercased.contains("post-it") || lowercased.contains("postit") {
             Color(red: 0.77, green: 0.88, blue: 0.65) // #C5E1A5
-        case "Premium Daily Notes":
-            // Black background for Premium theme
+        }
+        // Premium Daily Notes - black background
+        else if lowercased.contains("premium") {
             Color.black
-        case "Floral Daily Notes":
-            // Floral image background
+        }
+        // Floral Daily Notes - floral image background
+        else if lowercased.contains("floral") {
             GeometryReader { geo in
-                Image("daily-note")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
-                    .overlay(Color.black.opacity(family == .systemSmall ? 0.22 : 0.16))
+                ZStack {
+                    // Try to load the image using Image() (asset catalog)
+                    Image("daily-note")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                        .overlay(Color.black.opacity(family == .systemSmall ? 0.22 : 0.16))
+                }
             }
-        default:
-            // Default to Post-it theme
+        }
+        // Default to Post-it theme
+        else {
             Color(red: 0.77, green: 0.88, blue: 0.65)
         }
     }
     
     // Theme-based text color
     private func themeTextColor(for theme: String) -> Color {
-        switch theme {
-        case "Premium Daily Notes":
-            return .white // White text on black background
-        case "Post-it Daily Notes":
-            return Color(red: 0.13, green: 0.13, blue: 0.13) // Dark text on light green
-        case "Floral Daily Notes":
-            return .white // White text on floral background
-        default:
-            return Color(red: 0.13, green: 0.13, blue: 0.13) // Default: dark text
+        let lowercased = theme.lowercased()
+        
+        // Box/Boxy Daily Notes - black text on white background
+        if lowercased.contains("box") || lowercased.contains("boxy") {
+            return Color(red: 0.13, green: 0.13, blue: 0.13) // Dark text
+        }
+        // Premium Daily Notes - white text on black background
+        else if lowercased.contains("premium") {
+            return .white
+        }
+        // Post-it Daily Notes - dark text on light green background
+        else if lowercased.contains("post-it") || lowercased.contains("postit") {
+            return Color(red: 0.13, green: 0.13, blue: 0.13) // Dark text
+        }
+        // Floral Daily Notes - white text on floral background
+        else if lowercased.contains("floral") {
+            return .white
+        }
+        // Default: dark text
+        else {
+            return Color(red: 0.13, green: 0.13, blue: 0.13)
         }
     }
 }
@@ -189,7 +247,8 @@ struct NotesWidget_Previews: PreviewProvider {
             date: Date(),
             title: "My Notes",
             content: "This is a sample note content for testing the widget.",
-            theme: "Post-it Daily Notes"
+            theme: "Post-it Daily Notes",
+            imagePath: nil
         ))
         .previewContext(WidgetPreviewContext(family: .systemSmall))
         
@@ -197,7 +256,8 @@ struct NotesWidget_Previews: PreviewProvider {
             date: Date(), 
             title: "My Notes",
             content: "This is a longer sample note content for testing the medium size widget. It should show more text.",
-            theme: "Premium Daily Notes"
+            theme: "Premium Daily Notes",
+            imagePath: nil
         ))
         .previewContext(WidgetPreviewContext(family: .systemMedium))
     }

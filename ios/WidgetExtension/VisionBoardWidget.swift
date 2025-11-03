@@ -37,7 +37,8 @@ struct VisionBoardProvider: TimelineProvider {
     private func buildEntry(date: Date) -> VisionBoardEntry {
         // Get theme from Flutter (with fallback)
         let currentTheme = SharedDataModel.getTheme() ?? "Premium Vision Board"
-        print("Vision Board Widget: Current theme = \(currentTheme)")
+        let lowercasedTheme = currentTheme.lowercased()
+        print("Vision Board Widget: Current theme = '\(currentTheme)' (lowercase: '\(lowercasedTheme)')")
         
         // Get categories that have todos (from Flutter data)
         var categories = SharedDataModel.getCategoriesWithTodos()
@@ -281,24 +282,32 @@ struct CategoryBoxView: View {
         }
         
         // For light backgrounds, use darker pattern
-        return backgroundColor.opacity(0.3).brightness(-0.2) as! color
+        return backgroundColor.opacity(0.3).brightness(-0.2)
     }
     
     private var isBoxTheme: Bool {
         let lowercased = theme.lowercased()
-        return lowercased.contains("box") && !lowercased.contains("ruby")
+        // Match: "Boxy theme board", "Box Theme Vision Board", "Box theme Vision Board"
+        let isBox = (lowercased.contains("box") || lowercased.contains("boxy")) && !lowercased.contains("ruby")
+        print("CategoryBoxView: isBoxTheme = \(isBox) for theme '\(theme)'")
+        return isBox
     }
     
     private var backgroundColor: Color {
         let lowercased = theme.lowercased()
+        print("CategoryBoxView: Theme = '\(theme)', lowercase = '\(lowercased)'")
         
         // Premium theme - black background with white text
+        // Match: "Premium Theme Vision Board", "Premium black board", "Premium theme Vision Board"
         if lowercased.contains("premium") {
+            print("CategoryBoxView: Matched Premium theme - returning black")
             return Color.black
         }
         
         // Post-it theme - colorful cards cycling through colors
+        // Match: "Post it theme board", "PostIt theme Vision Board", "Post-It Theme Vision Board", "Post-It theme Vision Board"
         if lowercased.contains("postit") || lowercased.contains("post-it") || lowercased.contains("post it") {
+            print("CategoryBoxView: Matched Post-it theme - returning color index \(index)")
             let postItColors: [Color] = [
                 Color(red: 1.0, green: 0.65, blue: 0.0), // Orange
                 Color(red: 0.957, green: 0.463, blue: 0.557), // Pink (244, 118, 142)
@@ -314,7 +323,9 @@ struct CategoryBoxView: View {
         }
         
         // Floral/Winter Warmth theme
-        if lowercased.contains("winter warmth") || lowercased.contains("floral") {
+        // Match: "Floral theme board", "Winter Warmth theme Vision Board", "Winter Warmth Theme Vision Board"
+        if lowercased.contains("winter") || lowercased.contains("warmth") || lowercased.contains("floral") {
+            print("CategoryBoxView: Matched Floral/Winter theme - returning color index \(index)")
             let floralColors: [Color] = [
                 Color(red: 0.761, green: 0.718, blue: 0.639), // (194, 183, 163)
                 Color(red: 0.200, green: 0.059, blue: 0.059), // (51, 15, 15) #330f0f
@@ -362,24 +373,36 @@ struct CategoryBoxView: View {
             return coffeeColors[index % coffeeColors.count]
         }
         
-        // Default fallback
+        // Box/Boxy theme - white background (image overlay is handled separately)
+        // Match: "Boxy theme board", "Box Theme Vision Board", "Box theme Vision Board"
+        if (lowercased.contains("box") || lowercased.contains("boxy")) && !lowercased.contains("ruby") {
+            print("CategoryBoxView: Matched Box theme - returning white")
+            return Color.white
+        }
+        
+        // Default fallback (should not normally reach here)
+        print("CategoryBoxView: No theme match - returning default gray for theme '\(theme)'")
         return Color(red: 0.9, green: 0.9, blue: 0.9)
     }
     
     private var textColor: Color {
         let lowercased = theme.lowercased()
         
-        // Box theme - black text
-        if lowercased.contains("box") && !lowercased.contains("ruby") {
+        // Box/Boxy theme - black text
+        // Match: "Boxy theme board", "Box Theme Vision Board"
+        if (lowercased.contains("box") || lowercased.contains("boxy")) && !lowercased.contains("ruby") {
+            print("CategoryBoxView: Text color - Matched Box theme - returning black")
             return Color.black
         }
         
         // Post-it theme - black text
         if lowercased.contains("postit") || lowercased.contains("post-it") || lowercased.contains("post it") {
+            print("CategoryBoxView: Text color - Matched Post-it theme - returning black")
             return Color.black
         }
         
         // All other themes - white text
+        print("CategoryBoxView: Text color - Default - returning white")
         return Color.white
     }
 }
