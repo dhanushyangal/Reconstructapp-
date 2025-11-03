@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import UIKit
 
 struct VisionBoardProvider: TimelineProvider {
     func placeholder(in context: Context) -> VisionBoardEntry {
@@ -137,19 +138,21 @@ struct VisionBoardWidgetEntryView: View {
                         .padding(12)
                         .widgetURL(URL(string: "mentalfitness://visionboard"))
                     } else {
-                        // Vertical stacked cards (like the image)
-                        VStack(spacing: 6) {
-                            ForEach(Array(categoriesWithTodos.enumerated()), id: \.element) { index, category in
-                                CategoryBoxView(
-                                    category: category,
-                                    todos: entry.todosByCategory[category] ?? [],
-                                    theme: entry.theme ?? "Premium Vision Board",
-                                    index: index
-                                )
-                                .widgetURL(URL(string: "mentalfitness://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
+                        // Horizontal scrolling cards
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(Array(categoriesWithTodos.enumerated()), id: \.element) { index, category in
+                                    CategoryBoxView(
+                                        category: category,
+                                        todos: entry.todosByCategory[category] ?? [],
+                                        theme: entry.theme ?? "Premium Vision Board",
+                                        index: index
+                                    )
+                                    .widgetURL(URL(string: "mentalfitness://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
+                                }
                             }
+                            .padding(.horizontal, 12)
                         }
-                        .padding(.horizontal, 12)
                     }
                 }
                 
@@ -212,11 +215,12 @@ struct CategoryBoxView: View {
                     // Box theme - use image background with white fallback
                     ZStack {
                         Color.white
+                        // Use daily-note image (ensure it's visible)
                         Image("daily-note")
                             .resizable()
                             .scaledToFill()
                             .clipped()
-                            .opacity(0.3)
+                            .opacity(0.85)
                     }
                 } else {
                     backgroundColor
@@ -271,7 +275,7 @@ struct CategoryBoxView: View {
             }
             .padding(12)
         }
-        .frame(height: 70)
+        .frame(width: 140, height: 70)
     }
     
     private var patternColor: Color {
