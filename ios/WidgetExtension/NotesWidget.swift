@@ -90,12 +90,12 @@ struct NotesWidgetView: View {
     @Environment(\.widgetFamily) var family
 
     var body: some View {
-        ZStack {
+        let isSmall = (family == .systemSmall)
+        let textColor = themeTextColor(for: entry.theme)
+        
+        return ZStack {
             // Theme-based background
             themeBackground(for: entry.theme)
-            
-            let isSmall = (family == .systemSmall)
-            let textColor = themeTextColor(for: entry.theme)
 
             VStack(alignment: .leading, spacing: isSmall ? 6 : 8) {
                 if isSmall {
@@ -157,20 +157,6 @@ struct NotesWidgetView: View {
                     .minimumScaleFactor(0.9)
                     
                 Spacer()
-
-                if !isSmall {
-                    HStack {
-                        Text("Notes")
-                            .font(.caption2)
-                            .foregroundColor(textColor.opacity(0.85))
-                        Spacer()
-                        Link(destination: URL(string: "mentalfitness://notes")!) {
-                            Image(systemName: "square.and.pencil")
-                                .foregroundColor(textColor)
-                                .font(.title3)
-                        }
-                    }
-                }
             }
             .padding(isSmall ? 10 : 12)
         }
