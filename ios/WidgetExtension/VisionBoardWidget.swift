@@ -90,7 +90,6 @@ struct VisionBoardWidgetEntryView: View {
         ZStack {
             // Pure white background for widget
             Color.white
-
             VStack(spacing: 8) {
                 // Theme name header at the top
                 HStack {
@@ -98,6 +97,7 @@ struct VisionBoardWidgetEntryView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.black)
                         .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                 }
                 .padding(.horizontal, 12)
@@ -220,7 +220,8 @@ struct CategoryBoxView: View {
                             .scaledToFill()
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .clipped()
-                            .opacity(0.6) // Increased opacity for better visibility
+                            .opacity(0.4) // Reduced to prevent text blur
+                            .allowsHitTesting(false) // Don't interfere with text
                     }
                 } else {
                     backgroundColor
@@ -228,11 +229,12 @@ struct CategoryBoxView: View {
                 
                 // Subtle pattern overlay (radiating lines effect)
                 SubtlePatternView(color: patternColor)
-                    .opacity(0.15)
+                    .opacity(0.1) // Reduced opacity to reduce interference
+                    .allowsHitTesting(false) // Don't interfere with text rendering
             }
             .cornerRadius(12)
             
-            // Content overlay
+            // Content overlay - ensure text renders on top clearly
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     // Category title (bold, like day name in image)
@@ -240,25 +242,28 @@ struct CategoryBoxView: View {
                         .font(.system(size: 15, weight: .bold))
                 .foregroundColor(textColor)
                 .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
             
                     // Todo items (like task in image)
                     if todos.isEmpty {
                         Text("No tasks")
                             .font(.system(size: 13))
-                            .foregroundColor(textColor.opacity(0.7))
+                            .foregroundColor(Color(textColor).opacity(0.85))
                             .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                     } else {
                         // Show first todo (like task description in image)
                         if let firstTodo = todos.first {
                     HStack(spacing: 4) {
                                 Text("•")
                                     .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(textColor.opacity(0.8))
+                                    .foregroundColor(textColor)
                                 
                                 Text(firstTodo.text)
                                     .font(.system(size: 13))
-                                    .foregroundColor(textColor.opacity(0.9))
+                                    .foregroundColor(textColor)
                                     .lineLimit(1)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         
@@ -266,7 +271,7 @@ struct CategoryBoxView: View {
                         if todos.count > 1 {
                             Text("+\(todos.count - 1) more")
                             .font(.system(size: 11))
-                                .foregroundColor(textColor.opacity(0.6))
+                                .foregroundColor(Color(textColor).opacity(0.75))
                         }
                     }
                 }
@@ -274,6 +279,7 @@ struct CategoryBoxView: View {
                 Spacer()
             }
             .padding(12)
+            .drawingGroup() // Ensure crisp text rendering
         }
         .frame(maxWidth: .infinity) // Ensure card takes full width
         .frame(height: 70)
