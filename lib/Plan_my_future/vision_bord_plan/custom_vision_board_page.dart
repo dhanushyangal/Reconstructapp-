@@ -229,6 +229,27 @@ class _CustomVisionBoardPageState extends State<CustomVisionBoardPage>
       await HomeWidget.saveWidgetData('vision_board_current_theme', widget.template);
       await HomeWidget.saveWidgetData('widget_theme', widget.template); // Fallback key
       debugPrint('Saved current vision board theme: ${widget.template}');
+      
+      // Also update iOS widget immediately when theme changes
+      if (Platform.isIOS) {
+        try {
+          // Build todosByCategoryJson map with current todos
+          final todosByCategoryJson = <String, String>{};
+          for (var cat in widget.selectedAreas) {
+            final todos = _todoLists[cat] ?? [];
+            todosByCategoryJson[cat] = json.encode(todos.map((item) => item.toJson()).toList());
+          }
+          
+          await IOSWidgetService.updateVisionBoardWidget(
+            theme: widget.template,
+            categories: widget.selectedAreas,
+            todosByCategoryJson: todosByCategoryJson,
+          );
+          debugPrint('iOS Vision Board widget updated with new theme: ${widget.template}');
+        } catch (e) {
+          debugPrint('Error updating iOS Vision Board widget with theme: $e');
+        }
+      }
     } catch (e) {
       debugPrint('Error saving theme: $e');
     }

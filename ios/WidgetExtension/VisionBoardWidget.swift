@@ -228,46 +228,44 @@ struct CategoryBoxView: View {
             }
             .cornerRadius(12)
             
-            // Content overlay
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    // Category title (bold, like day name in image)
-            Text(category)
-                        .font(.system(size: 15, weight: .bold))
-                .foregroundColor(textColor)
-                .lineLimit(1)
-            
-                    // Todo items (like task in image)
-                    if todos.isEmpty {
-                        Text("No tasks")
-                            .font(.system(size: 13))
-                            .foregroundColor(textColor.opacity(0.7))
-                            .lineLimit(1)
-                    } else {
-                        // Show first todo (like task description in image)
-                        if let firstTodo = todos.first {
+            // Content overlay - Category name and todo list side by side
+            HStack(alignment: .center, spacing: 12) {
+                // Category title (bold, on the left)
+                Text(category)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(textColor)
+                    .lineLimit(1)
+                    .frame(width: 80, alignment: .leading) // Fixed width for category name
+                
+                // Todo items (beside category name)
+                if todos.isEmpty {
+                    Text("No tasks")
+                        .font(.system(size: 13))
+                        .foregroundColor(textColor.opacity(0.7))
+                        .lineLimit(1)
+                    Spacer()
+                } else if let firstTodo = todos.first {
+                    // Show first todo (or multiple todos if space allows)
                     HStack(spacing: 4) {
-                                Text("•")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(textColor.opacity(0.8))
-                                
-                                Text(firstTodo.text)
-                                    .font(.system(size: 13))
-                                    .foregroundColor(textColor.opacity(0.9))
-                                    .lineLimit(1)
-                            }
-                        }
+                        Text("•")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(textColor.opacity(0.8))
+                        
+                        Text(firstTodo.text)
+                            .font(.system(size: 13))
+                            .foregroundColor(textColor.opacity(0.9))
+                            .lineLimit(1)
                         
                         // Show count if more than 1
                         if todos.count > 1 {
-                            Text("+\(todos.count - 1) more")
-                            .font(.system(size: 11))
+                            Text("+\(todos.count - 1)")
+                                .font(.system(size: 11))
                                 .foregroundColor(textColor.opacity(0.6))
                         }
                     }
+                    
+                    Spacer()
                 }
-                
-                Spacer()
             }
             .padding(12)
         }
