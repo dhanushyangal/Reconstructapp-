@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import UIKit
 
 struct VisionBoardProvider: TimelineProvider {
     func placeholder(in context: Context) -> VisionBoardEntry {
@@ -137,13 +138,8 @@ struct VisionBoardWidgetEntryView: View {
                         .padding(12)
                         .widgetURL(URL(string: "mentalfitness://visionboard"))
                     } else {
-                        // 2-column grid layout (horizontal like the image)
-                        let columns = [
-                            GridItem(.flexible(), spacing: 6),
-                            GridItem(.flexible(), spacing: 6)
-                        ]
-                        
-                        LazyVGrid(columns: columns, spacing: 6) {
+                        // Vertical stacked cards - single column layout
+                        VStack(spacing: 6) {
                             ForEach(Array(categoriesWithTodos.enumerated()), id: \.element) { index, category in
                                 CategoryBoxView(
                                     category: category,
@@ -151,9 +147,11 @@ struct VisionBoardWidgetEntryView: View {
                                     theme: entry.theme ?? "Premium Vision Board",
                                     index: index
                                 )
+                                .frame(maxWidth: .infinity) // Force full width - single column
                                 .widgetURL(URL(string: "mentalfitness://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
                             }
                         }
+                        .frame(maxWidth: .infinity) // Ensure VStack takes full width
                         .padding(.horizontal, 12)
                     }
                 }
@@ -220,18 +218,17 @@ struct CategoryBoxView: View {
                         Image("daily-note")
                             .resizable()
                             .scaledToFill()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .clipped()
-                            .opacity(0.9)
+                            .opacity(0.6) // Increased opacity for better visibility
                     }
                 } else {
                     backgroundColor
                 }
                 
-                // Subtle pattern overlay (radiating lines effect) - skip for Box theme
-                if !isBoxTheme {
-                    SubtlePatternView(color: patternColor)
-                        .opacity(0.15)
-                }
+                // Subtle pattern overlay (radiating lines effect)
+                SubtlePatternView(color: patternColor)
+                    .opacity(0.15)
             }
             .cornerRadius(12)
             
@@ -278,6 +275,7 @@ struct CategoryBoxView: View {
             }
             .padding(12)
         }
+        .frame(maxWidth: .infinity) // Ensure card takes full width
         .frame(height: 70)
     }
     
