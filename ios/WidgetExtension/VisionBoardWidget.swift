@@ -87,17 +87,15 @@ struct VisionBoardWidgetEntryView: View {
 
     var body: some View {
         ZStack {
-            // Theme-based background (like Notes widget)
-            themeBackground(for: entry.theme)
+            // Pure white background for widget
+            Color.white
             
-            let textColor = themeTextColor(for: entry.theme)
-
             VStack(spacing: 8) {
                 // Theme name header at the top
                 HStack {
                     Text(entry.theme ?? "Vision Board")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(textColor)
+                        .foregroundColor(.black)
                         .lineLimit(1)
                     Spacer()
                 }
@@ -109,16 +107,16 @@ struct VisionBoardWidgetEntryView: View {
                     VStack(spacing: 8) {
                         Text("No Goals")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(textColor)
+                            .foregroundColor(.black)
                         Text("Add goals in app\nto see them here")
                             .font(.system(size: 13))
-                            .foregroundColor(textColor.opacity(0.8))
+                            .foregroundColor(.gray)
                             .multilineTextAlignment(.center)
                     }
                     .padding(12)
                     .widgetURL(URL(string: "mentalfitness://visionboard"))
                 } else {
-                    // Show categories grid with data
+                    // Show categories as vertical stacked cards
                     // Only show categories that actually have todos
                     let categoriesWithTodos = entry.categories.filter { category in
                         let todos = entry.todosByCategory[category] ?? []
@@ -130,16 +128,17 @@ struct VisionBoardWidgetEntryView: View {
                         VStack(spacing: 8) {
                             Text("No Goals")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(textColor)
+                                .foregroundColor(.black)
                             Text("Add goals in app\nto see them here")
                                 .font(.system(size: 13))
-                                .foregroundColor(textColor.opacity(0.8))
+                                .foregroundColor(.gray)
                                 .multilineTextAlignment(.center)
                         }
                         .padding(12)
                         .widgetURL(URL(string: "mentalfitness://visionboard"))
                     } else {
-                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                        // Vertical stacked cards (like the image)
+                        VStack(spacing: 6) {
                             ForEach(Array(categoriesWithTodos.enumerated()), id: \.element) { index, category in
                                 CategoryBoxView(
                                     category: category,
@@ -206,70 +205,85 @@ struct CategoryBoxView: View {
     
     var body: some View {
         ZStack {
-            // Background: image for Box theme, color for others
-            if isBoxTheme {
-                // Box theme - use image background with white fallback
-                ZStack {
-                    Color.white // Fallback background
-                    Image("vision-board-ruled")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(height: 80)
-                        .clipped()
+            // Card background with subtle pattern overlay
+            ZStack {
+                // Base background color
+                if isBoxTheme {
+                    // Box theme - use image background with white fallback
+                    ZStack {
+                        Color.white
+                        Image("daily-note")
+                            .resizable()
+                            .scaledToFill()
+                            .clipped()
+                            .opacity(0.3)
+                    }
+                } else {
+                    backgroundColor
                 }
-                .cornerRadius(8)
-            } else {
-                // Other themes - use color background
-                backgroundColor
-                    .cornerRadius(8)
+                
+                // Subtle pattern overlay (radiating lines effect)
+                SubtlePatternView(color: patternColor)
+                    .opacity(0.15)
             }
+            .cornerRadius(12)
             
             // Content overlay
-            VStack(alignment: .leading, spacing: 6) {
-                // Category title
-                Text(category)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(textColor)
-                    .lineLimit(1)
-                
-                // Todo items (max 3)
-                VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    // Category title (bold, like day name in image)
+                    Text(category)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(textColor)
+                        .lineLimit(1)
+                    
+                    // Todo items (like task in image)
                     if todos.isEmpty {
                         Text("No tasks")
-                            .font(.system(size: 11))
-                            .foregroundColor(textColor.opacity(0.6))
+                            .font(.system(size: 13))
+                            .foregroundColor(textColor.opacity(0.7))
                             .lineLimit(1)
                     } else {
-                        // Safely get up to 3 todos
-                        let todosToShow = Array(todos.prefix(min(3, todos.count)))
-                        ForEach(Array(todosToShow.enumerated()), id: \.offset) { _, todo in
+                        // Show first todo (like task description in image)
+                        if let firstTodo = todos.first {
                             HStack(spacing: 4) {
-                                Text(todo.isCompleted ? "✓" : "•")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(textColor)
+                                Text("•")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(textColor.opacity(0.8))
                                 
-                                Text(todo.text)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(textColor)
+                                Text(firstTodo.text)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(textColor.opacity(0.9))
                                     .lineLimit(1)
                             }
                         }
                         
-                        // Show remaining count if more than 3
-                        let remaining = todos.count - 3
-                        if remaining > 0 {
-                            Text("+\(remaining) more")
-                                .font(.system(size: 10))
-                                .foregroundColor(textColor.opacity(0.7))
+                        // Show count if more than 1
+                        if todos.count > 1 {
+                            Text("+\(todos.count - 1) more")
+                                .font(.system(size: 11))
+                                .foregroundColor(textColor.opacity(0.6))
                         }
                     }
                 }
                 
                 Spacer()
             }
-            .padding(8)
-            .frame(height: 80)
+            .padding(12)
         }
+        .frame(height: 70)
+    }
+    
+    private var patternColor: Color {
+        let lowercased = theme.lowercased()
+        
+        // For dark backgrounds, use lighter pattern
+        if lowercased.contains("premium") || lowercased.contains("ruby") || lowercased.contains("coffee") {
+            return Color.white
+        }
+        
+        // For light backgrounds, use darker pattern
+        return backgroundColor.opacity(0.3).brightness(-0.2)
     }
     
     private var isBoxTheme: Bool {
@@ -369,6 +383,43 @@ struct CategoryBoxView: View {
         
         // All other themes - white text
         return Color.white
+    }
+}
+
+// Subtle pattern view for card backgrounds (radiating lines/floral effect)
+struct SubtlePatternView: View {
+    let color: Color
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // Create subtle radiating lines pattern
+                ForEach(0..<8) { i in
+                    Path { path in
+                        let center = CGPoint(x: geometry.size.width, y: 0)
+                        let angle = Double(i) * (.pi / 4)
+                        let endX = center.x + cos(angle) * geometry.size.width * 1.5
+                        let endY = center.y + sin(angle) * geometry.size.height * 1.5
+                        
+                        path.move(to: center)
+                        path.addLine(to: CGPoint(x: endX, y: endY))
+                    }
+                    .stroke(color, lineWidth: 0.5)
+                    .opacity(0.3)
+                }
+                
+                // Add some circular/radial gradient effect
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [color.opacity(0.1), color.opacity(0.0)]),
+                            center: .topTrailing,
+                            startRadius: 0,
+                            endRadius: min(geometry.size.width, geometry.size.height) * 0.8
+                        )
+                    )
+            }
+        }
     }
 }
 
