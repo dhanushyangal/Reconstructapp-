@@ -121,30 +121,18 @@ struct SharedDataModel {
     
     static func saveCategories(_ categories: [String]) {
         guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
-        
-        // Save categories (max 5)
-        let maxCategories = min(categories.count, 5)
-        for index in 0..<maxCategories {
-            userDefaults.set(categories[index], forKey: "category_\(index)")
+        for (index, category) in categories.enumerated() {
+            userDefaults.set(category, forKey: "category_\(index)")
         }
-        
-        // Clear any old categories beyond the new count (only if we have fewer than 5)
-        if maxCategories < 5 {
-            for i in maxCategories..<5 {
-                userDefaults.removeObject(forKey: "category_\(i)")
-            }
+        for i in categories.count..<5 { // Clear any old categories beyond the new count
+            userDefaults.removeObject(forKey: "category_\(i)")
         }
-        
         userDefaults.synchronize()
-        print("Vision Board categories saved: \(maxCategories)")
+        print("Vision Board categories saved: \(categories.count)")
     }
     
     static func getCategories() -> [String] {
-        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else {
-            print("Vision Board Widget: Failed to access UserDefaults for categories")
-            return []
-        }
-        
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return [] }
         var categories: [String] = []
         for i in 0..<5 { // Max 5 categories
             if let category = userDefaults.string(forKey: "category_\(i)") {
@@ -153,8 +141,6 @@ struct SharedDataModel {
                 break
             }
         }
-        
-        print("Vision Board Widget: Loaded \(categories.count) saved categories: \(categories)")
         return categories
     }
     
@@ -183,93 +169,52 @@ struct SharedDataModel {
     
     // Get Vision Board todos as TodoItem array (handles Flutter format)
     static func getVisionBoardTodos(for category: String) -> [TodoItem] {
-        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else {
-            print("Vision Board Widget: Failed to access UserDefaults for category: \(category)")
-            return []
-        }
+        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else { return [] }
+        let jsonString = userDefaults.string(forKey: "vision_board_\(category)") ?? "[]"
         
-        // Try universal key first (Flutter's format)
-        var jsonString = userDefaults.string(forKey: "vision_board_\(category)")
-        
-        // Fallback to flutter. prefix
-        if jsonString == nil {
-            jsonString = userDefaults.string(forKey: "flutter.vision_board_\(category)")
-        }
-        
-        guard let json = jsonString, !json.isEmpty else {
-            print("Vision Board Widget: No data found for category: \(category)")
-            return []
-        }
-        
-        print("Vision Board Widget: Found data for \(category): \(json.count) chars")
-        
-        if let data = json.data(using: .utf8) {
-            // Try direct decode first
+        if let data = jsonString.data(using: .utf8) {
             if let decoded = try? JSONDecoder().decode([TodoItem].self, from: data) {
-                print("Vision Board Widget: Successfully decoded \(decoded.count) todos for \(category)")
                 return decoded
             }
-            
             // Fallback: handle Flutter's format with "id", "text", "isDone"
             if let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-                let todos = jsonArray.compactMap { dict -> TodoItem? in
+                return jsonArray.compactMap { dict in
                     guard let text = dict["text"] as? String else { return nil }
                     let isCompleted = (dict["isDone"] as? Bool) ?? (dict["isCompleted"] as? Bool) ?? false
                     return TodoItem(text: text, isCompleted: isCompleted)
                 }
-                print("Vision Board Widget: Decoded \(todos.count) todos from Flutter format for \(category)")
-                return todos
             }
-            
-            print("Vision Board Widget: Failed to parse JSON for \(category)")
         }
-        
         return []
     }
     
-    // Get all categories that have todos (scan ALL categories, not just saved ones)
+    // Get all categories that have todos (scan all possible categories)
     static func getCategoriesWithTodos() -> [String] {
+        let allPossibleCategories = [
+            "Travel", "Self Care", "Forgive", "Love", "Family", "Career",
+            "Health", "Hobbies", "Knowledge", "Social", "Reading", "Food",
+            "Music", "Tech", "DIY", "Luxury", "Income", "BMI", "Invest",
+            "Inspiration", "Help", "Fitness", "Skill", "Education",
+            "Relationships", "Spirituality", "Personal Growth",
+            "Financial Planning", "Home & Living", "Technology",
+            "Environment", "Community", "Creativity", "Adventure", "Wellness"
+        ]
+        
         var categoriesWithData: [String] = []
-        var categoriesToCheck: Set<String> = []
-        
-        // First, try to get the full categories list from Flutter (vision_board_categories)
-        guard let userDefaults = UserDefaults(suiteName: appGroupIdentifier) else {
-            return []
-        }
-        
-        // Try to get full categories list from Flutter
-        if let categoriesJson = userDefaults.string(forKey: "flutter.vision_board_categories")
-            ?? userDefaults.string(forKey: "vision_board_categories") {
-            if let data = categoriesJson.data(using: .utf8),
-               let categories = try? JSONDecoder().decode([String].self, from: data) {
-                categoriesToCheck = Set(categories)
-                print("Vision Board Widget: Found \(categories.count) categories from Flutter list")
-            }
-        }
-        
-        // If no Flutter categories list, use all possible categories
-        if categoriesToCheck.isEmpty {
-            let allPossibleCategories = [
-                "Travel", "Self Care", "Forgive", "Love", "Family", "Career",
-                "Health", "Hobbies", "Knowledge", "Social", "Reading", "Food",
-                "Music", "Tech", "DIY", "Luxury", "Income", "BMI", "Invest",
-                "Inspiration", "Help", "Fitness", "Skill", "Education",
-                "Relationships", "Spirituality", "Personal Growth",
-                "Financial Planning", "Home & Living", "Technology",
-                "Environment", "Community", "Creativity", "Adventure", "Wellness"
-            ]
-            categoriesToCheck = Set(allPossibleCategories)
-        }
-        
-        // Scan ALL categories (not just saved ones) to find ones with todos
-        for category in categoriesToCheck.sorted() {
-            let todos = getVisionBoardTodos(for: category)
-            if !todos.isEmpty {
+        for category in allPossibleCategories {
+            if !getVisionBoardTodos(for: category).isEmpty {
                 categoriesWithData.append(category)
             }
         }
         
-        print("Vision Board Widget: Found \(categoriesWithData.count) categories with todos: \(categoriesWithData)")
+        // Also check saved categories from widget configuration
+        let savedCategories = getCategories()
+        for category in savedCategories {
+            if !categoriesWithData.contains(category) && !getVisionBoardTodos(for: category).isEmpty {
+                categoriesWithData.append(category)
+            }
+        }
+        
         return categoriesWithData
     }
     

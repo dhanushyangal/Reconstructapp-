@@ -1,13 +1,12 @@
 import WidgetKit
 import SwiftUI
-import UIKit
 
 struct VisionBoardProvider: TimelineProvider {
     func placeholder(in context: Context) -> VisionBoardEntry {
         VisionBoardEntry(
             date: Date(),
-            theme: "Boxy theme board",
-            categories: ["Career", "Health", "Travel", "Family", "Income"],
+            theme: "Premium Vision Board",
+            categories: ["Career", "Health", "Travel"],
             todosByCategory: [
                 "Career": [
                     SharedDataModel.TodoItem(text: "Get promoted", isCompleted: false),
@@ -15,15 +14,6 @@ struct VisionBoardProvider: TimelineProvider {
                 ],
                 "Health": [
                     SharedDataModel.TodoItem(text: "Exercise daily", isCompleted: false)
-                ],
-                "Travel": [
-                    SharedDataModel.TodoItem(text: "Plan vacation", isCompleted: false)
-                ],
-                "Family": [
-                    SharedDataModel.TodoItem(text: "Spend quality time", isCompleted: false)
-                ],
-                "Income": [
-                    SharedDataModel.TodoItem(text: "Increase savings", isCompleted: false)
                 ]
             ]
         )
@@ -99,7 +89,7 @@ struct VisionBoardWidgetEntryView: View {
         ZStack {
             // Pure white background for widget
             Color.white
-            
+
             VStack(spacing: 8) {
                 // Theme name header at the top
                 HStack {
@@ -112,18 +102,18 @@ struct VisionBoardWidgetEntryView: View {
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
                 
-                if entry.categories.isEmpty {
+                    if entry.categories.isEmpty {
                     // No categories with data - show empty state
-                    VStack(spacing: 8) {
+                            VStack(spacing: 8) {
                         Text("No Goals")
-                            .font(.system(size: 16, weight: .semibold))
+                                    .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.black)
                         Text("Add goals in app\nto see them here")
-                            .font(.system(size: 13))
+                                    .font(.system(size: 13))
                             .foregroundColor(.gray)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(12)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(12)
                     .widgetURL(URL(string: "mentalfitness://visionboard"))
                 } else {
                     // Show categories as vertical stacked cards
@@ -147,21 +137,24 @@ struct VisionBoardWidgetEntryView: View {
                         .padding(12)
                         .widgetURL(URL(string: "mentalfitness://visionboard"))
                     } else {
-                        // Horizontal scrolling cards
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(Array(categoriesWithTodos.enumerated()), id: \.element) { index, category in
-                                    CategoryBoxView(
-                                        category: category,
-                                        todos: entry.todosByCategory[category] ?? [],
-                                        theme: entry.theme ?? "Premium Vision Board",
-                                        index: index
-                                    )
-                                    .widgetURL(URL(string: "mentalfitness://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
-                                }
+                        // 2-column grid layout (horizontal like the image)
+                        let columns = [
+                            GridItem(.flexible(), spacing: 6),
+                            GridItem(.flexible(), spacing: 6)
+                        ]
+                        
+                        LazyVGrid(columns: columns, spacing: 6) {
+                            ForEach(Array(categoriesWithTodos.enumerated()), id: \.element) { index, category in
+                                CategoryBoxView(
+                                    category: category,
+                                    todos: entry.todosByCategory[category] ?? [],
+                                    theme: entry.theme ?? "Premium Vision Board",
+                                    index: index
+                                )
+                                .widgetURL(URL(string: "mentalfitness://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
                             }
-                            .padding(.horizontal, 12)
                         }
+                        .padding(.horizontal, 12)
                     }
                 }
                 
@@ -224,20 +217,21 @@ struct CategoryBoxView: View {
                     // Box theme - use image background with white fallback
                     ZStack {
                         Color.white
-                        // Use daily-note image (ensure it's visible)
                         Image("daily-note")
                             .resizable()
                             .scaledToFill()
                             .clipped()
-                            .opacity(0.85)
+                            .opacity(0.9)
                     }
                 } else {
                     backgroundColor
                 }
                 
-                // Subtle pattern overlay (radiating lines effect)
-                SubtlePatternView(color: patternColor)
-                    .opacity(0.15)
+                // Subtle pattern overlay (radiating lines effect) - skip for Box theme
+                if !isBoxTheme {
+                    SubtlePatternView(color: patternColor)
+                        .opacity(0.15)
+                }
             }
             .cornerRadius(12)
             
@@ -245,11 +239,11 @@ struct CategoryBoxView: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     // Category title (bold, like day name in image)
-                    Text(category)
+            Text(category)
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(textColor)
-                        .lineLimit(1)
-                    
+                .foregroundColor(textColor)
+                .lineLimit(1)
+            
                     // Todo items (like task in image)
                     if todos.isEmpty {
                         Text("No tasks")
@@ -259,7 +253,7 @@ struct CategoryBoxView: View {
                     } else {
                         // Show first todo (like task description in image)
                         if let firstTodo = todos.first {
-                            HStack(spacing: 4) {
+                    HStack(spacing: 4) {
                                 Text("•")
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundColor(textColor.opacity(0.8))
@@ -274,7 +268,7 @@ struct CategoryBoxView: View {
                         // Show count if more than 1
                         if todos.count > 1 {
                             Text("+\(todos.count - 1) more")
-                                .font(.system(size: 11))
+                            .font(.system(size: 11))
                                 .foregroundColor(textColor.opacity(0.6))
                         }
                     }
@@ -284,7 +278,7 @@ struct CategoryBoxView: View {
             }
             .padding(12)
         }
-        .frame(width: 140, height: 70)
+        .frame(height: 70)
     }
     
     private var patternColor: Color {
@@ -500,8 +494,8 @@ struct VisionBoardWidget: Widget {
 } timeline: {
     VisionBoardEntry(
         date: .now,
-        theme: "Boxy theme board",
-        categories: ["Career", "Health", "Travel", "Family", "Income"],
+        theme: "Premium Vision Board",
+        categories: ["Career", "Health", "Travel"],
         todosByCategory: [
             "Career": [
                 SharedDataModel.TodoItem(text: "Get promoted", isCompleted: false),
@@ -509,15 +503,6 @@ struct VisionBoardWidget: Widget {
             ],
             "Health": [
                 SharedDataModel.TodoItem(text: "Exercise daily", isCompleted: false)
-            ],
-            "Travel": [
-                SharedDataModel.TodoItem(text: "Plan vacation", isCompleted: false)
-            ],
-            "Family": [
-                SharedDataModel.TodoItem(text: "Spend quality time", isCompleted: false)
-            ],
-            "Income": [
-                SharedDataModel.TodoItem(text: "Increase savings", isCompleted: false)
             ]
         ]
     )
