@@ -1,6 +1,5 @@
 import WidgetKit
 import SwiftUI
-import UIKit
 
 struct VisionBoardProvider: TimelineProvider {
     func placeholder(in context: Context) -> VisionBoardEntry {
@@ -90,6 +89,7 @@ struct VisionBoardWidgetEntryView: View {
         ZStack {
             // Pure white background for widget
             Color.white
+
             VStack(spacing: 8) {
                 // Theme name header at the top
                 HStack {
@@ -97,7 +97,6 @@ struct VisionBoardWidgetEntryView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.black)
                         .lineLimit(1)
-                        .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                 }
                 .padding(.horizontal, 12)
@@ -138,7 +137,7 @@ struct VisionBoardWidgetEntryView: View {
                         .padding(12)
                         .widgetURL(URL(string: "mentalfitness://visionboard"))
                     } else {
-                        // Vertical stacked cards - single column layout
+                        // Vertical stacked cards (like the image)
                         VStack(spacing: 6) {
                             ForEach(Array(categoriesWithTodos.enumerated()), id: \.element) { index, category in
                                 CategoryBoxView(
@@ -147,11 +146,9 @@ struct VisionBoardWidgetEntryView: View {
                                     theme: entry.theme ?? "Premium Vision Board",
                                     index: index
                                 )
-                                .frame(maxWidth: .infinity) // Force full width - single column
                                 .widgetURL(URL(string: "mentalfitness://visionboard/category/\(category.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? category)"))
                             }
                         }
-                        .frame(maxWidth: .infinity) // Ensure VStack takes full width
                         .padding(.horizontal, 12)
                     }
                 }
@@ -218,10 +215,8 @@ struct CategoryBoxView: View {
                         Image("daily-note")
                             .resizable()
                             .scaledToFill()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .clipped()
-                            .opacity(0.4) // Reduced to prevent text blur
-                            .allowsHitTesting(false) // Don't interfere with text
+                            .opacity(0.3)
                     }
                 } else {
                     backgroundColor
@@ -229,12 +224,11 @@ struct CategoryBoxView: View {
                 
                 // Subtle pattern overlay (radiating lines effect)
                 SubtlePatternView(color: patternColor)
-                    .opacity(0.1) // Reduced opacity to reduce interference
-                    .allowsHitTesting(false) // Don't interfere with text rendering
+                    .opacity(0.15)
             }
             .cornerRadius(12)
             
-            // Content overlay - ensure text renders on top clearly
+            // Content overlay
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     // Category title (bold, like day name in image)
@@ -242,28 +236,25 @@ struct CategoryBoxView: View {
                         .font(.system(size: 15, weight: .bold))
                 .foregroundColor(textColor)
                 .lineLimit(1)
-                .fixedSize(horizontal: false, vertical: true)
             
                     // Todo items (like task in image)
                     if todos.isEmpty {
                         Text("No tasks")
                             .font(.system(size: 13))
-                            .foregroundColor(Color(textColor).opacity(0.85))
+                            .foregroundColor(textColor.opacity(0.7))
                             .lineLimit(1)
-                            .fixedSize(horizontal: false, vertical: true)
                     } else {
                         // Show first todo (like task description in image)
                         if let firstTodo = todos.first {
                     HStack(spacing: 4) {
                                 Text("•")
                                     .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(textColor)
+                                    .foregroundColor(textColor.opacity(0.8))
                                 
                                 Text(firstTodo.text)
                                     .font(.system(size: 13))
-                                    .foregroundColor(textColor)
+                                    .foregroundColor(textColor.opacity(0.9))
                                     .lineLimit(1)
-                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         
@@ -271,7 +262,7 @@ struct CategoryBoxView: View {
                         if todos.count > 1 {
                             Text("+\(todos.count - 1) more")
                             .font(.system(size: 11))
-                                .foregroundColor(Color(textColor).opacity(0.75))
+                                .foregroundColor(textColor.opacity(0.6))
                         }
                     }
                 }
@@ -279,9 +270,7 @@ struct CategoryBoxView: View {
                 Spacer()
             }
             .padding(12)
-            .drawingGroup() // Ensure crisp text rendering
         }
-        .frame(maxWidth: .infinity) // Ensure card takes full width
         .frame(height: 70)
     }
     
