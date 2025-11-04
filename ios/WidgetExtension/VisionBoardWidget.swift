@@ -430,6 +430,7 @@ struct CategoryBoxView: View {
     }
 }
 
+
 // Subtle pattern view for card backgrounds (radiating lines/floral effect)
 struct SubtlePatternView: View {
     let color: Color
