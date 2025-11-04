@@ -116,38 +116,6 @@ struct NotesWidgetView: View {
                         Spacer()
                     }
                 }
-                
-                // Display note image if available
-                if let imagePath = entry.imagePath, !imagePath.isEmpty {
-                    // Handle both file:// URLs and direct paths
-                    let actualPath: String
-                    if imagePath.hasPrefix("file://") {
-                        actualPath = String(imagePath.dropFirst(7))
-                    } else if imagePath.hasPrefix("/") {
-                        actualPath = imagePath
-                    } else {
-                        actualPath = imagePath
-                    }
-                    
-                    // Try to load image from file system
-                    if let uiImage = UIImage(contentsOfFile: actualPath) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(height: isSmall ? 60 : 100)
-                            .clipped()
-                            .cornerRadius(6)
-                    } else {
-                        // If image not found, show placeholder
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                            .frame(height: isSmall ? 60 : 100)
-                            .overlay(
-                                Image(systemName: "photo")
-                                    .foregroundColor(textColor.opacity(0.5))
-                            )
-                    }
-                }
 
                 Text(entry.content)
                     .font(isSmall ? .caption2 : .callout)

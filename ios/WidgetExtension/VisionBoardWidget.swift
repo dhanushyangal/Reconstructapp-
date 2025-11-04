@@ -219,6 +219,15 @@ struct CategoryBoxView: View {
                             .clipped()
                             .opacity(0.3)
                     }
+                } else if isFloralTheme {
+                    // Floral/Winter Warmth theme - use image as background
+                    ZStack {
+                        Image("daily-note")
+                            .resizable()
+                            .scaledToFill()
+                            .clipped()
+                            .overlay(Color.black.opacity(0.15))
+                    }
                 } else {
                     backgroundColor
                 }
@@ -291,6 +300,14 @@ struct CategoryBoxView: View {
         let isBox = (lowercased.contains("box") || lowercased.contains("boxy")) && !lowercased.contains("ruby")
         print("CategoryBoxView: isBoxTheme = \(isBox) for theme '\(theme)'")
         return isBox
+    }
+    
+    private var isFloralTheme: Bool {
+        let lowercased = theme.lowercased()
+        // Match: "Floral theme board", "Winter Warmth theme Vision Board", "Winter Warmth Theme Vision Board"
+        let isFloral = lowercased.contains("winter") || lowercased.contains("warmth") || lowercased.contains("floral")
+        print("CategoryBoxView: isFloralTheme = \(isFloral) for theme '\(theme)'")
+        return isFloral
     }
     
     private var backgroundColor: Color {
@@ -399,6 +416,12 @@ struct CategoryBoxView: View {
         if lowercased.contains("postit") || lowercased.contains("post-it") || lowercased.contains("post it") {
             print("CategoryBoxView: Text color - Matched Post-it theme - returning black")
             return Color.black
+        }
+        
+        // Floral/Winter Warmth theme - white text on image background
+        if lowercased.contains("winter") || lowercased.contains("warmth") || lowercased.contains("floral") {
+            print("CategoryBoxView: Text color - Matched Floral/Winter theme - returning white")
+            return Color.white
         }
         
         // All other themes - white text
