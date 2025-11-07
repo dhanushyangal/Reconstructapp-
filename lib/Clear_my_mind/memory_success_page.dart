@@ -363,8 +363,9 @@ class _MemorySuccessPageState extends State<MemorySuccessPage>
                   // Secondary action
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           "try a different ",

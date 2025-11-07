@@ -380,59 +380,63 @@ class _AffirmationCardsPageState extends State<AffirmationCardsPage>
           
           // Main content
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Build self-love for a stronger you',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 24),
-                  Expanded(
-                    child: GridView.builder(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        childAspectRatio: 0.7,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Build self-love for a stronger you',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                       ),
-                      itemCount: _affirmations.length,
-                      itemBuilder: (context, index) {
-                        return _buildFlipCard(index);
-                      },
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  // Next button
-                  Container(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        // Always save tool usage when clicking Next, even if not all cards flipped
-                        await _saveToolUsage();
-                        _navigateToQuiz();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF23C4F7),
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      SizedBox(height: 24),
+                      Expanded(
+                        child: GridView.builder(
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            childAspectRatio: 0.7,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                          ),
+                          itemCount: _affirmations.length,
+                          itemBuilder: (context, index) {
+                            return _buildFlipCard(index);
+                          },
                         ),
                       ),
-                      child: Text(
-                        'Next',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      SizedBox(height: 20),
+                      // Next button
+                      Container(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            // Always save tool usage when clicking Next, even if not all cards flipped
+                            await _saveToolUsage();
+                            _navigateToQuiz();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFF23C4F7),
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Next',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -514,16 +518,20 @@ class _AffirmationCardsPageState extends State<AffirmationCardsPage>
           padding: const EdgeInsets.all(12.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                affirmation['quote'],
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                  height: 1.3,
+              Flexible(
+                child: Text(
+                  affirmation['quote'],
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                    height: 1.3,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.visible,
                 ),
-                textAlign: TextAlign.center,
               ),
               SizedBox(height: 16),
               Text(

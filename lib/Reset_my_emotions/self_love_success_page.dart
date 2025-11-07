@@ -309,8 +309,9 @@ class _SelfLoveSuccessPageState extends State<SelfLoveSuccessPage>
                   // Secondary action
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           "try a different tool to ",

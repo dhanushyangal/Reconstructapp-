@@ -385,8 +385,9 @@ class _PlanFutureSuccessPageState extends State<PlanFutureSuccessPage>
                   // Secondary action
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           "try add more cards to ",
