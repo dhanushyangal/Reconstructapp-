@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../components/nav_logpage.dart';
+import '../services/tool_usage_service.dart';
 import '../Clear_my_mind/coloring_success_page.dart';
 
 class ColorMePage extends StatefulWidget {
@@ -399,6 +400,7 @@ class _ColorMePageState extends State<ColorMePage> with TickerProviderStateMixin
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
+                  _saveToolUsage();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -553,6 +555,18 @@ class _ColorMePageState extends State<ColorMePage> with TickerProviderStateMixin
     eyePath.cubicTo(268.404, 76, 274, 81.5964, 274, 88.5);
     eyePath.close();
     return eyePath;
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    final toolUsageService = ToolUsageService();
+    await toolUsageService.saveToolUsage(
+      toolName: 'Bird Coloring',
+      category: ToolUsageService.categoryClearMind,
+      metadata: {
+        'toolType': 'digital_coloring_sheet',
+      },
+    );
   }
 }
 

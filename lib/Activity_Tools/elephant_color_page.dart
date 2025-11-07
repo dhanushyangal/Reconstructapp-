@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../components/nav_logpage.dart';
+import '../services/tool_usage_service.dart';
 import '../Clear_my_mind/coloring_success_page.dart';
 
 class ElephantColorPage extends StatefulWidget {
@@ -326,6 +327,7 @@ class _ElephantColorPageState extends State<ElephantColorPage> with TickerProvid
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
+                  _saveToolUsage();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -539,6 +541,18 @@ class _ElephantColorPageState extends State<ElephantColorPage> with TickerProvid
     gapPath.lineTo(134.525, 203);
     gapPath.close();
     return gapPath;
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    final toolUsageService = ToolUsageService();
+    await toolUsageService.saveToolUsage(
+      toolName: 'Elephant Coloring',
+      category: ToolUsageService.categoryClearMind,
+      metadata: {
+        'toolType': 'digital_coloring_sheet',
+      },
+    );
   }
 }
 

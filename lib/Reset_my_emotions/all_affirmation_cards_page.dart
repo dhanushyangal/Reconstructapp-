@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../utils/activity_tracker_mixin.dart';
+import '../services/tool_usage_service.dart';
 import '../components/nav_logpage.dart';
 import 'love_yourself_quiz_page.dart';
+import 'self_love_success_page.dart';
 
 class AffirmationCardsPage extends StatefulWidget {
   final String categoryName;
@@ -21,6 +23,7 @@ class _AffirmationCardsPageState extends State<AffirmationCardsPage>
   int _flippedCount = 0;
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
+  bool _hasTrackedUsage = false; // Track if we've recorded usage for this session
 
   // Affirmations data for each category
   final Map<String, List<Map<String, dynamic>>> _affirmationsData = {
@@ -232,6 +235,8 @@ class _AffirmationCardsPageState extends State<AffirmationCardsPage>
 
       // Check if all cards are flipped
       if (_flippedCount == _affirmations.length) {
+        // Save tool usage when all cards are completed
+        _saveToolUsage();
         // Show completion message after a delay
         Future.delayed(Duration(seconds: 2), () {
           _showCompletionDialog();
@@ -404,7 +409,9 @@ class _AffirmationCardsPageState extends State<AffirmationCardsPage>
                   Container(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        // Always save tool usage when clicking Next, even if not all cards flipped
+                        await _saveToolUsage();
                         _navigateToQuiz();
                       },
                       style: ElevatedButton.styleFrom(
@@ -538,14 +545,46 @@ class _AffirmationCardsPageState extends State<AffirmationCardsPage>
     // Track the activity
     trackClick('affirmation_cards_next_${widget.categoryName}');
 
-    // Navigate to quiz page
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => LoveYourselfQuizPage(
-          categoryName: widget.categoryName,
+    // Only "Self love" goes to quiz, all others go to success page
+    if (widget.categoryName == 'Self love') {
+      // Navigate to quiz page for Self love
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LoveYourselfQuizPage(
+            categoryName: widget.categoryName,
+          ),
         ),
-      ),
+      );
+    } else {
+      // Navigate to success page for other categories (Gratitude, Confidence, High Performance)
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const SelfLoveSuccessPage(),
+        ),
+      );
+    }
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    // Only track once per session to avoid duplicates
+    if (_hasTrackedUsage) return;
+    
+    _hasTrackedUsage = true;
+    final toolUsageService = ToolUsageService();
+    final allCardsFlipped = _flippedCount == _affirmations.length;
+    await toolUsageService.saveToolUsage(
+      toolName: '${widget.categoryName} Affirmations',
+      category: ToolUsageService.categoryResetEmotions,
+      metadata: {
+        'toolType': 'build_positive_self_talk',
+        'categoryName': widget.categoryName,
+        'totalCards': _affirmations.length,
+        'cardsFlipped': _flippedCount,
+        'allCardsFlipped': allCardsFlipped,
+      },
     );
   }
 

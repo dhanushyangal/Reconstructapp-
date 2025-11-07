@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../components/nav_logpage.dart';
+import '../services/tool_usage_service.dart';
 import '../Clear_my_mind/coloring_success_page.dart';
 
 class FigureColorPage extends StatefulWidget {
@@ -376,6 +377,7 @@ class _FigureColorPageState extends State<FigureColorPage> with TickerProviderSt
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
+                  _saveToolUsage();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -534,6 +536,18 @@ class _FigureColorPageState extends State<FigureColorPage> with TickerProviderSt
         Rect.fromCenter(center: Offset(63.75, 59.55), width: 15, height: 15));
 
     return nosePath;
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    final toolUsageService = ToolUsageService();
+    await toolUsageService.saveToolUsage(
+      toolName: 'Figure Coloring',
+      category: ToolUsageService.categoryClearMind,
+      metadata: {
+        'toolType': 'digital_coloring_sheet',
+      },
+    );
   }
 }
 

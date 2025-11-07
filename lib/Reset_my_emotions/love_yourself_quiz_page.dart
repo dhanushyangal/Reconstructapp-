@@ -130,6 +130,9 @@ class _LoveYourselfQuizPageState extends State<LoveYourselfQuizPage>
       }
     }
 
+    // Tool usage is tracked in all_affirmation_cards_page.dart, not here
+    // So we don't save tool usage in the quiz page
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -218,6 +221,9 @@ class _LoveYourselfQuizPageState extends State<LoveYourselfQuizPage>
       ),
     );
   }
+
+  // Tool usage is tracked in all_affirmation_cards_page.dart instead
+  // This method has been removed to avoid double counting
 
   @override
   Widget build(BuildContext context) {

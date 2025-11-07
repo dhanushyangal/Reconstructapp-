@@ -36,6 +36,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/gestures.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'utils/platform_features.dart';
+import 'pages/tool_usage_history_page.dart';
 
 import 'dart:developer';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
@@ -2001,6 +2002,31 @@ class _ProfilePageState extends State<ProfilePage> {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             const Color(0xFF4A9F68),
+                                        foregroundColor: Colors.white,
+                                        minimumSize:
+                                            const Size(double.infinity, 48),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const ToolUsageHistoryPage(),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.history),
+                                      label: const Text('Tool Usage History'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF23C4F7),
                                         foregroundColor: Colors.white,
                                         minimumSize:
                                             const Size(double.infinity, 48),

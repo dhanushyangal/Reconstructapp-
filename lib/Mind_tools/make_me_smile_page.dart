@@ -5,6 +5,7 @@ import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
+import '../services/tool_usage_service.dart';
 import '../components/nav_logpage.dart';
 import '../Reset_my_emotions/mind_tool_success_page.dart';
 
@@ -176,6 +177,19 @@ class _MakeMeSmilePageState extends State<MakeMeSmilePage>
     } catch (e) {
       print('Error tracking activity: $e');
     }
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    final toolUsageService = ToolUsageService();
+    await toolUsageService.saveToolUsage(
+      toolName: 'Make Me Smile',
+      category: ToolUsageService.categoryResetEmotions,
+      metadata: {
+        'toolType': 'release_negative_thoughts',
+        'smileyChanges': currentSmiley,
+      },
+    );
   }
 
   // Function to change the smiley face and play sounds
@@ -494,6 +508,7 @@ class _MakeMeSmilePageState extends State<MakeMeSmilePage>
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
+                        _saveToolUsage();
                         Navigator.push(
                           context,
                           MaterialPageRoute(

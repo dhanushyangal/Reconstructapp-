@@ -5,6 +5,7 @@ import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
+import '../services/tool_usage_service.dart';
 import '../components/nav_logpage.dart';
 import '../Reset_my_emotions/mind_tool_success_page.dart';
 
@@ -198,6 +199,9 @@ class _BreakThingsPageState extends State<BreakThingsPage>
       brokenCount = 0;
     });
     
+    // Save tool usage
+    await _saveToolUsage();
+    
     // Navigate to success page after reset
     Navigator.push(
       context,
@@ -208,6 +212,19 @@ class _BreakThingsPageState extends State<BreakThingsPage>
           nextToolRoute: '/build-self-love',
         ),
       ),
+    );
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    final toolUsageService = ToolUsageService();
+    await toolUsageService.saveToolUsage(
+      toolName: 'Break Things',
+      category: ToolUsageService.categoryResetEmotions,
+      metadata: {
+        'toolType': 'release_negative_thoughts',
+        'itemsBroken': brokenCount,
+      },
     );
   }
 

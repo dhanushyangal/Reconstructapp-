@@ -5,6 +5,7 @@ import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
+import '../services/tool_usage_service.dart';
 import '../components/nav_logpage.dart';
 import '../Reset_my_emotions/mind_tool_success_page.dart';
 
@@ -88,6 +89,9 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
         // Record activity in SharedPreferences
         _recordActivity();
         
+        // Save tool usage
+        _saveToolUsage();
+        
         // Navigate to success page after animation completes
         Navigator.push(
           context,
@@ -156,6 +160,18 @@ class _ThoughtShredderPageState extends State<ThoughtShredderPage>
     } catch (e) {
       print('Error tracking activity: $e');
     }
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    final toolUsageService = ToolUsageService();
+    await toolUsageService.saveToolUsage(
+      toolName: 'Thought Shredder',
+      category: ToolUsageService.categoryResetEmotions,
+      metadata: {
+        'toolType': 'release_negative_thoughts',
+      },
+    );
   }
 
   @override

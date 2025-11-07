@@ -32,8 +32,8 @@ android {
         applicationId "com.reconstrect.visionboard"
         minSdk 23
         targetSdk = 35
-        versionCode = 80
-        versionName = "1.2.80"
+        versionCode = 82
+        versionName = "1.2.82"
         multiDexEnabled true
         
         resValue "string", "server_client_id", "633982729642-4lotqibb3rnglifn79rt0ibjorg40oib.apps.googleusercontent.com"

@@ -14,6 +14,8 @@ import 'dart:ui' as ui;
 import '../../services/notes_service.dart';
 import '../../services/user_service.dart';
 import '../../services/ios_widget_service.dart';
+import '../../services/tool_usage_service.dart';
+import '../plan_future_success_page.dart';
 
 class DailyNotesCustomPage extends StatefulWidget {
   final String template;
@@ -1724,6 +1726,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   Timer? _autoSaveTimer;
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
+  bool _hasTrackedUsage = false; // Track if we've recorded usage for this note save
 
   // Map to store persistent controllers for checklist items
   final Map<String, TextEditingController> _checklistControllers = {};
@@ -1821,7 +1824,26 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         _hasUnsavedChanges = false;
       });
 
-      // Show save confirmation
+      // Save tool usage when note is saved (only once per note save)
+      if (!_hasTrackedUsage) {
+        await _saveToolUsage();
+        _hasTrackedUsage = true;
+        
+        // Navigate to success page after saving
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => PlanFutureSuccessPage(
+                toolType: 'daily_goals',
+                toolName: widget.template,
+              ),
+            ),
+          );
+          return; // Exit early since we navigated
+        }
+      }
+
+      // Show save confirmation if not navigating
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -2338,6 +2360,19 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
           ),
         ],
       ),
+    );
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    final toolUsageService = ToolUsageService();
+    await toolUsageService.saveToolUsage(
+      toolName: '${widget.template}',
+      category: ToolUsageService.categoryPlanFuture,
+      metadata: {
+        'toolType': 'daily_goals',
+        'template': widget.template,
+      },
     );
   }
 }

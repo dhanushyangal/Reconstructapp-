@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../components/nav_logpage.dart';
+import '../services/tool_usage_service.dart';
 import '../Clear_my_mind/coloring_success_page.dart';
 
 class FaceColorPage extends StatefulWidget {
@@ -312,6 +313,7 @@ class _FaceColorPageState extends State<FaceColorPage> with TickerProviderStateM
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
+                  _saveToolUsage();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -512,6 +514,18 @@ class _FaceColorPageState extends State<FaceColorPage> with TickerProviderStateM
     lipsPath.close();
 
     return lipsPath;
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    final toolUsageService = ToolUsageService();
+    await toolUsageService.saveToolUsage(
+      toolName: 'Face Coloring',
+      category: ToolUsageService.categoryClearMind,
+      metadata: {
+        'toolType': 'digital_coloring_sheet',
+      },
+    );
   }
 }
 

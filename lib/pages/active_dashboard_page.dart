@@ -11,9 +11,9 @@ import '../Activity_Tools/sliding_puzzle_page.dart';
 import '../Activity_Tools/color_me_now.dart';
 import 'dart:convert';
 import '../utils/activity_tracker_mixin.dart';
-import '../Plan_my_future/vision_bord_plan/vision_board_template_selection_page.dart';
+import '../Plan_my_future/Annual_bord_plan/Annual_board_template_selection_page.dart';
 import '../Plan_my_future/weekly_planners_plan/weekly_planner_template_selection_page.dart';
-import '../Plan_my_future/Annual_planner_plan/annual_planner_template_selection_page.dart';
+import '../Plan_my_future/Monthly_planner_plan/Monthly_planner_template_selection_page.dart';
 import '../Plan_my_future/Daily_notes_plan/daily_notes_template_selection_page.dart';
 import '../components/nav_logpage.dart';
 import '../Reset_my_emotions/release_negative_thoughts_page.dart';
@@ -226,7 +226,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
         children: [
               SizedBox(height: 10),
           Text(
-            "What's on your mind?",
+            "Your daily mental\nfitness routine",
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -236,7 +236,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
           ),
           SizedBox(height: 8),
           Text(
-            "Select any one and proceed",
+            "Begin your journey to a stronger mind",
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[600],

@@ -4,6 +4,7 @@ import 'dart:math';
 import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../components/nav_logpage.dart';
 import '../utils/activity_tracker_mixin.dart';
+import '../services/tool_usage_service.dart';
 import 'memory_success_page.dart';
 
 class ThemedMemoryGamePage extends StatefulWidget {
@@ -28,6 +29,7 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
   int minutes = 0;
   int winCount = 0;
   Timer? timer;
+  bool _hasTrackedUsage = false; // Track if we've recorded usage for this session
 
   // Animation controllers
   late AnimationController _confettiController;
@@ -440,7 +442,38 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
                     ),
                   ),
 
-                  // Win dialog below the game
+                  // Next button - visible when game not won, hidden when won (win dialog has its own Next button)
+                  if (winCount == 0 || winCount < cards.length ~/ 2)
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          // Always save tool usage when clicking Next, even if game not won
+                          await _saveToolUsage();
+                          _navigateToSuccessPage();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0xFF23C4F7),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 40,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Next',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Win dialog below the game (only shows when won)
                         if (winCount > 0 && winCount == cards.length ~/ 2)
                           Container(
                                 margin: const EdgeInsets.all(16),
@@ -525,7 +558,9 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
                                 ),
                               ),
                               ElevatedButton(
-                                onPressed: () {
+                                onPressed: () async {
+                                  // Save tool usage when clicking Next in win dialog
+                                  await _saveToolUsage();
                                   _navigateToSuccessPage();
                                 },
                                 style: ElevatedButton.styleFrom(
@@ -658,6 +693,28 @@ class _ThemedMemoryGamePageState extends State<ThemedMemoryGamePage>
       MaterialPageRoute(
         builder: (context) => const MemorySuccessPage(),
       ),
+    );
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    // Only track once per session to avoid duplicates
+    if (_hasTrackedUsage) return;
+    
+    _hasTrackedUsage = true;
+    final toolUsageService = ToolUsageService();
+    final isCompleted = winCount > 0 && winCount == cards.length ~/ 2;
+    await toolUsageService.saveToolUsage(
+      toolName: widget.gameName,
+      category: ToolUsageService.categoryClearMind,
+      metadata: {
+        'toolType': 'memory_game',
+        'gameTheme': widget.gameTheme,
+        'gameName': widget.gameName,
+        'moves': movesCount,
+        'time': '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
+        'completed': isCompleted,
+      },
     );
   }
 

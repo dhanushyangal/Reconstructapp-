@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/activity_tracker_mixin.dart';
 import '../components/nav_logpage.dart';
+import '../services/tool_usage_service.dart';
 import '../pages/active_dashboard_page.dart';
 import 'digital_coloring_page.dart';
 import 'sliding_puzzles_page.dart';
@@ -17,6 +18,8 @@ class _MemorySuccessPageState extends State<MemorySuccessPage>
     with ActivityTrackerMixin, TickerProviderStateMixin {
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
+  int _starCount = 0;
+  final ToolUsageService _toolUsageService = ToolUsageService();
 
   @override
   void initState() {
@@ -37,6 +40,26 @@ class _MemorySuccessPageState extends State<MemorySuccessPage>
     
     // Start the animation
     _progressAnimationController!.forward();
+    
+    // Load star count immediately
+    _loadStarCount();
+    
+    // Reload star count after a short delay to ensure latest count is shown
+    // (in case tool usage was just saved)
+    Future.delayed(Duration(milliseconds: 500), () {
+      _loadStarCount();
+    });
+  }
+  
+  Future<void> _loadStarCount() async {
+    final count = await _toolUsageService.getUniqueToolsCountForToday(
+      ToolUsageService.categoryClearMind,
+    );
+    if (mounted) {
+      setState(() {
+        _starCount = count;
+      });
+    }
   }
 
   @override
@@ -210,6 +233,66 @@ class _MemorySuccessPageState extends State<MemorySuccessPage>
                         height: 1.2,
                       ),
                       textAlign: TextAlign.center,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 40),
+                  
+                  // "You collected" text
+                  Text(
+                    "You collected",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.normal,
+                      color: Colors.black,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Star count display (yellow with orange border as per image)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/tracker',
+                        (route) => false,
+                      );
+                    },
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.yellow,
+                        border: Border.all(
+                          color: Colors.orange,
+                          width: 3,
+                        ),
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '$_starCount',
+                              style: TextStyle(
+                                fontSize: 48,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              _starCount == 1 ? 'star' : 'stars',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.normal,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   

@@ -5,12 +5,13 @@ import 'package:home_widget/home_widget.dart';
 import 'dart:convert';
 import '../../services/weekly_planner_service.dart';
 import '../../services/user_service.dart';
+import '../../services/tool_usage_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/activity_tracker_mixin.dart';
 import '../../utils/platform_features.dart';
-import '../../pages/active_tasks_page.dart';
 import '../../components/nav_logpage.dart';
+import '../plan_future_success_page.dart';
 
 class TodoItem {
   String text;
@@ -63,6 +64,7 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
   bool _isSyncing = false;
   DateTime _lastSyncTime = DateTime.now().subtract(const Duration(days: 1));
   bool _hasNetworkConnectivity = true;
+  bool _hasTrackedUsage = false; // Track if we've recorded usage for this session
 
   String get pageName => 'Custom Weekly Planner - ${widget.template}';
 
@@ -631,9 +633,15 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
+                    await _saveToolUsage();
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const ActiveTasksPage()),
+                      MaterialPageRoute(
+                        builder: (context) => PlanFutureSuccessPage(
+                          toolType: 'weekly_goals',
+                          toolName: widget.template,
+                        ),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.save, color: Colors.blue),
@@ -683,6 +691,23 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
 
   void _trackActivity() {
     trackClick('Custom Weekly Planner - ${widget.template}');
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    if (_hasTrackedUsage) return; // Only track once per session
+    
+    _hasTrackedUsage = true;
+    final toolUsageService = ToolUsageService();
+    await toolUsageService.saveToolUsage(
+      toolName: '${widget.template}',
+      category: ToolUsageService.categoryPlanFuture,
+      metadata: {
+        'toolType': 'weekly_goals',
+        'template': widget.template,
+        'daysCount': widget.selectedAreas.length,
+      },
+    );
   }
 
   // Helper method to detect if a card is custom created (not in predefined list)

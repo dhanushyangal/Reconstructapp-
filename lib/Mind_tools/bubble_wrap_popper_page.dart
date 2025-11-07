@@ -5,6 +5,7 @@ import '../pages/active_dashboard_page.dart'; // Import for activity tracking
 import '../utils/activity_tracker_mixin.dart';
 import '../services/supabase_database_service.dart';
 import '../services/auth_service.dart';
+import '../services/tool_usage_service.dart';
 import '../components/nav_logpage.dart';
 import '../Reset_my_emotions/mind_tool_success_page.dart';
 
@@ -95,6 +96,19 @@ class _BubbleWrapPopperPageState extends State<BubbleWrapPopperPage>
     } catch (e) {
       print('Error tracking activity: $e');
     }
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    final toolUsageService = ToolUsageService();
+    await toolUsageService.saveToolUsage(
+      toolName: 'Bubble Wrap Popper',
+      category: ToolUsageService.categoryResetEmotions,
+      metadata: {
+        'toolType': 'release_negative_thoughts',
+        'bubblesPopped': poppedCount,
+      },
+    );
   }
 
   // Updated function to log activity for tracking using Supabase
@@ -317,6 +331,7 @@ class _BubbleWrapPopperPageState extends State<BubbleWrapPopperPage>
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
+                      _saveToolUsage();
                       Navigator.push(
                         context,
                         MaterialPageRoute(

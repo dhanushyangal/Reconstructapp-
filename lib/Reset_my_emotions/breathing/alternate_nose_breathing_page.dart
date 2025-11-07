@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../../utils/activity_tracker_mixin.dart';
+import '../../services/tool_usage_service.dart';
 import '../../components/nav_logpage.dart';
 import '../../Reset_my_emotions/breathing_success_page.dart';
 
@@ -423,12 +424,28 @@ class _AlternateNoseBreathingPageState extends State<AlternateNoseBreathingPage>
     // Track the activity
     trackClick('alternate_nose_breathing_next');
     
+    // Save tool usage
+    _saveToolUsage();
+    
     // Navigate to breathing success page
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const BreathingSuccessPage(),
       ),
+    );
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    final toolUsageService = ToolUsageService();
+    await toolUsageService.saveToolUsage(
+      toolName: 'Alternate Nose Breathing',
+      category: ToolUsageService.categoryResetEmotions,
+      metadata: {
+        'toolType': 'master_your_breathing',
+        'breathingCycles': _breathingCycles,
+      },
     );
   }
 

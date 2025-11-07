@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import '../components/nav_logpage.dart';
 import '../utils/activity_tracker_mixin.dart';
+import '../services/tool_usage_service.dart';
 import 'puzzle_success_page.dart';
 
 class EnhancedSlidingPuzzlePage extends StatefulWidget {
@@ -27,6 +28,7 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
   bool gameStarted = false;
   bool gameComplete = false;
   bool showReference = true; // Toggle for showing/hiding reference
+  bool _hasTrackedUsage = false; // Track if we've recorded usage for this session
 
   // Animation properties
   final Map<int, AnimationController> _animationControllers = {};
@@ -564,8 +566,10 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
           content: Text('You solved the ${widget.puzzleName} puzzle in $movesCount moves!'),
           actions: [
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop();
+                // Save tool usage when clicking Next in win dialog
+                await _saveToolUsage();
                 _navigateToSuccessPage();
               },
               child: const Text('Next'),
@@ -850,7 +854,11 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
             if (showReference) Center(child: referenceGrid),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _navigateToSuccessPage,
+              onPressed: () async {
+                // Always save tool usage when clicking Next, even if puzzle not solved
+                await _saveToolUsage();
+                _navigateToSuccessPage();
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Color(0xFF23C4F7),
                 foregroundColor: Colors.white,
@@ -966,6 +974,27 @@ class _EnhancedSlidingPuzzlePageState extends State<EnhancedSlidingPuzzlePage>
       MaterialPageRoute(
         builder: (context) => const PuzzleSuccessPage(),
       ),
+    );
+  }
+
+  // Save tool usage
+  Future<void> _saveToolUsage() async {
+    // Only track once per session to avoid duplicates
+    if (_hasTrackedUsage) return;
+    
+    _hasTrackedUsage = true;
+    final toolUsageService = ToolUsageService();
+    // puzzleName already contains "Puzzle" (e.g., "Fox Sliding Puzzle"), so use it directly
+    await toolUsageService.saveToolUsage(
+      toolName: widget.puzzleName.trim(), // Trim any trailing spaces
+      category: ToolUsageService.categoryClearMind,
+      metadata: {
+        'toolType': 'sliding_puzzle',
+        'puzzleTheme': widget.puzzleTheme,
+        'puzzleName': widget.puzzleName,
+        'moves': movesCount,
+        'completed': gameComplete,
+      },
     );
   }
 
