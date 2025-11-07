@@ -218,9 +218,12 @@ class _MemorySuccessPageState extends State<MemorySuccessPage>
               width: double.infinity,
               height: double.infinity,
               color: Colors.white,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                   // Main success message
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40.0),
@@ -388,7 +391,9 @@ class _MemorySuccessPageState extends State<MemorySuccessPage>
                       ],
                     ),
                   ),
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
