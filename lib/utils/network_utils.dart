@@ -10,12 +10,23 @@ class NetworkUtils {
     try {
       final response = await http
           .get(Uri.parse('$baseUrl/health'))
-          .timeout(Duration(seconds: 5));
+          .timeout(const Duration(seconds: 10));
 
-      debugPrint('Server health check: ${response.statusCode}');
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        debugPrint('Server health check: OK');
+        return true;
+      } else {
+        debugPrint('Server health check: Status ${response.statusCode}');
+        return false;
+      }
+    } on TimeoutException {
+      // Silently handle timeout - server may be slow but still functional
+      return false;
     } catch (e) {
-      debugPrint('Server health check failed: $e');
+      // Only log non-timeout errors
+      if (e is! TimeoutException) {
+        debugPrint('Server health check error: $e');
+      }
       return false;
     }
   }
@@ -25,17 +36,23 @@ class NetworkUtils {
     try {
       final response = await http
           .get(Uri.parse('$baseUrl/db-test'))
-          .timeout(Duration(seconds: 5));
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         debugPrint('Database connection check: OK');
         return true;
       } else {
-        debugPrint('Database connection check failed: ${response.statusCode}');
+        debugPrint('Database connection check: Status ${response.statusCode}');
         return false;
       }
+    } on TimeoutException {
+      // Silently handle timeout
+      return false;
     } catch (e) {
-      debugPrint('Database connection check failed: $e');
+      // Only log non-timeout errors
+      if (e is! TimeoutException) {
+        debugPrint('Database connection check error: $e');
+      }
       return false;
     }
   }
@@ -58,10 +75,10 @@ class NetworkUtils {
           message = 'Server is reachable but database connection failed';
         }
       } else {
-        message = 'Cannot reach the server';
+        message = 'Cannot reach the server. Please check your connection and try again.';
       }
     } catch (e) {
-      message = 'Error checking server status: $e';
+      message = 'Error checking server status. Please try again.';
     }
 
     return {

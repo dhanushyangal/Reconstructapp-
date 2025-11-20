@@ -91,7 +91,6 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
                                 }
                                 
                                 final userData = result['user'];
-                                final firebaseUser = result['firebaseUser'];
                                 
                                 debugPrint('Google sign-in successful, checking Supabase authentication...');
                                 
@@ -186,7 +185,6 @@ class _InitialAuthPageState extends State<InitialAuthPage> {
                                 }
                                 
                                 final userData = result['user'];
-                                final firebaseUser = result['firebaseUser'];
                                 
                                 debugPrint('Apple sign-in successful, checking Supabase authentication...');
                                 

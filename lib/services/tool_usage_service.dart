@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:io';
+import 'tool_usage_database_service.dart';
 
 /// Service to manage tool usage entries with dates and categories
+/// Uses database with fallback to SharedPreferences for offline support
 class ToolUsageService {
   static final ToolUsageService _instance = ToolUsageService._internal();
   factory ToolUsageService() => _instance;
@@ -10,6 +13,20 @@ class ToolUsageService {
 
   static const String _storageKey = 'tool_usage_entries';
   static const String _categoriesKey = 'tool_usage_categories';
+
+  final ToolUsageDatabaseService _dbService = ToolUsageDatabaseService.instance;
+
+  /// Check if device has network connectivity
+  Future<bool> _hasNetworkConnection() async {
+    try {
+      final result = await InternetAddress.lookup('google.com')
+          .timeout(const Duration(seconds: 3));
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (e) {
+      debugPrint('ToolUsageService: Network connectivity check failed: $e');
+      return false;
+    }
+  }
 
   /// Categories for tool usage
   static const String categoryResetEmotions = 'Reset_my_emotions';
@@ -24,9 +41,71 @@ class ToolUsageService {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now();
       final dateKey = _formatDate(now);
+
+      // Check network connectivity first
+      final hasNetwork = await _hasNetworkConnection();
+      
+      // PRIORITY 1: Try database first (only if network is available)
+      bool dbSaveSuccess = false;
+      if (hasNetwork) {
+        try {
+          debugPrint('ToolUsageService: Network available - attempting to save to database...');
+          final success = await _dbService.saveToolUsage(
+            toolName: toolName,
+            category: category,
+            toolData: toolData,
+            metadata: metadata,
+          );
+          if (success) {
+            debugPrint('✅ Tool usage saved to database: $toolName in $category on $dateKey');
+            dbSaveSuccess = true;
+            // If database save succeeded, we can return early (local storage is just backup)
+            // But we still save to local storage as backup
+          } else {
+            debugPrint('ToolUsageService: Database save returned false');
+          }
+        } catch (e, stackTrace) {
+          debugPrint('❌ Error saving to database: $e');
+          debugPrint('Stack trace: $stackTrace');
+        }
+      } else {
+        debugPrint('ToolUsageService: No network connection - skipping database save');
+      }
+
+      // PRIORITY 2: Save to local storage (as backup if online, primary if offline)
+      final localSaveSuccess = await _saveToLocalStorage(toolName, category, dateKey, now, toolData, metadata);
+      
+      if (hasNetwork && dbSaveSuccess) {
+        debugPrint('ToolUsageService: Saved to both database and local storage (backup)');
+        return true;
+      } else if (!hasNetwork && localSaveSuccess) {
+        debugPrint('ToolUsageService: Saved to local storage (offline mode)');
+        return true;
+      } else if (localSaveSuccess) {
+        debugPrint('ToolUsageService: Saved to local storage (database save failed)');
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      debugPrint('❌ Error saving tool usage: $e');
+      return false;
+    }
+  }
+
+  /// Save to local storage (SharedPreferences)
+  Future<bool> _saveToLocalStorage(
+    String toolName,
+    String category,
+    String dateKey,
+    DateTime now,
+    String? toolData,
+    Map<String, dynamic>? metadata,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
       // Create entry
       final entry = {
@@ -61,10 +140,10 @@ class ToolUsageService {
       // Update category dates
       await _updateCategoryDates(category, dateKey, prefs);
 
-      debugPrint('✅ Tool usage saved: $toolName in $category on $dateKey');
+      debugPrint('✅ Tool usage saved to local storage: $toolName in $category on $dateKey');
       return true;
     } catch (e) {
-      debugPrint('❌ Error saving tool usage: $e');
+      debugPrint('❌ Error saving to local storage: $e');
       return false;
     }
   }
@@ -72,19 +151,57 @@ class ToolUsageService {
   /// Get all entries for a specific date
   Future<List<Map<String, dynamic>>> getEntriesForDate(String date) async {
     try {
+      // Check network connectivity first
+      final hasNetwork = await _hasNetworkConnection();
+      
+      List<Map<String, dynamic>> dbEntries = [];
+      
+      // PRIORITY 1: Try database first (only if network is available)
+      if (hasNetwork) {
+        try {
+          dbEntries = await _dbService.getEntriesForDate(date);
+          debugPrint('ToolUsageService: Retrieved ${dbEntries.length} entries from database for date $date');
+        } catch (e, stackTrace) {
+          debugPrint('❌ Error getting entries from database: $e');
+          debugPrint('Stack trace: $stackTrace');
+        }
+      } else {
+        debugPrint('ToolUsageService: No network - skipping database query');
+      }
+
+      // Also get from local storage
       final prefs = await SharedPreferences.getInstance();
       final entriesJson = prefs.getString(_storageKey);
+      List<Map<String, dynamic>> localEntries = [];
       
-      if (entriesJson == null) return [];
+      if (entriesJson != null) {
+        try {
+          final decoded = json.decode(entriesJson);
+          if (decoded is List) {
+            localEntries = List<Map<String, dynamic>>.from(
+              decoded.map((e) => Map<String, dynamic>.from(e))
+            ).where((entry) => entry['date'] == date).toList();
+            debugPrint('ToolUsageService: Retrieved ${localEntries.length} entries from local storage for date $date');
+          }
+        } catch (e) {
+          debugPrint('❌ Error parsing local storage entries: $e');
+        }
+      }
 
-      final decoded = json.decode(entriesJson);
-      if (decoded is! List) return [];
-
-      final allEntries = List<Map<String, dynamic>>.from(
-        decoded.map((e) => Map<String, dynamic>.from(e))
-      );
-
-      return allEntries.where((entry) => entry['date'] == date).toList();
+      // When online: Database is source of truth - use ONLY database entries
+      // When offline: Use local storage entries
+      if (hasNetwork) {
+        // Online: Return only database entries (database is source of truth)
+        final convertedDbEntries = dbEntries.isNotEmpty 
+            ? _convertDbEntriesToLocalFormat(dbEntries)
+            : <Map<String, dynamic>>[];
+        debugPrint('ToolUsageService: Online mode - returning ${convertedDbEntries.length} entries from database only');
+        return convertedDbEntries;
+      } else {
+        // Offline: Return only local storage entries
+        debugPrint('ToolUsageService: Offline mode - returning ${localEntries.length} entries from local storage only');
+        return localEntries;
+      }
     } catch (e) {
       debugPrint('❌ Error getting entries for date: $e');
       return [];
@@ -94,26 +211,67 @@ class ToolUsageService {
   /// Get all entries for a specific category
   Future<List<Map<String, dynamic>>> getEntriesForCategory(String category) async {
     try {
+      // Check network connectivity first
+      final hasNetwork = await _hasNetworkConnection();
+      
+      List<Map<String, dynamic>> dbEntries = [];
+      
+      // PRIORITY 1: Try database first (only if network is available)
+      if (hasNetwork) {
+        try {
+          dbEntries = await _dbService.getEntriesForCategory(category);
+          debugPrint('ToolUsageService: Retrieved ${dbEntries.length} entries from database for category $category');
+        } catch (e, stackTrace) {
+          debugPrint('❌ Error getting entries from database: $e');
+          debugPrint('Stack trace: $stackTrace');
+        }
+      } else {
+        debugPrint('ToolUsageService: No network - skipping database query');
+      }
+
+      // Also get from local storage
       final prefs = await SharedPreferences.getInstance();
       final entriesJson = prefs.getString(_storageKey);
+      List<Map<String, dynamic>> localEntries = [];
       
-      if (entriesJson == null) return [];
+      if (entriesJson != null) {
+        try {
+          final decoded = json.decode(entriesJson);
+          if (decoded is List) {
+            localEntries = List<Map<String, dynamic>>.from(
+              decoded.map((e) => Map<String, dynamic>.from(e))
+            ).where((entry) => entry['category'] == category).toList();
+            debugPrint('ToolUsageService: Retrieved ${localEntries.length} entries from local storage for category $category');
+          }
+        } catch (e) {
+          debugPrint('❌ Error parsing local storage entries: $e');
+        }
+      }
 
-      final decoded = json.decode(entriesJson);
-      if (decoded is! List) return [];
-
-      final allEntries = List<Map<String, dynamic>>.from(
-        decoded.map((e) => Map<String, dynamic>.from(e))
-      );
-
-      return allEntries
-          .where((entry) => entry['category'] == category)
-          .toList()
-        ..sort((a, b) {
-          final dateA = a['timestamp'] as String;
-          final dateB = b['timestamp'] as String;
+      // When online: Database is source of truth - use ONLY database entries
+      // When offline: Use local storage entries
+      if (hasNetwork) {
+        // Online: Return only database entries (database is source of truth)
+        final convertedDbEntries = dbEntries.isNotEmpty 
+            ? _convertDbEntriesToLocalFormat(dbEntries)
+            : <Map<String, dynamic>>[];
+        final sorted = List<Map<String, dynamic>>.from(convertedDbEntries)..sort((a, b) {
+          final dateA = a['timestamp'] as String? ?? '';
+          final dateB = b['timestamp'] as String? ?? '';
           return dateB.compareTo(dateA); // Most recent first
         });
+        debugPrint('ToolUsageService: Online mode - returning ${sorted.length} entries from database only');
+        return sorted;
+      } else {
+        // Offline: Return only local storage entries
+        final sorted = List<Map<String, dynamic>>.from(localEntries)..sort((a, b) {
+          final dateA = a['timestamp'] as String? ?? '';
+          final dateB = b['timestamp'] as String? ?? '';
+          return dateB.compareTo(dateA); // Most recent first
+        });
+        debugPrint('ToolUsageService: Offline mode - returning ${sorted.length} entries from local storage only');
+        return sorted;
+      }
     } catch (e) {
       debugPrint('❌ Error getting entries for category: $e');
       return [];
@@ -126,8 +284,21 @@ class ToolUsageService {
     String date,
   ) async {
     try {
-      final entries = await getEntriesForCategory(category);
-      return entries.where((entry) => entry['date'] == date).toList();
+      // Get entries from both database and local storage (merged)
+      final allEntries = await getEntriesForCategory(category);
+      
+      // Filter by exact date match
+      final filteredEntries = allEntries.where((entry) {
+        final entryDate = entry['date'] as String? ?? '';
+        final matches = entryDate == date;
+        if (!matches) {
+          debugPrint('ToolUsageService: Entry date mismatch - entry: $entryDate, requested: $date');
+        }
+        return matches;
+      }).toList();
+      
+      debugPrint('ToolUsageService: getEntriesForCategoryAndDate - category: $category, date: $date, found: ${filteredEntries.length} entries');
+      return filteredEntries;
     } catch (e) {
       debugPrint('❌ Error getting entries for category and date: $e');
       return [];
@@ -233,13 +404,48 @@ class ToolUsageService {
   /// Get count of unique tools completed today for a category
   Future<int> getUniqueToolsCountForToday(String category) async {
     try {
-      final today = _formatDate(DateTime.now());
-      final entries = await getEntriesForCategoryAndDate(category, today);
+      final now = DateTime.now();
+      final today = _formatDate(now);
+      
+      debugPrint('ToolUsageService: getUniqueToolsCountForToday - category: $category, today: $today');
+      
+      // Check network connectivity first
+      final hasNetwork = await _hasNetworkConnection();
+      
+      // When online: Query database directly (real-time, source of truth)
+      // When offline: Get from local storage
+      List<Map<String, dynamic>> todayEntries = [];
+      if (hasNetwork) {
+        // Online: Query database directly for today's entries
+        try {
+          final dbEntries = await _dbService.getEntriesForCategoryAndDate(category, today);
+          todayEntries = _convertDbEntriesToLocalFormat(dbEntries);
+          debugPrint('ToolUsageService: Online - retrieved ${todayEntries.length} entries from database for today');
+        } catch (e) {
+          debugPrint('ToolUsageService: Error getting database entries: $e');
+          // Fallback to local storage if database query fails
+          final entries = await getEntriesForCategoryAndDate(category, today);
+          todayEntries = entries.where((entry) {
+            final entryDate = entry['date'] as String? ?? '';
+            return entryDate == today;
+          }).toList();
+        }
+      } else {
+        // Offline: Get from local storage
+        final entries = await getEntriesForCategoryAndDate(category, today);
+        todayEntries = entries.where((entry) {
+          final entryDate = entry['date'] as String? ?? '';
+          return entryDate == today;
+        }).toList();
+        debugPrint('ToolUsageService: Offline - retrieved ${todayEntries.length} entries from local storage for today');
+      }
+      
+      debugPrint('ToolUsageService: getUniqueToolsCountForToday - Found ${todayEntries.length} entries for $category on $today (after filtering)');
       
       // For Plan my future, normalize tool names to count by category, not by theme
       // All Annual goals templates count as 1, Weekly as 1, Monthly as 1, Daily as 1
       if (category == categoryPlanFuture) {
-        final normalizedTools = entries.map((e) {
+        final normalizedTools = todayEntries.map((e) {
           final toolName = e['toolName'] as String? ?? '';
           final metadata = e['metadata'] as Map<String, dynamic>? ?? {};
           final toolType = metadata['toolType'] as String?;
@@ -274,11 +480,12 @@ class ToolUsageService {
       }
       
       // For other categories, count unique tool names as-is
-      final uniqueTools = entries
+      final uniqueTools = todayEntries
           .map((e) => e['toolName'] as String? ?? '')
           .where((name) => name.isNotEmpty)
           .toSet();
       
+      debugPrint('ToolUsageService: getUniqueToolsCountForToday - Unique tools count: ${uniqueTools.length} for $category');
       return uniqueTools.length;
     } catch (e) {
       debugPrint('❌ Error getting unique tools count: $e');
@@ -382,6 +589,21 @@ class ToolUsageService {
     } catch (e) {
       debugPrint('❌ Error updating category dates: $e');
     }
+  }
+
+  /// Convert database entries to local format (for compatibility)
+  List<Map<String, dynamic>> _convertDbEntriesToLocalFormat(List<Map<String, dynamic>> dbEntries) {
+    return dbEntries.map((e) {
+      return {
+        'id': e['id']?.toString() ?? '',
+        'toolName': e['tool_name'] ?? '',
+        'category': e['category'] ?? '',
+        'date': e['date'] ?? '',
+        'timestamp': e['timestamp'] ?? '',
+        'toolData': e['tool_data'],
+        'metadata': e['metadata'] ?? {},
+      };
+    }).toList();
   }
 
   /// Format date as YYYY-MM-DD

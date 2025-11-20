@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'register_page.dart';
 import '../services/auth_service.dart';
 import 'google_confirmation_page.dart';
-import '../utils/network_utils.dart';
 import '../utils/platform_features.dart';
 import '../services/supabase_database_service.dart';
 
@@ -38,22 +37,7 @@ class _LoginPageState extends State<LoginPage> {
     debugPrint('Attempting login for email: ${_emailController.text}');
 
     try {
-      // First check if server is reachable
-      final serverStatus = await NetworkUtils.getServerStatus();
-      if (!serverStatus['serverReachable']) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(serverStatus['message'] ??
-                'Cannot reach server. Please try again later.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      // Add a timeout to prevent hanging indefinitely
+      // Sign in directly with Supabase (no API server check needed)
       final result = await _authService
           .signInWithEmailPassword(
         email: _emailController.text.trim(),
@@ -157,7 +141,6 @@ class _LoginPageState extends State<LoginPage> {
       }
       
       final userData = result['user'];
-      final firebaseUser = result['firebaseUser'];
       
       debugPrint('Google sign-in successful, checking Supabase authentication...');
       
@@ -230,7 +213,6 @@ class _LoginPageState extends State<LoginPage> {
       }
       
       final userData = result['user'];
-      final firebaseUser = result['firebaseUser'];
       
       debugPrint('Apple sign-in successful, checking Supabase authentication...');
       
