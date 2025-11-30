@@ -22,6 +22,7 @@ import '../Clear_my_mind/sliding_puzzles_page.dart';
 import '../Clear_my_mind/memory_games_page.dart';
 import '../Reset_my_emotions/affirmation_card_page.dart';
 import '../Reset_my_emotions/breathing/master_breathing_page.dart';
+import '../Christmas/christmas_cutout_selection_page.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -249,7 +250,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
           _buildActionButton(
             title: "Reset my emotions",
             subtitle: "Release what's heavy and feel lighter.",
-                color: Color(0xFF81D0FF), // Light blue background
+                color: Color(0xFF91D7FF), // Light blue background
             onTap: () {
               Navigator.push(
                 context,
@@ -267,7 +268,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
           _buildActionButton(
             title: "Clear my mind",
             subtitle: "Get a fresh start for renewed focus",
-                color: Color(0xFF81D0FF), // Light blue background
+                color: Color(0xFFFFE886), // Light blue background
             onTap: () {
               Navigator.push(
                 context,
@@ -285,7 +286,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
           _buildActionButton(
             title: "Plan my future",
             subtitle: "Turn goals into a clear path forward.",
-                color: Color(0xFF81D0FF), // Light blue background
+                color: Color(0xFFB4DF8C), // Light blue background
             onTap: () {
               Navigator.push(
                 context,
@@ -295,6 +296,20 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
                     categoryName: 'Plan my future',
                     tools: _tools['vision']!,
                   ),
+                ),
+              );
+            },
+          ),
+          SizedBox(height: 16),
+          _buildActionButton(
+            title: "Christmas",
+            subtitle: "Choose a Christmas cutout to color.",
+                color: Color(0xFFFFB6C1), // Light pink background
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ChristmasCutoutSelectionPage(),
                 ),
               );
             },

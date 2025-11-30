@@ -41,7 +41,7 @@ class GoogleConfirmationPage extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // User Avatar
+              // User Avatar`
               CircleAvatar(
                 radius: 40,
                 backgroundColor:

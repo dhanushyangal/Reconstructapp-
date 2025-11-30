@@ -220,6 +220,19 @@ class _AllToolsViewPageState extends State<AllToolsViewPage> {
     if (toolName == 'Daily Goals') return 'Daily Planner';
     return toolName;
   }
+  // ➤ ADD THIS HERE
+int _completedCountForCategory(String categoryName, List<Map<String, dynamic>> tools) {
+  int count = 0;
+
+  for (var tool in tools) {
+    final toolName = tool['name'] as String;
+    if (_isToolCompleted(toolName, tool)) {
+      count++;
+    }
+  }
+
+  return count;
+}
 
   @override
   Widget build(BuildContext context) {
@@ -287,6 +300,19 @@ class _AllToolsViewPageState extends State<AllToolsViewPage> {
               ),
             ),
           ),
+          // Sub-text
+Padding(
+  padding: const EdgeInsets.only(bottom: 16.0),
+  child: Text(
+    '${_completedCountForCategory(categoryName, tools)} of ${tools.length} unlocked',
+    style: const TextStyle(
+      fontSize: 13,
+      color: Colors.black54,
+      fontWeight: FontWeight.w500,
+    ),
+  ),
+),
+    
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
