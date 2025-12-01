@@ -302,7 +302,7 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
           ),
           SizedBox(height: 16),
           _buildActionButton(
-            title: "Christmas",
+            title: "Christmas Special",
             subtitle: "Choose a Christmas cutout to color.",
                 color: Color(0xFFFFB6C1), // Light pink background
             onTap: () {

@@ -240,7 +240,8 @@ class _ChristmasColoringPageState extends State<ChristmasColoringPage>
                                 ..strokeWidth = currentStrokeWidth
                                 ..strokeCap = StrokeCap.round
                                 ..strokeJoin = StrokeJoin.round
-                                ..style = PaintingStyle.stroke,
+                                ..style = PaintingStyle.stroke
+                                ..blendMode = BlendMode.srcOver,
                             ));
                           });
                         }
@@ -263,7 +264,8 @@ class _ChristmasColoringPageState extends State<ChristmasColoringPage>
                                 ..strokeWidth = currentStrokeWidth
                                 ..strokeCap = StrokeCap.round
                                 ..strokeJoin = StrokeJoin.round
-                                ..style = PaintingStyle.stroke,
+                                ..style = PaintingStyle.stroke
+                                ..blendMode = BlendMode.srcOver,
                             ));
                           });
                         }
@@ -641,13 +643,17 @@ class _ChristmasColoringPageState extends State<ChristmasColoringPage>
                                   final y = localPosition.dy.clamp(0.0, size.height);
                                   
                                   final hue = (x / size.width * 360).clamp(0.0, 360.0);
-                                  final saturation = (1.0 - y / size.height).clamp(0.0, 1.0);
+                                  // Top = high saturation, high brightness
+                                  // Bottom = high saturation, low brightness (darker)
+                                  final normalizedY = y / size.height; // 0 at top, 1 at bottom
+                                  final saturation = hsvColor.saturation; // Use current saturation from slider
+                                  final brightness = (1.0 - normalizedY).clamp(0.1, 1.0); // Invert: top is bright, bottom is dark
                                   
                                   final newColor = HSVColor.fromAHSV(
                                     1.0,
                                     hue,
                                     saturation,
-                                    hsvColor.value,
+                                    brightness,
                                   );
                                   updatePreviewColor(newColor);
                                 },
@@ -659,18 +665,22 @@ class _ChristmasColoringPageState extends State<ChristmasColoringPage>
                                   final y = localPosition.dy.clamp(0.0, size.height);
                                   
                                   final hue = (x / size.width * 360).clamp(0.0, 360.0);
-                                  final saturation = (1.0 - y / size.height).clamp(0.0, 1.0);
+                                  // Top = high saturation, high brightness
+                                  // Bottom = high saturation, low brightness (darker)
+                                  final normalizedY = y / size.height; // 0 at top, 1 at bottom
+                                  final saturation = hsvColor.saturation; // Use current saturation from slider
+                                  final brightness = (1.0 - normalizedY).clamp(0.1, 1.0); // Invert: top is bright, bottom is dark
                                   
                                   final newColor = HSVColor.fromAHSV(
                                     1.0,
                                     hue,
                                     saturation,
-                                    hsvColor.value,
+                                    brightness,
                                   );
                                   updatePreviewColor(newColor);
                                 },
                                 child: CustomPaint(
-                                  painter: ColorWheelPainter(hsvColor.value),
+                                  painter: ColorWheelPainter(1.0), // Brightness is now controlled by Y position
                                   child: Container(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(12),
@@ -683,17 +693,17 @@ class _ChristmasColoringPageState extends State<ChristmasColoringPage>
                           ),
                         ),
                         SizedBox(height: 20),
-                        // Brightness slider
+                        // Saturation slider (since brightness is now controlled by Y position in color wheel)
                         Row(
                           children: [
-                            Text('Brightness: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text('Saturation: ', style: TextStyle(fontWeight: FontWeight.bold)),
                             Expanded(
                               child: Slider(
-                                value: hsvColor.value,
+                                value: hsvColor.saturation,
                                 min: 0.0,
                                 max: 1.0,
                                 onChanged: (value) {
-                                  final newColor = hsvColor.withValue(value);
+                                  final newColor = hsvColor.withSaturation(value);
                                   updatePreviewColor(newColor);
                                 },
                                 activeColor: hsvColor.toColor(),
@@ -844,7 +854,7 @@ class DrawingPainter extends CustomPainter {
   bool shouldRepaint(covariant DrawingPainter oldDelegate) => true;
 }
 
-/// Painter for color wheel (Hue and Saturation)
+/// Painter for color wheel (Hue horizontally, Brightness vertically)
 class ColorWheelPainter extends CustomPainter {
   final double brightness;
 
@@ -854,13 +864,15 @@ class ColorWheelPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Draw using a more efficient approach with gradients
     // Create vertical gradients for each column (hue changes horizontally)
-    // Draw columns with different hues
+    // Top = bright colors, Bottom = dark colors
     for (int i = 0; i < size.width.toInt(); i += 2) {
       final hue = (i / size.width * 360).clamp(0.0, 360.0);
       
-      // Create vertical gradient for saturation (top = full saturation, bottom = no saturation)
-      final topColor = HSVColor.fromAHSV(1.0, hue, 1.0, brightness).toColor();
-      final bottomColor = HSVColor.fromAHSV(1.0, hue, 0.0, brightness).toColor();
+      // Create vertical gradient: top is bright, bottom is dark
+      // Top: full brightness, full saturation
+      // Bottom: low brightness (0.1), full saturation (for dark rich colors)
+      final topColor = HSVColor.fromAHSV(1.0, hue, 1.0, 1.0).toColor();
+      final bottomColor = HSVColor.fromAHSV(1.0, hue, 1.0, 0.1).toColor();
       
       final gradient = LinearGradient(
         begin: Alignment.topCenter,
@@ -877,6 +889,6 @@ class ColorWheelPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant ColorWheelPainter oldDelegate) {
-    return oldDelegate.brightness != brightness;
+    return false; // The wheel doesn't depend on brightness slider anymore
   }
 }
