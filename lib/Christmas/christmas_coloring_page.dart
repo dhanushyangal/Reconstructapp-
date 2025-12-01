@@ -291,14 +291,6 @@ class _ChristmasColoringPageState extends State<ChristmasColoringPage>
                               cutoutPath: getTransformedCutoutPath(constraints.biggest),
                             ),
                           ),
-                          // Outline (drawn on top)
-                          CustomPaint(
-                            size: constraints.biggest,
-                            painter: ChristmasCutoutOutlinePainter(
-                              svgPath: widget.svgPath,
-                              viewBox: widget.viewBox,
-                            ),
-                          ),
                         ],
                       ),
                     );
@@ -599,13 +591,19 @@ class _ChristmasColoringPageState extends State<ChristmasColoringPage>
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            void updateColor(HSVColor newColor) {
-              setState(() {
-                currentColor = newColor.toColor();
-              });
+            void updatePreviewColor(HSVColor newColor) {
+              // Only update the preview in the modal, not the actual currentColor
               setModalState(() {
                 hsvColor = newColor;
               });
+            }
+            
+            void applyColor() {
+              // Apply the color and close
+              setState(() {
+                currentColor = hsvColor.toColor();
+              });
+              Navigator.pop(context);
             }
             
             return Container(
@@ -631,52 +629,57 @@ class _ChristmasColoringPageState extends State<ChristmasColoringPage>
                         // Color wheel (Hue and Saturation)
                         Expanded(
                           flex: 3,
-                          child: GestureDetector(
-                            onPanUpdate: (details) {
-                              final RenderBox box = context.findRenderObject() as RenderBox;
-                              final localPosition = box.globalToLocal(details.globalPosition);
-                              final size = box.size;
-                              
-                              final x = localPosition.dx.clamp(0.0, size.width);
-                              final y = localPosition.dy.clamp(0.0, size.height);
-                              
-                              final newColor = HSVColor.fromAHSV(
-                                hsvColor.alpha,
-                                (x / size.width * 360).clamp(0.0, 360.0),
-                                (1.0 - y / size.height).clamp(0.0, 1.0),
-                                hsvColor.value,
-                              );
-                              updateColor(newColor);
-                            },
-                            onPanEnd: (details) {
-                              Navigator.pop(context);
-                            },
-                            onTapDown: (details) {
-                              final RenderBox box = context.findRenderObject() as RenderBox;
-                              final localPosition = box.globalToLocal(details.localPosition);
-                              final size = box.size;
-                              
-                              final x = localPosition.dx.clamp(0.0, size.width);
-                              final y = localPosition.dy.clamp(0.0, size.height);
-                              
-                              final newColor = HSVColor.fromAHSV(
-                                hsvColor.alpha,
-                                (x / size.width * 360).clamp(0.0, 360.0),
-                                (1.0 - y / size.height).clamp(0.0, 1.0),
-                                hsvColor.value,
-                              );
-                              updateColor(newColor);
-                              Navigator.pop(context);
-                            },
-                            child: CustomPaint(
-                              painter: ColorWheelPainter(hsvColor.value),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey, width: 2),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final size = constraints.biggest;
+                              return GestureDetector(
+                                onPanUpdate: (details) {
+                                  // Use localPosition which is already in local coordinates
+                                  final localPosition = details.localPosition;
+                                  
+                                  final x = localPosition.dx.clamp(0.0, size.width);
+                                  final y = localPosition.dy.clamp(0.0, size.height);
+                                  
+                                  final hue = (x / size.width * 360).clamp(0.0, 360.0);
+                                  final saturation = (1.0 - y / size.height).clamp(0.0, 1.0);
+                                  
+                                  final newColor = HSVColor.fromAHSV(
+                                    1.0,
+                                    hue,
+                                    saturation,
+                                    hsvColor.value,
+                                  );
+                                  updatePreviewColor(newColor);
+                                },
+                                onTapDown: (details) {
+                                  // Use localPosition which is already in local coordinates
+                                  final localPosition = details.localPosition;
+                                  
+                                  final x = localPosition.dx.clamp(0.0, size.width);
+                                  final y = localPosition.dy.clamp(0.0, size.height);
+                                  
+                                  final hue = (x / size.width * 360).clamp(0.0, 360.0);
+                                  final saturation = (1.0 - y / size.height).clamp(0.0, 1.0);
+                                  
+                                  final newColor = HSVColor.fromAHSV(
+                                    1.0,
+                                    hue,
+                                    saturation,
+                                    hsvColor.value,
+                                  );
+                                  updatePreviewColor(newColor);
+                                },
+                                child: CustomPaint(
+                                  painter: ColorWheelPainter(hsvColor.value),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.grey, width: 2),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
+                              );
+                            },
                           ),
                         ),
                         SizedBox(height: 20),
@@ -689,12 +692,9 @@ class _ChristmasColoringPageState extends State<ChristmasColoringPage>
                                 value: hsvColor.value,
                                 min: 0.0,
                                 max: 1.0,
-                                onChangeEnd: (value) {
-                                  Navigator.pop(context);
-                                },
                                 onChanged: (value) {
                                   final newColor = hsvColor.withValue(value);
-                                  updateColor(newColor);
+                                  updatePreviewColor(newColor);
                                 },
                                 activeColor: hsvColor.toColor(),
                               ),
@@ -702,22 +702,25 @@ class _ChristmasColoringPageState extends State<ChristmasColoringPage>
                           ],
                         ),
                         SizedBox(height: 10),
-                        // Current color preview
-                        Container(
-                          width: double.infinity,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: hsvColor.toColor(),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey, width: 2),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Selected Color',
-                              style: TextStyle(
-                                color: hsvColor.value > 0.5 ? Colors.black : Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                        // Select color button (clickable preview)
+                        GestureDetector(
+                          onTap: applyColor,
+                          child: Container(
+                            width: double.infinity,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: hsvColor.toColor(),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey, width: 2),
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Select Color',
+                                style: TextStyle(
+                                  color: hsvColor.value > 0.5 ? Colors.black : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                           ),
