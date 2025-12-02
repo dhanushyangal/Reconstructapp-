@@ -172,7 +172,13 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton(
-              onPressed: widget.onClose,
+              onPressed: () {
+                if (widget.onClose != null) {
+                  widget.onClose!();
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -247,14 +253,20 @@ class _SubscriptionModalState extends State<SubscriptionModal> {
             ],
           ),
           IconButton(
-            icon: const Text(
-              'X',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
+            icon: const Icon(
+              Icons.close,
+              color: Colors.black,
+              size: 24,
             ),
-            onPressed: widget.onClose,
+            onPressed: () {
+              if (widget.onClose != null) {
+                widget.onClose!();
+              } else {
+                Navigator.of(context).pop();
+              }
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
         ],
       ),
