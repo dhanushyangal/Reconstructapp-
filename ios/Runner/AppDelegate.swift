@@ -139,6 +139,62 @@ import WidgetKit
           result(calendarData)
           break
           
+        case "updateWeeklyPlannerWidget":
+          if let args = call.arguments as? [String: Any],
+             let theme = args["theme"] as? String,
+             let todosByDayJson = args["todosByDayJson"] as? [String: String] {
+            
+            guard let userDefaults = UserDefaults(suiteName: "group.com.mentalfitness.reconstruct.widgets") else {
+              result(FlutterError(code: "STORAGE_ERROR", message: "Failed to access shared storage", details: nil))
+              return
+            }
+            
+            // Save theme
+            userDefaults.set(theme, forKey: "flutter.weekly_planner_current_theme")
+            userDefaults.set(theme, forKey: "weekly_planner_current_theme")
+            
+            // Save todos for each day using universal keys
+            for (day, todosJson) in todosByDayJson {
+              userDefaults.set(todosJson, forKey: "flutter.weekly_planner_\(day)")
+              userDefaults.set(todosJson, forKey: "weekly_planner_\(day)")
+            }
+            
+            userDefaults.synchronize()
+            WidgetCenter.shared.reloadAllTimelines()
+            result(true)
+          } else {
+            result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid arguments for Weekly Planner widget", details: nil))
+          }
+          break
+          
+        case "updateAnnualPlannerWidget":
+          if let args = call.arguments as? [String: Any],
+             let theme = args["theme"] as? String,
+             let todosByMonthJson = args["todosByMonthJson"] as? [String: String] {
+            
+            guard let userDefaults = UserDefaults(suiteName: "group.com.mentalfitness.reconstruct.widgets") else {
+              result(FlutterError(code: "STORAGE_ERROR", message: "Failed to access shared storage", details: nil))
+              return
+            }
+            
+            // Save theme
+            userDefaults.set(theme, forKey: "flutter.annual_planner_current_theme")
+            userDefaults.set(theme, forKey: "annual_planner_current_theme")
+            
+            // Save todos for each month using universal keys
+            for (month, todosJson) in todosByMonthJson {
+              userDefaults.set(todosJson, forKey: "flutter.annual_planner_\(month)")
+              userDefaults.set(todosJson, forKey: "annual_planner_\(month)")
+            }
+            
+            userDefaults.synchronize()
+            WidgetCenter.shared.reloadAllTimelines()
+            result(true)
+          } else {
+            result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid arguments for Annual Planner widget", details: nil))
+          }
+          break
+          
         default:
           result(FlutterMethodNotImplemented)
         }

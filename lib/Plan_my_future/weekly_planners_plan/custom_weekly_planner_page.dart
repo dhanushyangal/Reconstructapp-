@@ -3,9 +3,11 @@ import 'package:screenshot/screenshot.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
 import 'dart:convert';
+import 'dart:io';
 import '../../services/weekly_planner_service.dart';
 import '../../services/user_service.dart';
 import '../../services/tool_usage_service.dart';
+import '../../services/ios_widget_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/activity_tracker_mixin.dart';
@@ -153,8 +155,43 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
       await prefs.setString('weekly_planner_current_theme', widget.template);
       await HomeWidget.saveWidgetData('weekly_planner_current_theme', widget.template);
       debugPrint('Saved current weekly planner theme: ${widget.template}');
+      
+      // Update iOS widget
+      await _updateIOSWidget();
     } catch (e) {
       debugPrint('Error saving theme: $e');
+    }
+  }
+
+  // Update iOS widget with all weekly planner data
+  Future<void> _updateIOSWidget() async {
+    if (Platform.isIOS) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        final Map<String, String> todosByDayJson = {};
+        
+        for (final day in days) {
+          final todos = _todoLists[day] ?? [];
+          if (todos.isNotEmpty) {
+            todosByDayJson[day] = json.encode(todos.map((item) => item.toJson()).toList());
+          } else {
+            // Also check saved data
+            final saved = prefs.getString('weekly_planner_$day') ?? prefs.getString('flutter.weekly_planner_$day');
+            if (saved != null && saved.isNotEmpty) {
+              todosByDayJson[day] = saved;
+            }
+          }
+        }
+        
+        await IOSWidgetService.updateWeeklyPlannerWidget(
+          theme: widget.template,
+          todosByDayJson: todosByDayJson,
+        );
+        debugPrint('iOS Weekly Planner widget updated');
+      } catch (e) {
+        debugPrint('Error updating iOS Weekly Planner widget: $e');
+      }
     }
   }
 
@@ -313,6 +350,9 @@ class _CustomWeeklyPlannerPageState extends State<CustomWeeklyPlannerPage>
       androidName: 'WeeklyPlannerWidget',
       iOSName: 'WeeklyPlannerWidget',
     );
+    
+    // Update iOS widget with all data
+    await _updateIOSWidget();
 
     // Only try to save to database if we have network connectivity
     if (!_hasNetworkConnectivity) {

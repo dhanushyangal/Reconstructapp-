@@ -3,8 +3,10 @@ import 'package:screenshot/screenshot.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:home_widget/home_widget.dart';
 import 'dart:convert';
+import 'dart:io';
 import '../../services/annual_calendar_service.dart';
 import '../../services/user_service.dart';
+import '../../services/ios_widget_service.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/activity_tracker_mixin.dart';
@@ -206,8 +208,44 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
       await prefs.setString('annual_planner_current_theme', widget.template);
       await HomeWidget.saveWidgetData('annual_planner_current_theme', widget.template);
       debugPrint('Saved current annual planner theme: ${widget.template}');
+      
+      // Update iOS widget
+      await _updateIOSWidget();
     } catch (e) {
       debugPrint('Error saving theme: $e');
+    }
+  }
+
+  // Update iOS widget with all annual planner data
+  Future<void> _updateIOSWidget() async {
+    if (Platform.isIOS) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+        final Map<String, String> todosByMonthJson = {};
+        
+        for (final month in months) {
+          final todos = _todoLists[month] ?? [];
+          if (todos.isNotEmpty) {
+            todosByMonthJson[month] = json.encode(todos.map((item) => item.toJson()).toList());
+          } else {
+            // Also check saved data
+            final saved = prefs.getString('annual_planner_$month') ?? prefs.getString('flutter.annual_planner_$month');
+            if (saved != null && saved.isNotEmpty) {
+              todosByMonthJson[month] = saved;
+            }
+          }
+        }
+        
+        await IOSWidgetService.updateAnnualPlannerWidget(
+          theme: widget.template,
+          todosByMonthJson: todosByMonthJson,
+        );
+        debugPrint('iOS Annual Planner widget updated');
+      } catch (e) {
+        debugPrint('Error updating iOS Annual Planner widget: $e');
+      }
     }
   }
 
@@ -357,6 +395,9 @@ class _CustomAnnualPlannerPageState extends State<CustomAnnualPlannerPage>
         androidName: 'AnnualPlannerWidget',
         iOSName: 'AnnualPlannerWidget',
       );
+      
+      // Update iOS widget with all data
+      await _updateIOSWidget();
 
       // Try to save to Supabase
       try {

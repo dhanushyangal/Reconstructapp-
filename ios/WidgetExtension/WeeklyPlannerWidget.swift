@@ -55,8 +55,7 @@ struct WeeklyPlannerProvider: TimelineProvider {
 
 struct WeeklyPlannerWidgetEntryView: View {
     var entry: WeeklyPlannerProvider.Entry
-    @Environment(\.
-        widgetFamily) var family
+    @Environment(\.widgetFamily) var family
 
     var body: some View {
         ZStack {

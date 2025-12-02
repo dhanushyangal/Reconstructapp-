@@ -124,5 +124,37 @@ class IOSWidgetService {
       // Silent catch to avoid UI disruption if widget extension is unavailable
     }
   }
+
+  // Weekly Planner: sync theme and todos map (JSON strings per day)
+  static Future<void> updateWeeklyPlannerWidget({
+    required String theme,
+    required Map<String, String> todosByDayJson,
+  }) async {
+    try {
+      await _channel.invokeMethod('updateWeeklyPlannerWidget', {
+        'theme': theme,
+        'todosByDayJson': todosByDayJson,
+      });
+      await refreshAllWidgets();
+    } catch (e) {
+      print('Error updating Weekly Planner widget: $e');
+    }
+  }
+
+  // Annual Planner: sync theme and todos map (JSON strings per month)
+  static Future<void> updateAnnualPlannerWidget({
+    required String theme,
+    required Map<String, String> todosByMonthJson,
+  }) async {
+    try {
+      await _channel.invokeMethod('updateAnnualPlannerWidget', {
+        'theme': theme,
+        'todosByMonthJson': todosByMonthJson,
+      });
+      await refreshAllWidgets();
+    } catch (e) {
+      print('Error updating Annual Planner widget: $e');
+    }
+  }
 }
 
