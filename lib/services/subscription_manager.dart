@@ -86,7 +86,17 @@ class SubscriptionManager extends ChangeNotifier {
         debugPrint('Purchase pending');
       } else {
         if (purchaseDetails.status == PurchaseStatus.error) {
-          debugPrint('Error: ${purchaseDetails.error}');
+          // Check if error is due to user cancellation
+          final errorCode = purchaseDetails.error?.code;
+          final errorMessage = purchaseDetails.error?.message ?? '';
+          if (errorCode == 'storekit2_purchase_cancelled' || 
+              errorMessage.toLowerCase().contains('cancelled') ||
+              errorMessage.toLowerCase().contains('canceled')) {
+            debugPrint('Purchase canceled by user');
+            // Don't show error for user cancellation
+          } else {
+            debugPrint('Error: ${purchaseDetails.error}');
+          }
         } else if (purchaseDetails.status == PurchaseStatus.purchased ||
             purchaseDetails.status == PurchaseStatus.restored) {
           await _handleSuccessfulPurchase(purchaseDetails);
@@ -384,6 +394,17 @@ class SubscriptionManager extends ChangeNotifier {
       await processRealPayment(context);
     } catch (e) {
       debugPrint('Error in startUpgradeFlow: $e');
+      // Check if error is due to user cancellation
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('storekit2_purchase_cancelled') ||
+          errorString.contains('cancelled') ||
+          errorString.contains('canceled') ||
+          errorString.contains('user cancelled') ||
+          errorString.contains('user canceled')) {
+        debugPrint('Payment cancelled by user - not showing error');
+        // Don't show error for user cancellation
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error starting payment: $e'),
@@ -506,6 +527,17 @@ class SubscriptionManager extends ChangeNotifier {
       return true; // Purchase started successfully
     } catch (e) {
       debugPrint('Error processing payment: $e');
+      // Check if error is due to user cancellation
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('storekit2_purchase_cancelled') ||
+          errorString.contains('cancelled') ||
+          errorString.contains('canceled') ||
+          errorString.contains('user cancelled') ||
+          errorString.contains('user canceled')) {
+        debugPrint('Payment cancelled by user - not showing error');
+        // Don't show error for user cancellation
+        return false;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Payment error: $e'),

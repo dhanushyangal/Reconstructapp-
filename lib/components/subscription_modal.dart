@@ -542,12 +542,23 @@ Widget _buildFeaturesList() {
             }
           } catch (e) {
             debugPrint('Error processing payment: $e');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error: $e'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            // Check if error is due to user cancellation
+            final errorString = e.toString().toLowerCase();
+            if (errorString.contains('storekit2_purchase_cancelled') ||
+                errorString.contains('cancelled') ||
+                errorString.contains('canceled') ||
+                errorString.contains('user cancelled') ||
+                errorString.contains('user canceled')) {
+              debugPrint('Payment cancelled by user - not showing error');
+              // Don't show error for user cancellation
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           } finally {
             if (mounted) {
               setState(() => _isLoading = false);
