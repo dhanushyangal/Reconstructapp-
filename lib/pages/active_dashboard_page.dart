@@ -27,6 +27,7 @@ import '../services/subscription_manager.dart';
 import '../services/auth_service.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
+import '../Annual_calender/calendar_2026_selection_page.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -399,6 +400,24 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
                     categoryName: 'Plan my future',
                     tools: _tools['vision']!,
                   ),
+                ),
+              );
+            },
+          ),
+          SizedBox(height: 16),
+          _buildActionButton(
+            title: "2026 Calendar is LIVE",
+            subtitle: "Choose a 2026 Calendar theme.",
+                color: Color(0xFFFFB6C1), // Light pink background
+            onTap: () {
+              if (!_isPremium) {
+                _showPremiumDialog(context);
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const Calendar2026SelectionPage(),
                 ),
               );
             },
@@ -1067,80 +1086,6 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
       default:
         break;
     }
-  }
-
-  void _showComingSoonDialog(String featureName) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Icon(
-                Icons.construction,
-                color: Colors.orange,
-                size: 28,
-              ),
-              SizedBox(width: 12),
-              Text(
-                'Coming Soon',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$featureName is currently under development.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 16),
-              Text(
-                'We\'re working hard to bring you this amazing feature soon!',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[500],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: Color(0xFF23C4F7),
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                'Got it',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   String get pageName => widget.categoryName;
