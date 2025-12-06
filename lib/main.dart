@@ -462,7 +462,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
     final isAuthenticated = _authService.isAuthenticated || _authService.hasAuthenticatedUser();
     debugPrint('AuthWrapper: Final auth check - isAuthenticated: $isAuthenticated');
     
-    return isAuthenticated ? const HomePage() : const LoginPage();
+    if (isAuthenticated) {
+      // Clear the payment prompt flag when user authenticates (login/register)
+      // This ensures payment page shows after fresh login/registration
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setBool('has_shown_payment_prompt_session', false);
+      });
+      return const HomePage();
+    } else {
+      return const LoginPage();
+    }
   }
 
   Widget _buildErrorScreen() {
@@ -559,6 +568,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       // Check first launch for new users
       if (!_isPremium) {
         await _handleFirstLaunch();
+      }
+
+      // Show payment page if user is not premium (after registration/login/app open)
+      if (!_isPremium && !AuthService.isGuest) {
+        // Wait a bit for UI to load before showing payment page
+        await Future.delayed(const Duration(milliseconds: 1500));
+        if (mounted) {
+          await _showPaymentPageIfNeeded();
+        }
       }
     } catch (e) {
       debugPrint('Error initializing home page: $e');
@@ -791,6 +809,38 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> loadPremiumStatus() async {
     await _loadPremiumStatus();
+  }
+
+  // Show payment page automatically if user is not premium
+  Future<void> _showPaymentPageIfNeeded() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Check if we've already shown the payment prompt in this session
+      final hasShownPaymentPrompt = prefs.getBool('has_shown_payment_prompt_session') ?? false;
+      
+      // Only show if we haven't shown it in this session
+      if (!hasShownPaymentPrompt) {
+        // Mark that we've shown it
+        await prefs.setBool('has_shown_payment_prompt_session', true);
+        
+        // Get user email
+        final email = AuthService.instance.currentUser?.email ??
+            AuthService.instance.userData?['email'] ??
+            'user@example.com';
+        
+        debugPrint('HomePage: Showing payment page for non-premium user: $email');
+        
+        // Show payment page
+        final subscriptionManager = SubscriptionManager();
+        await subscriptionManager.startSubscriptionFlow(context, email: email);
+        
+        // Reload premium status after payment flow
+        await _loadPremiumStatus();
+      }
+    } catch (e) {
+      debugPrint('Error showing payment page: $e');
+    }
   }
 
   Future<void> _updatePremiumFlags(
@@ -1148,32 +1198,8 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-  // Check if a tool is available for free users
-  bool _isToolAvailableForFree(String title) {
-    // If user is premium, all tools should be available
-    if (widget.isPremium) {
-      return true;
-    }
-
-    // For free users, only allow basic templates
-    if (title == 'Vision Board' ||
-        title == 'Interactive Calendar' ||
-        title == 'Weekly Planner' ||
-        title == 'Annual Planner' ||
-        title == 'Daily Notes') {
-      return true;
-    }
-    // Lock all Mind Tools and Activity Tools for free users
-    return false;
-  }
-
   Widget _buildPlannerCard(
       BuildContext context, String imagePath, String title) {
-    // Directly use widget.isPremium rather than checking SharedPreferences again
-    // This ensures we're using the current premium status from the parent widget
-    final bool isToolLocked =
-        !widget.isPremium && !_isToolAvailableForFree(title);
-
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -1184,7 +1210,8 @@ class _HomeContentState extends State<HomeContent> {
             : Matrix4.identity(),
         child: GestureDetector(
           onTap: () {
-            if (isToolLocked) {
+            // Show upgrade dialog if not premium
+            if (!widget.isPremium) {
               _showPremiumDialog(context);
               return;
             }
@@ -1290,35 +1317,14 @@ class _HomeContentState extends State<HomeContent> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image.asset(
-                        imagePath,
-                        width: 260,
-                        height: 350,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    // Show lock icon overlay for locked features
-                    if (isToolLocked)
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(6),
-                            color: Colors.black.withOpacity(0.4),
-                          ),
-                          child: Center(
-                            child: Icon(
-                              Icons.lock,
-                              color: Colors.white,
-                              size: 48,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.asset(
+                    imagePath,
+                    width: 260,
+                    height: 350,
+                    fit: BoxFit.cover,
+                  ),
                 ),
                 Container(
                   width: double.infinity,
@@ -1327,25 +1333,12 @@ class _HomeContentState extends State<HomeContent> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          // Show small lock icon next to title for locked features
-                          if (isToolLocked)
-                            Icon(
-                              Icons.lock,
-                              size: 16,
-                              color: Colors.grey,
-                            ),
-                        ],
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 4),
                     ],

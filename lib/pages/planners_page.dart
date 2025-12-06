@@ -31,7 +31,6 @@ class PlannersPage extends StatefulWidget {
 class _PlannersPageState extends State<PlannersPage> with ActivityTrackerMixin {
   bool _isPremium = false;
 
-  @override
   String get pageName => 'Planners';
 
   @override
@@ -95,18 +94,7 @@ class _PlannersPageState extends State<PlannersPage> with ActivityTrackerMixin {
   bool _isToolLocked(String toolType, String toolName) {
     if (_isPremium) return false; // Premium users get access to everything
 
-    // For free users, only allow basic templates
-    if (toolType == 'Planner') {
-      if (toolName == 'Vision Board Templates' ||
-          toolName == '2025 calender Planner' ||
-          toolName == '2025 Annual Planner' ||
-          toolName == '2025 weakly Planner' ||
-          toolName == 'Daily Notes') {
-        return false;
-      }
-    }
-
-    // All Mind Tools and Activity Tools require premium
+    // Lock ALL tools for free users - require premium upgrade
     return true;
   }
 
@@ -304,36 +292,9 @@ class _PlannersPageState extends State<PlannersPage> with ActivityTrackerMixin {
     final bool isLocked = _isToolLocked(toolType, title);
 
     return ListTile(
-      leading: Icon(
-        icon,
-        color: isLocked ? Colors.grey : null,
-      ),
-      title: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                color: isLocked ? Colors.grey : null,
-              ),
-            ),
-          ),
-          if (isLocked)
-            Icon(
-              Icons.lock,
-              size: 16,
-              color: Colors.grey,
-            ),
-        ],
-      ),
-      subtitle: subtitle != null
-          ? Text(
-              subtitle,
-              style: TextStyle(
-                color: isLocked ? Colors.grey.shade400 : null,
-              ),
-            )
-          : null,
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: subtitle != null ? Text(subtitle) : null,
       onTap: () {
         if (isLocked) {
           _showPremiumDialog(context);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 
 class GoogleConfirmationPage extends StatelessWidget {
@@ -86,7 +87,11 @@ class GoogleConfirmationPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                onPressed: () {
+                onPressed: () async {
+                  // Clear the payment prompt flag so payment page shows after Google/Apple sign-in
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('has_shown_payment_prompt_session', false);
+                  
                   Navigator.of(context)
                       .pushNamedAndRemoveUntil('/home', (route) => false);
                 },

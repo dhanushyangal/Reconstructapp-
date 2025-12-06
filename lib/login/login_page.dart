@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'register_page.dart';
 import '../services/auth_service.dart';
@@ -76,6 +77,10 @@ class _LoginPageState extends State<LoginPage> {
 
         // Check if the widget is still mounted before navigating
         if (!mounted) return;
+
+        // Clear the payment prompt flag so payment page shows after login
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('has_shown_payment_prompt_session', false);
 
         debugPrint('Navigating to /home route after successful login');
         // Navigate to the home page directly to avoid potential issues with the AuthWrapper

@@ -23,6 +23,10 @@ import '../Clear_my_mind/memory_games_page.dart';
 import '../Reset_my_emotions/affirmation_card_page.dart';
 import '../Reset_my_emotions/breathing/master_breathing_page.dart';
 import '../Christmas/christmas_cutout_selection_page.dart';
+import '../services/subscription_manager.dart';
+import '../services/auth_service.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
 
 // Class to represent a Recent Activity item
 class RecentActivityItem {
@@ -124,6 +128,93 @@ class ActiveDashboardPage extends StatefulWidget {
 
 class _ActiveDashboardPageState extends State<ActiveDashboardPage>
     with ActivityTrackerMixin {
+  bool _isPremium = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPremiumStatus();
+  }
+
+  Future<void> _loadPremiumStatus() async {
+    try {
+      final subscriptionManager = SubscriptionManager();
+      final hasAccess = await subscriptionManager.hasAccess();
+      
+      if (mounted) {
+        setState(() {
+          _isPremium = hasAccess;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking premium status: $e');
+      final prefs = await SharedPreferences.getInstance();
+      final hasCompletedPayment = prefs.getBool('has_completed_payment') ?? false;
+      
+      if (mounted) {
+        setState(() {
+          _isPremium = hasCompletedPayment;
+        });
+      }
+    }
+  }
+
+  // Show premium upgrade dialog
+  Future<void> _showPremiumDialog(BuildContext context) async {
+    final bool isGuest = AuthService.isGuest;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(isGuest ? 'Sign In Required' : 'Premium Feature'),
+          content: Text(isGuest 
+            ? 'This feature requires you to sign in or create an account. '
+              'Sign in to save your progress and access all features.'
+            : 'This feature is only available for premium users. '
+              'Upgrade to premium to unlock all features.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                if (isGuest) {
+                  // Navigate to login page for guest users
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                } else {
+                  // Show payment page for regular users
+                  _showPaymentPage();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isGuest ? Colors.orange : Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(isGuest ? 'Sign In' : 'Upgrade'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Method to show payment page
+  Future<void> _showPaymentPage() async {
+    final email =
+        Provider.of<AuthService>(context, listen: false).userData?['email'] ??
+            AuthService.instance.currentUser?.email ??
+            'user@example.com';
+
+    // Use SubscriptionManager to handle the complete payment flow
+    final subscriptionManager = SubscriptionManager();
+    await subscriptionManager.startSubscriptionFlow(context, email: email);
+
+    // After subscription flow, reload premium status
+    await _loadPremiumStatus();
+  }
 
   // Tool data organized by category
   final Map<String, List<Map<String, dynamic>>> _tools = {
@@ -252,6 +343,10 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
             subtitle: "Release what's heavy and feel lighter.",
                 color: Color(0xFF91D7FF), // Light blue background
             onTap: () {
+              if (!_isPremium) {
+                _showPremiumDialog(context);
+                return;
+              }
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -270,6 +365,10 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
             subtitle: "Get a fresh start for renewed focus",
                 color: Color(0xFFFFE886), // Light blue background
             onTap: () {
+              if (!_isPremium) {
+                _showPremiumDialog(context);
+                return;
+              }
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -288,6 +387,10 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
             subtitle: "Turn goals into a clear path forward.",
                 color: Color(0xFFB4DF8C), // Light blue background
             onTap: () {
+              if (!_isPremium) {
+                _showPremiumDialog(context);
+                return;
+              }
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -306,6 +409,10 @@ class _ActiveDashboardPageState extends State<ActiveDashboardPage>
             subtitle: "Choose a Christmas cutout to color.",
                 color: Color(0xFFFFB6C1), // Light pink background
             onTap: () {
+              if (!_isPremium) {
+                _showPremiumDialog(context);
+                return;
+              }
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -404,6 +511,7 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
   late PageController _pageController;
   AnimationController? _progressAnimationController;
   Animation<double>? _progressAnimation;
+  bool _isPremium = false;
 
   @override
   void initState() {
@@ -425,6 +533,32 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
     
     // Start the animation
     _progressAnimationController!.forward();
+    
+    // Load premium status
+    _loadPremiumStatus();
+  }
+
+  Future<void> _loadPremiumStatus() async {
+    try {
+      final subscriptionManager = SubscriptionManager();
+      final hasAccess = await subscriptionManager.hasAccess();
+      
+      if (mounted) {
+        setState(() {
+          _isPremium = hasAccess;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking premium status: $e');
+      final prefs = await SharedPreferences.getInstance();
+      final hasCompletedPayment = prefs.getBool('has_completed_payment') ?? false;
+      
+      if (mounted) {
+        setState(() {
+          _isPremium = hasCompletedPayment;
+        });
+      }
+    }
   }
 
   @override
@@ -659,6 +793,12 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
   }
 
   void _navigateToTool(String toolName) {
+    // Check if user has premium access - lock all tools
+    if (!_isPremium) {
+      _showPremiumDialog(context);
+      return;
+    }
+
     // Track the activity
     final activity = RecentActivityItem(
       name: toolName,
@@ -680,6 +820,63 @@ class _CategoryToolsPageState extends State<CategoryToolsPage>
     } else if (widget.category == 'clear_mind') {
       _handleClearMindToolNavigation(toolName);
     }
+  }
+
+  // Show premium upgrade dialog
+  Future<void> _showPremiumDialog(BuildContext context) async {
+    final bool isGuest = AuthService.isGuest;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(isGuest ? 'Sign In Required' : 'Premium Feature'),
+          content: Text(isGuest 
+            ? 'This feature requires you to sign in or create an account. '
+              'Sign in to save your progress and access all features.'
+            : 'This feature is only available for premium users. '
+              'Upgrade to premium to unlock all features.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                if (isGuest) {
+                  // Navigate to login page for guest users
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                } else {
+                  // Show payment page for regular users
+                  _showPaymentPage();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isGuest ? Colors.orange : Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(isGuest ? 'Sign In' : 'Upgrade'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Method to show payment page
+  Future<void> _showPaymentPage() async {
+    final email =
+        Provider.of<AuthService>(context, listen: false).userData?['email'] ??
+            AuthService.instance.currentUser?.email ??
+            'user@example.com';
+
+    // Use SubscriptionManager to handle the complete payment flow
+    final subscriptionManager = SubscriptionManager();
+    await subscriptionManager.startSubscriptionFlow(context, email: email);
+
+    // After subscription flow, reload premium status
+    await _loadPremiumStatus();
   }
 
   String _getRouteName(String toolName) {

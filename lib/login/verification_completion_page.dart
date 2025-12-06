@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+  import '../services/auth_service.dart';
 
 class VerificationCompletionPage extends StatefulWidget {
   final String email;
@@ -67,6 +68,11 @@ class _VerificationCompletionPageState
           if (isVerified) {
             // User is verified and logged in, proceed to home page
             debugPrint('✅ User verified, navigating to home page');
+            
+            // Clear the payment prompt flag so payment page shows after registration
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('has_shown_payment_prompt_session', false);
+            
             Navigator.of(context)
                 .pushNamedAndRemoveUntil('/home', (route) => false);
           } else {
